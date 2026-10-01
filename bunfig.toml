@@ -1,0 +1,66 @@
+# Project-local Bun configuration.
+# Bun also reads package.json and tsconfig.json, so this file only keeps
+# Bun-specific runtime, install, run, and test settings.
+
+logLevel = "warn"
+telemetry = false
+env = true
+
+[console]
+depth = 3
+
+[serve]
+port = 3000
+
+[run]
+# On Windows this is Bun's default, but keeping it explicit makes scripts
+# behave consistently for this project.
+shell = "bun"
+silent = false
+elide-lines = 10
+
+[install]
+production = false
+dev = true
+peer = true
+optional = true
+exact = false
+ignoreScripts = false
+saveTextLockfile = true
+auto = "disable"
+prefer = "online"
+frozenLockfile = false
+dryRun = false
+linkWorkspacePackages = true
+linker = "hoisted"
+logLevel = "warn"
+
+# Avoid very new npm releases by default. This reduces exposure to freshly
+# published compromised packages while still allowing common toolchain updates.
+minimumReleaseAge = 86400
+minimumReleaseAgeExcludes = ["@types/bun", "typescript"]
+
+[install.lockfile]
+save = true
+
+[install.cache]
+disable = false
+disableManifest = false
+
+[test]
+root = "."
+preload = ["./tests/server/setup.ts"]
+coverage = false
+coverageSkipTestFiles = true
+coverageIgnoreSourcemaps = false
+coverageReporter = ["text"]
+coverageDir = "coverage"
+randomize = false
+rerunEach = 0
+retry = 0
+onlyFailures = false
+pathIgnorePatterns = ["node_modules/**", "dist/**", "coverage/**"]
+coveragePathIgnorePatterns = ["node_modules/**", "dist/**", "coverage/**", "**/*.config.*"]
+
+[test.reporter]
+dots = false

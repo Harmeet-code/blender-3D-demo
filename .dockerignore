@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-server/
+coverage/
+.git/
+.github/
+.vscode/
+.idea/
+openspec/
+.codegraph/
+storage/
+data/
+*.log
+.env
+.env.*
+!.env.example

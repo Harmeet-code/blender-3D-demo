@@ -1,0 +1,104 @@
+# Node.js
+node_modules
+dist
+dist-server
+.npm
+.cache
+.eslintcache
+.github/prompts
+.amazonq/*
+.kiro
+.gemini
+
+# Package-lock files
+# package-lock.json
+yarn.lock
+
+# Editor and IDE files
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*~
+.DS_Store
+
+# OS generated files
+.AppleDouble
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+amazon-q.deb
+
+# Logs and temporary files
+*.log
+*.tmp
+tmp/
+temp/
+*.bak
+*.swp
+
+
+
+
+# Testing
+coverage/
+.nyc_output/
+
+# Secrets - NEVER commit these!
+*.key
+*.pem
+*.pfx
+*.cert
+*.crt
+# certs/
+
+# Uploads
+uploads/
+
+# Optional - If you don't want these in your repo
+# .env.local
+.env
+.env.*
+!.env.example
+
+# Other
+.history
+*.orig
+*.rej
+*.swo
+
+# For Windows thumbnail cache
+[Dd]esktop.ini
+
+# For macOS Finder
+.DS_Store
+
+# For Vim swap files
+*.swp
+
+# For Emacs auto-save files
+*~
+
+# if you are using pnpm
+.pnpm-store/
+node_modules
+
+
+# Code intelligence indexes (regenerable tool output)
+.codegraph/
+graphify-out/
+
+# Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
+.clinerules/byterover-rules.md
+.kilocode/rules/byterover-rules.md
+.roo/rules/byterover-rules.md
+.windsurf/rules/byterover-rules.md
+.cursor/rules/byterover-rules.mdc
+.kiro/steering/byterover-rules.md
+.qoder/rules/byterover-rules.md
+.augment/rules/byterover-rules.md
+# Regenerable floor-image thumbnails (sharp cache)
+storage/**/_thumbs/
+

@@ -1,0 +1,23 @@
+# ---- deps (production only: Fastify server has no devDependencies at runtime)
+FROM oven/bun:1 AS deps
+WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --production
+
+# ---- bundle (bun build inlines src/entities imports into one file)
+FROM oven/bun:1 AS bundle
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json tsconfig.json ./
+COPY src ./src
+RUN bun build ./src/server/index.ts --outdir dist-server --target bun
+
+# ---- runtime (distroless-ish: bun binary + bundled JS, no source needed)
+FROM oven/bun:1-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=bundle /app/dist-server ./dist-server
+COPY --from=deps /app/node_modules ./node_modules
+ENV PORT=8000 HOST=0.0.0.0
+EXPOSE 8000
+CMD ["bun", "dist-server/index.js"]

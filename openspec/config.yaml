@@ -1,0 +1,19 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+context: |
+  Tech stack: TypeScript, Vite + React 19, React Three Fiber + drei + rapier, zustand, konva, three.js, Fastify (bun runtime), zod, socket.io-client, Tailwind v4
+  Package manager: bun. Lint: oxlint. Format: oxfmt. Tests: bun test. Commits: conventional commits via commitlint + husky.
+  Domain: 3D spatial venue — floor-plan builder, multi-floor nav, avatar interaction, booth e-commerce, realtime multiplayer.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
