@@ -2,8 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import {
   buildingLayoutSchema,
   demoLayout,
-} from '../src/entities/building/model/building-schema.ts';
-import { buildFloorGraph, findFloorPath } from '../src/entities/building/model/pathfinding.ts';
+} from '../src/frontend/entities/building/model/building-schema.ts';
+import {
+  buildFloorGraph,
+  findFloorPath,
+} from '../src/frontend/entities/building/model/pathfinding.ts';
 
 describe('building layout contract', () => {
   test('demo layout validates', () => {

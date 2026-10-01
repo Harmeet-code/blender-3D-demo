@@ -87,6 +87,7 @@ node_modules
 
 # Code intelligence indexes (regenerable tool output)
 .codegraph/
+*.blend1
 graphify-out/
 
 # Ignore vscode AI rules
@@ -101,4 +102,3 @@ graphify-out/
 .augment/rules/byterover-rules.md
 # Regenerable floor-image thumbnails (sharp cache)
 storage/**/_thumbs/
-

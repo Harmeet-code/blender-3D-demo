@@ -1,0 +1,68 @@
+{
+  "id": "booth-frame",
+  "version": 1,
+  "label": "Booth Frame",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [4.0, 2.5, 4.0],
+  "bounds": {
+    "min": [-2.0, 0.0, -2.0],
+    "max": [2.0, 2.5, 2.0]
+  },
+  "footprint": [
+    [-2.0, -2.0],
+    [2.0, -2.0],
+    [2.0, 2.0],
+    [-2.0, 2.0]
+  ],
+  "requiredNodes": ["root", "socket_branding", "socket_entry"],
+  "materialRoles": {
+    "finish_branding": "branding",
+    "finish_panel": "surface"
+  },
+  "sockets": {
+    "socket_branding": {
+      "position": [0, 2.36, 2.003],
+      "rotation": [0, 0, 0]
+    },
+    "socket_entry": {
+      "position": [0, 0, 2],
+      "rotation": [0, 0, 0]
+    }
+  },
+  "colliders": [
+    {
+      "halfExtents": [2.0, 1.25, 0.05000000074505806],
+      "position": [0.0, 1.25, -1.9500000476837158],
+      "rotation": [0, 0, 0]
+    },
+    {
+      "halfExtents": [0.05000000074505806, 1.25, 1.9500000476837158],
+      "position": [-1.9500000476837158, 1.25, 0.05000000074505806],
+      "rotation": [0, 0, 0]
+    },
+    {
+      "halfExtents": [0.05000000074505806, 1.25, 1.9500000476837158],
+      "position": [1.9500000476837158, 1.25, 0.05000000074505806],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/booth-frame/booth-frame.blend",
+    "recipe": "assets-source/blender/booth-frame/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.0.0"
+  },
+  "budget": {
+    "triangles": 2000,
+    "materials": 2,
+    "bytes": 2097152,
+    "textureSize": 2048
+  },
+  "metrics": {
+    "triangles": 48,
+    "materials": 2,
+    "bytes": 6796,
+    "textureBytes": 0
+  }
+}

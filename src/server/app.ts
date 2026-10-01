@@ -4,20 +4,21 @@ import websocket from '@fastify/websocket';
 import {
   buildingLayoutSchema,
   avatarStateSchema,
-} from '../entities/building/model/building-schema.ts';
+} from '../frontend/entities/building/model/building-schema.ts';
 import { loadServerEnv } from './shared/config/env.ts';
+import { baseLoggerOptions } from './shared/logger/logger.ts';
 import { createSql } from './shared/db/postgres.ts';
 import { createRedis } from './shared/redis/redis.ts';
 import { registerInfra } from './shared/plugins/infra.ts';
-import { registerHealthRoutes } from './modules/health/routes.ts';
-import { registerLayoutRoutes } from './modules/layouts/routes.ts';
-import { registerBoothRoutes } from './modules/booths/routes.ts';
-import { registerOrderRoutes } from './modules/orders/routes.ts';
-import { registerRealtimeHub } from './modules/realtime/hub.ts';
+import { registerHealthRoutes } from './features/health/routes.ts';
+import { registerLayoutRoutes } from './features/layouts/routes.ts';
+import { registerBoothRoutes } from './features/booths/routes.ts';
+import { registerOrderRoutes } from './features/orders/routes.ts';
+import { registerRealtimeHub } from './features/presence/hub.ts';
 
 export function buildServer(): FastifyInstance {
   const env = loadServerEnv();
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: baseLoggerOptions() });
 
   void app.register(cors, { origin: env.CORS_ORIGIN === 'true' ? true : env.CORS_ORIGIN });
   void app.register(websocket);

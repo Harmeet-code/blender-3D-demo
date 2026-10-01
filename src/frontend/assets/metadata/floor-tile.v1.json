@@ -1,0 +1,48 @@
+{
+  "id": "floor-tile",
+  "version": 1,
+  "label": "Floor Tile",
+  "anchor": "floor-top",
+  "facing": "+Z",
+  "dimensions": [4.0, 0.20000000298023224, 4.0],
+  "bounds": {
+    "min": [-2.0, -0.20000000298023224, -2.0],
+    "max": [2.0, 0.0, 2.0]
+  },
+  "footprint": [
+    [-2.0, -2.0],
+    [2.0, -2.0],
+    [2.0, 2.0],
+    [-2.0, 2.0]
+  ],
+  "requiredNodes": ["root"],
+  "materialRoles": {
+    "finish_floor": "surface"
+  },
+  "sockets": {},
+  "colliders": [
+    {
+      "halfExtents": [2.0, 0.10000000149011612, 2.0],
+      "position": [0.0, -0.10000000149011612, 0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/floor-tile/floor-tile.blend",
+    "recipe": "assets-source/blender/floor-tile/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.0.0"
+  },
+  "budget": {
+    "triangles": 100,
+    "materials": 1,
+    "bytes": 2097152,
+    "textureSize": 2048
+  },
+  "metrics": {
+    "triangles": 12,
+    "materials": 1,
+    "bytes": 2076,
+    "textureBytes": 0
+  }
+}

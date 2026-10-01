@@ -1,0 +1,48 @@
+{
+  "id": "table",
+  "version": 1,
+  "label": "Table",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [1.2000000476837158, 0.75, 0.6000000238418579],
+  "bounds": {
+    "min": [-0.6000000238418579, 0.0, -0.30000001192092896],
+    "max": [0.6000000238418579, 0.75, 0.30000001192092896]
+  },
+  "footprint": [
+    [-0.6000000238418579, -0.30000001192092896],
+    [0.6000000238418579, -0.30000001192092896],
+    [0.6000000238418579, 0.30000001192092896],
+    [-0.6000000238418579, 0.30000001192092896]
+  ],
+  "requiredNodes": ["root"],
+  "materialRoles": {
+    "finish_wood": "surface"
+  },
+  "sockets": {},
+  "colliders": [
+    {
+      "halfExtents": [0.6000000238418579, 0.375, 0.30000001192092896],
+      "position": [0.0, 0.375, 0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/table/table.blend",
+    "recipe": "assets-source/blender/table/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.0.0"
+  },
+  "budget": {
+    "triangles": 500,
+    "materials": 1,
+    "bytes": 1048576,
+    "textureSize": 1024
+  },
+  "metrics": {
+    "triangles": 92,
+    "materials": 1,
+    "bytes": 10920,
+    "textureBytes": 0
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "validator": "2.0.0-dev.3.10",
+  "inspector": "4.5.1",
+  "assets": [
+    {
+      "id": "booth-frame",
+      "version": 1,
+      "triangles": 48,
+      "materials": 2,
+      "bytes": 6796,
+      "textureBytes": 0,
+      "errors": []
+    },
+    {
+      "id": "chair",
+      "version": 1,
+      "triangles": 136,
+      "materials": 1,
+      "bytes": 14688,
+      "textureBytes": 0,
+      "errors": []
+    },
+    {
+      "id": "floor-tile",
+      "version": 1,
+      "triangles": 12,
+      "materials": 1,
+      "bytes": 2076,
+      "textureBytes": 0,
+      "errors": []
+    },
+    {
+      "id": "table",
+      "version": 1,
+      "triangles": 92,
+      "materials": 1,
+      "bytes": 10920,
+      "textureBytes": 0,
+      "errors": []
+    },
+    {
+      "id": "wall-panel",
+      "version": 1,
+      "triangles": 44,
+      "materials": 1,
+      "bytes": 4572,
+      "textureBytes": 0,
+      "errors": []
+    }
+  ]
+}

@@ -48,6 +48,7 @@
   "include": [
     "src",
     "tests",
+    "scripts/assets",
     "vite.config.ts",
     "oxlint.config.ts",
     "oxfmt.config.ts",

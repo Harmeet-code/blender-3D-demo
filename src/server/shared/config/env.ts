@@ -6,6 +6,7 @@ const serverEnvSchema = z.object({
   DATABASE_URL: z.string().min(1).optional(),
   REDIS_URL: z.string().min(1).optional(),
   CORS_ORIGIN: z.string().default('true'),
+  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent']).default('info'),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -16,5 +17,5 @@ export function loadServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
   if (parsed.success) {
     return parsed.data;
   }
-  return { PORT: 8000, HOST: '127.0.0.1', CORS_ORIGIN: 'true' };
+  return { PORT: 8000, HOST: '127.0.0.1', CORS_ORIGIN: 'true', LOG_LEVEL: 'info' };
 }

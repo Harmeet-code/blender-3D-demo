@@ -13,7 +13,7 @@ export default {
     /*
      * Core correctness
      */
-    'no-console': 'off',
+    'no-console': 'error',
     'no-debugger': 'error',
     'no-unused-vars': 'error',
     'no-empty': 'error',

@@ -37,6 +37,7 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     preview: {},
+    build: { assetsInlineLimit: (path) => (path.endsWith('.glb') ? false : undefined) },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -1,0 +1,48 @@
+{
+  "id": "wall-panel",
+  "version": 1,
+  "label": "Wall Panel",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [1.0, 2.5, 0.10000000149011612],
+  "bounds": {
+    "min": [-0.5, 0.0, -0.05000000074505806],
+    "max": [0.5, 2.5, 0.05000000074505806]
+  },
+  "footprint": [
+    [-0.5, -0.05000000074505806],
+    [0.5, -0.05000000074505806],
+    [0.5, 0.05000000074505806],
+    [-0.5, 0.05000000074505806]
+  ],
+  "requiredNodes": ["root"],
+  "materialRoles": {
+    "finish_panel": "surface"
+  },
+  "sockets": {},
+  "colliders": [
+    {
+      "halfExtents": [0.5, 1.25, 0.05000000074505806],
+      "position": [0.0, 1.25, 0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/wall-panel/wall-panel.blend",
+    "recipe": "assets-source/blender/wall-panel/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.0.0"
+  },
+  "budget": {
+    "triangles": 200,
+    "materials": 1,
+    "bytes": 2097152,
+    "textureSize": 2048
+  },
+  "metrics": {
+    "triangles": 44,
+    "materials": 1,
+    "bytes": 4572,
+    "textureBytes": 0
+  }
+}

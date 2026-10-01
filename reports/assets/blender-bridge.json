@@ -1,0 +1,6 @@
+{
+  "blender": "4.5.9 LTS",
+  "port": 9876,
+  "scene": "Scene",
+  "background": false
+}

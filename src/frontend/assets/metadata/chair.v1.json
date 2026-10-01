@@ -1,0 +1,48 @@
+{
+  "id": "chair",
+  "version": 1,
+  "label": "Chair",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [0.5, 0.8499999642372131, 0.550000011920929],
+  "bounds": {
+    "min": [-0.25, 0.0, -0.2750000059604645],
+    "max": [0.25, 0.8499999642372131, 0.2750000059604645]
+  },
+  "footprint": [
+    [-0.25, -0.2750000059604645],
+    [0.25, -0.2750000059604645],
+    [0.25, 0.2750000059604645],
+    [-0.25, 0.2750000059604645]
+  ],
+  "requiredNodes": ["root"],
+  "materialRoles": {
+    "finish_chair": "surface"
+  },
+  "sockets": {},
+  "colliders": [
+    {
+      "halfExtents": [0.25, 0.42499998211860657, 0.2750000059604645],
+      "position": [0.0, 0.42499998211860657, 0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/chair/chair.blend",
+    "recipe": "assets-source/blender/chair/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.0.0"
+  },
+  "budget": {
+    "triangles": 800,
+    "materials": 1,
+    "bytes": 1048576,
+    "textureSize": 1024
+  },
+  "metrics": {
+    "triangles": 136,
+    "materials": 1,
+    "bytes": 14688,
+    "textureBytes": 0
+  }
+}

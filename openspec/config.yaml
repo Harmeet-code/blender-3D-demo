@@ -1,19 +1,77 @@
-schema: spec-driven
+schema: spec-gated
 
 # Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Injected into every artifact instruction so the AI plans against real
+# conventions instead of generic ones.
 context: |
-  Tech stack: TypeScript, Vite + React 19, React Three Fiber + drei + rapier, zustand, konva, three.js, Fastify (bun runtime), zod, socket.io-client, Tailwind v4
-  Package manager: bun. Lint: oxlint. Format: oxfmt. Tests: bun test. Commits: conventional commits via commitlint + husky.
-  Domain: 3D spatial venue — floor-plan builder, multi-floor nav, avatar interaction, booth e-commerce, realtime multiplayer.
+  blender-3d-demo: interactive 3D spatial venue (floor-plan admin builder,
+  multi-floor navigation, avatar interaction, booth e-commerce, realtime
+  multiplayer). TypeScript throughout, bun package manager/runtime.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Stack: Vite + React 19, React Three Fiber + drei + rapier, zustand, konva,
+  three.js, Tailwind v4, Fastify (bun runtime), zod, postgres, ioredis.
+
+  Layout (feature-sliced, everything under src/):
+  frontend/ (app shell, pages, widgets, features, entities, shared, assets),
+  server/ (features/* with routes+service+repository, shared/*, db/migrations).
+  Imports point inward only: features -> entities -> shared; server features ->
+  server shared + frontend entities model. Server never imports client widgets.
+
+  Conventions:
+  - Contracts are zod schemas in entities (e.g. building-schema.ts) shared by
+    client and server; never duplicate a shape. Every HTTP boundary has
+    request + response DTOs: services validate responses, clients parse with
+    DTO schemas (no `as T` casts on wire data).
+  - Errors use neverthrow Result: services return Result<T, AppError> (closed
+    ErrorCode taxonomy in server/shared/result), repositories return Result
+    with typed codes (never throw), routes unwrap with replyResult; frontend
+    clients return Result<T, ApiError> via apiResult, sockets via typed
+    handlers. No throws past these boundaries, no string-matched error
+    messages, exhaustive switches via assertNever. CLI scripts exit through
+    Result mains with coded messages.
+  - Env via validated env modules (shared/config, server/shared/config);
+    `.env` is git-ignored, examples live in `.env.example`.
+  - Strict TS (noUncheckedIndexedAccess); oxlint warns on `any` and
+    prefer-destructuring - fix, don't suppress.
+  - Commits follow conventional commits (commitlint + husky); subject is
+    sentence-case with no full stop.
+
+  Tooling: bun install, then bunx tsc --noEmit, bunx oxlint, bunx oxfmt,
+  bun test. Infra: docker compose (postgres, redis, server, web);
+  bun run db:migrate / db:seed. Always use bun (not npm/npx) for tooling.
+
+  Logging: Pino via server/shared/logger (getLogger per module, one options
+  factory shared with Fastify). JSON in production, pretty locally;
+  DATABASE_URL/REDIS_URL/passwords redacted. `no-console` is an error -
+  CLI scripts use an explicit disable comment.
+
+# Per-artifact rules
+rules:
+  proposal:
+    - Why goal in 1-2 sentences; What Changes as a specific bullet list.
+    - Capabilities section names kebab-case specs, checking openspec/specs/ for
+      existing names first. Mark BREAKING changes explicitly.
+    - Keep it 1-2 pages; no implementation detail.
+  specs:
+    - One spec file per capability named in the proposal.
+    - Requirements use SHALL/MUST (avoid should/may); each has a scenario.
+    - Scenarios MUST use exactly 4 hashtags (####) followed by WHEN/THEN.
+    - MODIFIED requirements copy the ENTIRE existing requirement block.
+  tasks:
+    - Checkboxes - [ ] N.M Description - under ## N section headings.
+    - Small enough to complete in one session; ordered by dependency.
+    - Each task must be verifiable.
+
+# Operation guidance - advisory advice for apply and archive work
+operations:
+  apply:
+    guidance:
+      - Run bun install then bunx oxfmt and fix formatting first.
+      - Run bunx tsc --noEmit and bunx oxlint; fix all errors before finishing.
+      - Run bun test and fix failures; add a test for each new scenario.
+      - Check tasks off in tasks.md as they are completed.
+  archive:
+    guidance:
+      - Keep the completion summary concise — state what shipped and what
+        changed.
+      - Confirm all tasks are complete before archiving.
