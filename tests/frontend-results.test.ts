@@ -3,6 +3,7 @@ import { apiResult, type ApiError } from '../src/frontend/shared/result/api-resu
 import { apiResultValidated } from '../src/frontend/shared/result/api-result.ts';
 import { layoutResponseSchema } from '../src/frontend/entities/building/api/dto.ts';
 import { getLayout } from '../src/frontend/entities/building/api/layouts-client.ts';
+import { reserveBooth } from '../src/frontend/entities/booth/api/booths-client.ts';
 import { demoLayout } from '../src/frontend/entities/building/model/building-schema.ts';
 import { useLayoutStore } from '../src/frontend/entities/building/model/layout-store.ts';
 import type { AvatarState } from '../src/frontend/entities/building/model/building-schema.ts';
@@ -315,6 +316,94 @@ describe('frontend Result api client', () => {
         delete process.env['VITE_API_BASE_URL'];
       } else {
         process.env['VITE_API_BASE_URL'] = original;
+      }
+    }
+  });
+
+  test('reserveBooth posts the exact reservation payload and returns validated order data', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    let request: { url: string; method?: string; body?: string } | undefined;
+    process.env['VITE_API_BASE_URL'] = 'http://reservation-api.test';
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        request = {
+          url: String(input),
+          method: init?.method,
+          body: init?.body?.toString(),
+        };
+        return Response.json({
+          reserved: true,
+          boothId: 'room-101',
+          addOns: ['chair', 'logo-banner'],
+          orderId: 'order-123',
+        });
+      },
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      const result = await reserveBooth('convention-center-01', {
+        boothId: 'room-101',
+        addOns: ['chair', 'logo-banner'],
+      });
+
+      expect(request).toEqual({
+        url: 'http://reservation-api.test/api/events/convention-center-01/booths/reserve',
+        method: 'POST',
+        body: '{"boothId":"room-101","addOns":["chair","logo-banner"]}',
+      });
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value).toEqual({
+          reserved: true,
+          boothId: 'room-101',
+          addOns: ['chair', 'logo-banner'],
+          orderId: 'order-123',
+        });
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
+  test('reserveBooth returns HTTP and network failures as Result errors', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    process.env['VITE_API_BASE_URL'] = 'http://reservation-api.test';
+    try {
+      globalThis.fetch = Object.assign(
+        async (_input: RequestInfo | URL, _init?: RequestInit) =>
+          Response.json({ error: 'Booth already reserved' }, { status: 409 }),
+        { preconnect: originalFetch.preconnect },
+      );
+      const httpResult = await reserveBooth('event-1', { boothId: 'room-101', addOns: [] });
+      expect(httpResult.isErr()).toBe(true);
+      if (httpResult.isErr()) {
+        expect(httpResult.error).toMatchObject({ kind: 'http', status: 409 });
+      }
+
+      globalThis.fetch = Object.assign(
+        async (_input: RequestInfo | URL, _init?: RequestInit) => {
+          throw new Error('offline');
+        },
+        { preconnect: originalFetch.preconnect },
+      );
+      const networkResult = await reserveBooth('event-1', { boothId: 'room-101', addOns: [] });
+      expect(networkResult.isErr()).toBe(true);
+      if (networkResult.isErr()) {
+        expect(networkResult.error.kind).toBe('network');
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
       }
     }
   });

@@ -41,6 +41,12 @@ import { useAssetStatus } from '../../entities/asset/model/asset-status.ts';
 import { retryAssetLoads, hasFailedAssetLoads } from '../../entities/asset/ui/AssetInstance.tsx';
 import { signedArea } from '../../shared/lib/geometry/polygon.ts';
 import { useWorldStore } from '../../entities/viewer/model/viewer-store.ts';
+import { reserveBooth } from '../../entities/booth/api/booths-client.ts';
+
+type ReservationStatus =
+  | { state: 'idle' | 'pending' }
+  | { state: 'success'; orderId: string }
+  | { state: 'error'; message: string };
 
 export function BoothDrawer() {
   const selectedBoothId = useWorldStore((s) => s.selectedBoothId);
@@ -53,15 +59,45 @@ export function BoothDrawer() {
   const statuses = useAssetStatus((s) => s.statuses);
   const [logoError, setLogoError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reservationStatus, setReservationStatus] = useState<ReservationStatus>({ state: 'idle' });
+  const reservationPending = useRef(false);
   const generation = useRef(0);
   useEffect(() => {
     generation.current++;
     setLogoError('');
     setBusy(false);
+    if (!reservationPending.current) {
+      setReservationStatus({ state: 'idle' });
+    }
   }, [selectedBoothId]);
 
   const selected = selectedBoothId ? (cart[selectedBoothId] ?? []) : [];
   const room = selectedBoothId ? layout.rooms.find((r) => r.id === selectedBoothId) : undefined;
+
+  async function handleReserve() {
+    if (!selectedBoothId || reservationPending.current) {
+      return;
+    }
+
+    reservationPending.current = true;
+    setReservationStatus({ state: 'pending' });
+    const result = await reserveBooth(import.meta.env['VITE_EVENT_ID'] ?? 'convention-center-01', {
+      boothId: selectedBoothId,
+      addOns: [...selected],
+    });
+    reservationPending.current = false;
+
+    if (useWorldStore.getState().selectedBoothId !== selectedBoothId) {
+      setReservationStatus({ state: 'idle' });
+      return;
+    }
+
+    if (result.isErr()) {
+      setReservationStatus({ state: 'error', message: result.error.message });
+      return;
+    }
+    setReservationStatus({ state: 'success', orderId: result.value.orderId });
+  }
 
   return (
     <Sheet
@@ -251,13 +287,39 @@ export function BoothDrawer() {
               Retry assets
             </Button>
           )}
-          <Button type="button" disabled>
+          <Button
+            type="button"
+            disabled={
+              !selectedBoothId ||
+              reservationStatus.state === 'pending' ||
+              reservationStatus.state === 'success'
+            }
+            onClick={() => void handleReserve()}
+          >
             <ShoppingCartIcon data-icon="inline-start" />
-            Reserve — {selected.length} add-on{selected.length === 1 ? '' : 's'}
+            {reservationStatus.state === 'pending'
+              ? 'Reserving…'
+              : reservationStatus.state === 'success'
+                ? 'Reserved'
+                : `Reserve — ${selected.length} add-on${selected.length === 1 ? '' : 's'}`}
           </Button>
-          <p className="text-xs text-muted-foreground">
-            Selections remain in your cart. Reservation is not connected in this demo.
-          </p>
+          {reservationStatus.state === 'pending' && (
+            <p role="status" className="text-xs text-muted-foreground">
+              Creating your pending order…
+            </p>
+          )}
+          {reservationStatus.state === 'success' && (
+            <Alert>
+              <AlertDescription>
+                Reservation successful. Pending order ID: {reservationStatus.orderId}
+              </AlertDescription>
+            </Alert>
+          )}
+          {reservationStatus.state === 'error' && (
+            <Alert variant="destructive">
+              <AlertDescription>{reservationStatus.message}</AlertDescription>
+            </Alert>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>
