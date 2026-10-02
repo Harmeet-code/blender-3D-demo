@@ -73,6 +73,61 @@ describe('frontend Result api client', () => {
     }
   });
 
+  test('layout store load HTTP failure retains the last valid layout', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    const currentLayout = { ...demoLayout, buildingId: 'last-valid-http-event' };
+    useLayoutStore.getState().update(currentLayout);
+    process.env['VITE_API_BASE_URL'] = 'http://layout-api.test';
+    globalThis.fetch = Object.assign(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        Response.json({ error: 'unavailable' }, { status: 503 }),
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      await useLayoutStore.getState().load('unavailable-event');
+
+      expect(useLayoutStore.getState().source.buildingId).toBe('last-valid-http-event');
+      expect(useLayoutStore.getState().layout.buildingId).toBe('last-valid-http-event');
+      expect(useLayoutStore.getState().loadStatus).toBe('error');
+      expect(useLayoutStore.getState().loadError).toContain('API 503');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
+  test('layout store response schema failure retains the last valid layout', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    const currentLayout = { ...demoLayout, buildingId: 'last-valid-parse-event' };
+    useLayoutStore.getState().update(currentLayout);
+    process.env['VITE_API_BASE_URL'] = 'http://layout-api.test';
+    globalThis.fetch = Object.assign(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json({ unexpected: true }),
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      await useLayoutStore.getState().load('invalid-layout-event');
+
+      expect(useLayoutStore.getState().source.buildingId).toBe('last-valid-parse-event');
+      expect(useLayoutStore.getState().layout.buildingId).toBe('last-valid-parse-event');
+      expect(useLayoutStore.getState().loadStatus).toBe('error');
+      expect(useLayoutStore.getState().loadError).toContain('Response validation failed');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
   test('ok on 2xx with parsed body', async () => {
     const result = await apiResult<{ ok: boolean }>(`${base}/api/health`);
     expect(result.isOk()).toBe(true);
