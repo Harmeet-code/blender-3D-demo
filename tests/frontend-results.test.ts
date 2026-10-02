@@ -3,6 +3,8 @@ import { apiResult, type ApiError } from '../src/frontend/shared/result/api-resu
 import { apiResultValidated } from '../src/frontend/shared/result/api-result.ts';
 import { layoutResponseSchema } from '../src/frontend/entities/building/api/dto.ts';
 import { getLayout } from '../src/frontend/entities/building/api/layouts-client.ts';
+import { demoLayout } from '../src/frontend/entities/building/model/building-schema.ts';
+import { useLayoutStore } from '../src/frontend/entities/building/model/layout-store.ts';
 import type { AvatarState } from '../src/frontend/entities/building/model/building-schema.ts';
 import { buildServer } from '../src/server/app.ts';
 
@@ -15,6 +17,62 @@ afterAll(async () => {
 });
 
 describe('frontend Result api client', () => {
+  test('layout store load replaces the current layout with validated API data', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    const apiLayout = { ...demoLayout, buildingId: 'loaded-event' };
+    expect(useLayoutStore.getState().source.buildingId).toBe('convention-center-01');
+    process.env['VITE_API_BASE_URL'] = 'http://layout-api.test';
+    globalThis.fetch = Object.assign(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json(apiLayout),
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      await useLayoutStore.getState().load('loaded-event');
+
+      expect(useLayoutStore.getState().source.buildingId).toBe('loaded-event');
+      expect(useLayoutStore.getState().layout.buildingId).toBe('loaded-event');
+      expect(useLayoutStore.getState().loadStatus).toBe('ready');
+      expect(useLayoutStore.getState().loadError).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
+  test('layout store load failure retains the last valid layout', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    const currentLayout = { ...demoLayout, buildingId: 'last-valid-event' };
+    useLayoutStore.getState().update(currentLayout);
+    process.env['VITE_API_BASE_URL'] = 'http://layout-api.test';
+    globalThis.fetch = Object.assign(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => {
+        throw new Error('offline');
+      },
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      await useLayoutStore.getState().load('unavailable-event');
+
+      expect(useLayoutStore.getState().source.buildingId).toBe('last-valid-event');
+      expect(useLayoutStore.getState().layout.buildingId).toBe('last-valid-event');
+      expect(useLayoutStore.getState().loadStatus).toBe('error');
+      expect(useLayoutStore.getState().loadError).toContain('Network failure');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
   test('ok on 2xx with parsed body', async () => {
     const result = await apiResult<{ ok: boolean }>(`${base}/api/health`);
     expect(result.isOk()).toBe(true);
