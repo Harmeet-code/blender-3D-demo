@@ -10,6 +10,7 @@ Complete and verify the actionable checkbox items in `TODO.md` in dependency-ord
 - Out of scope for deletion: the two uncheckboxed notes after DONE about PNG/GLB cleanup and skill cleanup; the user asked to leave these for later clarification.
 - Admin authentication is deferred until an identity provider is selected. Do not add a mock or insecure placeholder login; leave that task open.
 - CDN migration is deferred until storage/CDN deployment details are available. Do not claim that assets are hosted remotely; leave that task open.
+- Invoice issuance is deferred because neither add-on prices nor currency are defined. Do not invent monetary values; keep invoice issuance open until pricing rules are supplied.
 - The integrated-GPU laptop acceptance is deferred. This checkout reports an NVIDIA GT 710 desktop, which does not meet the documented device requirement. Do not substitute its benchmark for the required laptop gate.
 - `blender-asset-pipeline` was already archived and its delta specs synchronized. Split the combined TODO entry so only the hardware acceptance remains open.
 - Docker Desktop is currently unreachable. Implement and test infra code where possible; only mark live migration/seed boot complete after a real database run succeeds.
@@ -20,7 +21,7 @@ Complete and verify the actionable checkbox items in `TODO.md` in dependency-ord
 
 - Load the selected event layout through the validated `getLayout` client, retaining the last valid/demo layout with a visible recoverable error when the request fails.
 - Wire the booth customizer to the existing validated `reserveBooth` client. Keep pending/error/success states explicit, prevent duplicate submission while in flight, and preserve selections on failure.
-- Complete the orders slice only to the level required by the reservation contract: persist reservations and associated invoice/order data transactionally, return validated DTOs, and cover retries/conflicts.
+- Wire reservation through the existing pending-order transaction and validated DTOs; keep invoice issuance deferred until add-on prices and currency are defined.
 - Add reservation rate limits using the existing optional Redis integration, with a documented deterministic fallback when Redis is not configured.
 
 ### 2. Realtime presence and world navigation
@@ -73,5 +74,5 @@ Complete and verify the actionable checkbox items in `TODO.md` in dependency-ord
 ## Review notes
 
 - Existing OpenSpec contracts cover spatial-world, platform-infra, asset placement, Blender assets, and web asset delivery. This design decomposes implementation into independently verifiable slices without silently weakening those contracts.
-- The accepted scope includes BACKLOG items but explicitly defers auth/CDN choices and the integrated-GPU measurement per user direction.
+- The accepted scope includes BACKLOG items but explicitly defers auth/CDN choices, invoice pricing, and the integrated-GPU measurement per user direction.
 - Cleanup notes are not checkboxes and are intentionally excluded pending exact filenames/skill IDs.
