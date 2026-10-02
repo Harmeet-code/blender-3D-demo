@@ -3,7 +3,7 @@
 - **Date:** 2026-10-01
 - **Change:** blender-asset-pipeline
 
-**Status:** Proposed
+**Status:** Accepted — implemented 2026-10-02; release-device acceptance pending
 
 ## Context
 

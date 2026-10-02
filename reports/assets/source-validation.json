@@ -1,0 +1,137 @@
+{
+  "sources": [
+    {
+      "id": "banner-stand",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 86,
+      "errors": []
+    },
+    {
+      "id": "booth-ceiling",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 12,
+      "errors": []
+    },
+    {
+      "id": "booth-frame",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 48,
+      "errors": []
+    },
+    {
+      "id": "chair",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 136,
+      "errors": []
+    },
+    {
+      "id": "display-case",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 200,
+      "errors": []
+    },
+    {
+      "id": "display-case",
+      "quality": "opaque",
+      "blender": "4.5.9 LTS",
+      "triangles": 200,
+      "errors": []
+    },
+    {
+      "id": "elevator-entrance",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 352,
+      "errors": []
+    },
+    {
+      "id": "elevator-entrance",
+      "quality": "low",
+      "blender": "4.5.9 LTS",
+      "triangles": 84,
+      "errors": []
+    },
+    {
+      "id": "escalator-entrance",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 1608,
+      "errors": []
+    },
+    {
+      "id": "escalator-entrance",
+      "quality": "low",
+      "blender": "4.5.9 LTS",
+      "triangles": 480,
+      "errors": []
+    },
+    {
+      "id": "floor-tile",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 12,
+      "errors": []
+    },
+    {
+      "id": "forklift",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 1124,
+      "errors": []
+    },
+    {
+      "id": "forklift",
+      "quality": "low",
+      "blender": "4.5.9 LTS",
+      "triangles": 268,
+      "errors": []
+    },
+    {
+      "id": "pallet",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 204,
+      "errors": []
+    },
+    {
+      "id": "safe",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 264,
+      "errors": []
+    },
+    {
+      "id": "stairs",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 480,
+      "errors": []
+    },
+    {
+      "id": "stairs",
+      "quality": "low",
+      "blender": "4.5.9 LTS",
+      "triangles": 152,
+      "errors": []
+    },
+    {
+      "id": "table",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 92,
+      "errors": []
+    },
+    {
+      "id": "wall-panel",
+      "quality": "baseline",
+      "blender": "4.5.9 LTS",
+      "triangles": 44,
+      "errors": []
+    }
+  ]
+}

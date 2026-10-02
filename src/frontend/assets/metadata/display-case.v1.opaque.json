@@ -1,0 +1,54 @@
+{
+  "id": "display-case",
+  "version": 1,
+  "label": "Display Case",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [1.2, 1.1, 0.5],
+  "bounds": {
+    "min": [-0.6, 0.0, -0.25],
+    "max": [0.6, 1.1, 0.25]
+  },
+  "footprint": [
+    [-0.6, -0.25],
+    [0.6, -0.25],
+    [0.6, 0.25],
+    [-0.6, 0.25]
+  ],
+  "requiredNodes": ["root", "socket_interaction"],
+  "materialRoles": {
+    "finish_frame": "frame",
+    "finish_glass_opaque": "glass"
+  },
+  "sockets": {
+    "socket_interaction": {
+      "position": [0, 0, 0.85],
+      "rotation": [0, 0, 0]
+    }
+  },
+  "colliders": [
+    {
+      "halfExtents": [0.6, 0.55, 0.25],
+      "position": [0.0, 0.55, 0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/display-case/display-case.opaque.blend",
+    "recipe": "assets-source/blender/display-case/build.opaque.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.1.0"
+  },
+  "budget": {
+    "triangles": 1500,
+    "materials": 2,
+    "bytes": 1048576,
+    "textureSize": 1024
+  },
+  "metrics": {
+    "triangles": 200,
+    "materials": 2,
+    "bytes": 24868,
+    "textureBytes": 0
+  }
+}

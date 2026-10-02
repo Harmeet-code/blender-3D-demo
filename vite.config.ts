@@ -17,6 +17,16 @@ export default defineConfig(({ command, mode }) => {
       react(),
       tailwindcss(),
       {
+        name: 'development-asset-fault',
+        configureServer(server) {
+          server.middlewares.use('/__asset_failure__/http.glb', (_request, response) => {
+            response.statusCode = 503;
+            response.setHeader('Content-Type', 'model/gltf-binary');
+            response.end('Injected asset HTTP failure');
+          });
+        },
+      },
+      {
         name: 'inject-api-base',
         transformIndexHtml(html) {
           return html.replace('</head>', `${injection}</head>`);

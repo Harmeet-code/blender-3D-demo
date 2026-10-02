@@ -1,0 +1,632 @@
+{
+  "source": {
+    "buildingId": "venue-stress-v1",
+    "floors": [
+      {
+        "id": "B1",
+        "name": "Underground",
+        "heightOffset": -3,
+        "image": "/b1.jpg",
+        "coordinateSystem": {
+          "units": "meters"
+        },
+        "logisticsAnchors": [
+          {
+            "id": "B1-forklift",
+            "position": [-16, 12],
+            "yawRadians": 0,
+            "assetId": "forklift"
+          },
+          {
+            "id": "B1-pallet",
+            "position": [-12, 12],
+            "yawRadians": 0,
+            "assetId": "pallet"
+          }
+        ]
+      },
+      {
+        "id": "F1",
+        "name": "Ground Floor",
+        "heightOffset": 0,
+        "image": "/f1.jpg",
+        "coordinateSystem": {
+          "units": "meters"
+        },
+        "logisticsAnchors": []
+      }
+    ],
+    "rooms": [
+      {
+        "id": "logo-a",
+        "floorId": "F1",
+        "type": "booth",
+        "polygon": [
+          [0, 0],
+          [4, 0],
+          [4, 4],
+          [0, 4]
+        ],
+        "boothAssetRef": {
+          "id": "booth-frame",
+          "version": 99
+        }
+      },
+      {
+        "id": "logo-b",
+        "floorId": "F1",
+        "type": "booth",
+        "polygon": [
+          [7, 0],
+          [13, 0],
+          [13, 6],
+          [7, 6]
+        ]
+      }
+    ],
+    "portals": [
+      {
+        "id": "lift-01",
+        "type": "elevator",
+        "connects": ["B1", "F1"],
+        "entries": [
+          {
+            "floorId": "B1",
+            "position": [-23, 3],
+            "yawRadians": 0
+          },
+          {
+            "floorId": "F1",
+            "position": [-23, 3],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "stairs-01",
+        "type": "stairs",
+        "connects": ["B1", "F1"],
+        "entries": [
+          {
+            "floorId": "B1",
+            "position": [23, 10],
+            "yawRadians": 0
+          },
+          {
+            "floorId": "F1",
+            "position": [23, 3],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "escalator-01",
+        "type": "escalator",
+        "connects": ["B1", "F1"],
+        "entries": [
+          {
+            "floorId": "B1",
+            "position": [27, 10],
+            "yawRadians": 0
+          },
+          {
+            "floorId": "F1",
+            "position": [27, 3],
+            "yawRadians": 0
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": [
+    "Ready ",
+    "UNKNOWN_ASSET: booth-frame version 99 is unavailablelogo-a:frame unavailable; showing geometry fallbackstairs-01: requires a 4 m rise; current rise is 3 m. escalator-01: requires a 4 m rise; current rise is 3 m.logo-a: forklift service stays selected; no designated preview area."
+  ],
+  "cart": "logo-a\n\nChoose add-ons and preview their placement.\n\nAdd-ons\nDetails\nLogo on event floor banner\nbranding\n\nPreview for this booth.\n\nChair\nprop\n\nPreview for this booth.\n\nTable\nprop\n\nPreview for this booth.\n\nDisplay case\nprop\n\nPreview for this booth.\n\nForklift service\nprop\n\nService preview in a designated area.\n\nPallet service\nprop\n\nService preview in a designated area.\n\nSafe service\nlogistics\n\nPreview for this booth.\n\nEarly booth set-up\nlogistics\n\nService selection; no 3D object.\n\nEarly delivery\nlogistics\n\nService selection; no 3D object.\n\nExhibitor parking\nlogistics\n\nService selection; no 3D object.\n\nVisa letter\nlogistics\n\nService selection; no 3D object.\n\nlogo-a:frame unavailable; showing geometry fallback\nlogo-a: forklift service stays selected; no designated preview area.\nReserve — 3 add-ons\n\nSelections remain in your cart. Reservation is not connected in this demo.\n\nClose",
+  "before": {
+    "calls": 26,
+    "mainCalls": 24,
+    "shadowCalls": 2,
+    "triangles": 3796,
+    "geometries": 24,
+    "textures": 1,
+    "pixelRatio": 1,
+    "activeFloors": ["F1"],
+    "assets": [
+      {
+        "id": "elevator-entrance",
+        "minimumY": -0.05000000074505806,
+        "dimensions": [1.9999999552965164, 2.650000002235174, 0.30000001192092896],
+        "resources": [
+          "3973f886-a0f6-4ef5-b762-230d46efc8ea",
+          "688fa6d1-b0c1-4342-9140-a145af032e3b",
+          "801f89ba-e60e-41d7-9bab-cedbbf059198",
+          "d4a1ac6e-09bb-44b5-a5dd-bf24ac1835e9",
+          "e388d862-6de1-4ca1-aa28-600cf99359b4",
+          "3fcd1a3b-4908-4d83-ad50-c6a89097cd41",
+          "f4dceb85-28ba-466b-ab99-7263f9a4080c",
+          "0fd3aeea-43ed-405c-baf6-cc29b183186b",
+          "54dcd8bf-ebbb-4b7b-a9fd-b7981a1f1317",
+          "1ab93123-38d7-4782-b020-cad65c262cf0",
+          "a14ef0a0-c729-429f-a68f-882df06bde51",
+          "c6e83c11-fd5d-4ac7-a1e1-37d97672ab15",
+          "085e6a8d-10b4-4376-b007-d8ed1205ab21",
+          "894b083f-f5a3-4196-953f-e69d927c9f04",
+          "43e7d071-fd83-4f17-84ee-e0c341070ea5",
+          "72b5cd43-e421-49fd-856b-beff2d46e414"
+        ]
+      }
+    ],
+    "batches": [
+      {
+        "id": "chair",
+        "count": 1,
+        "placements": [
+          {
+            "id": "logo-a:chair",
+            "boothId": "logo-a",
+            "position": [0.75, 0, 3.5],
+            "yawRadians": 3.141592653589793
+          }
+        ]
+      },
+      {
+        "id": "table",
+        "count": 1,
+        "placements": [
+          {
+            "id": "logo-a:table",
+            "boothId": "logo-a",
+            "position": [3.25, 0, 3.5],
+            "yawRadians": 3.141592653589793
+          }
+        ]
+      },
+      {
+        "id": "wall-panel",
+        "count": 24,
+        "placements": [
+          {
+            "id": "logo-b:wall:0",
+            "boothId": "logo-b",
+            "position": [7.5, 0, 0],
+            "yawRadians": 0,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:1",
+            "boothId": "logo-b",
+            "position": [8.5, 0, 0],
+            "yawRadians": 0,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:2",
+            "boothId": "logo-b",
+            "position": [9.2, 0, 0],
+            "yawRadians": 0,
+            "scale": [0.3999999999999999, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:3",
+            "boothId": "logo-b",
+            "position": [11.1, 0, 0],
+            "yawRadians": 0,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:4",
+            "boothId": "logo-b",
+            "position": [12.1, 0, 0],
+            "yawRadians": 0,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:5",
+            "boothId": "logo-b",
+            "position": [12.8, 0, 0],
+            "yawRadians": 0,
+            "scale": [0.40000000000000036, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:6",
+            "boothId": "logo-b",
+            "position": [13, 0, 0.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:7",
+            "boothId": "logo-b",
+            "position": [13, 0, 1.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:8",
+            "boothId": "logo-b",
+            "position": [13, 0, 2.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:9",
+            "boothId": "logo-b",
+            "position": [13, 0, 3.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:10",
+            "boothId": "logo-b",
+            "position": [13, 0, 4.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:11",
+            "boothId": "logo-b",
+            "position": [13, 0, 5.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:12",
+            "boothId": "logo-b",
+            "position": [12.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:13",
+            "boothId": "logo-b",
+            "position": [11.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:14",
+            "boothId": "logo-b",
+            "position": [10.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:15",
+            "boothId": "logo-b",
+            "position": [9.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:16",
+            "boothId": "logo-b",
+            "position": [8.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:17",
+            "boothId": "logo-b",
+            "position": [7.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:18",
+            "boothId": "logo-b",
+            "position": [7, 0, 5.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:19",
+            "boothId": "logo-b",
+            "position": [7, 0, 4.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:20",
+            "boothId": "logo-b",
+            "position": [7, 0, 3.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:21",
+            "boothId": "logo-b",
+            "position": [7, 0, 2.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:22",
+            "boothId": "logo-b",
+            "position": [7, 0, 1.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:23",
+            "boothId": "logo-b",
+            "position": [7, 0, 0.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          }
+        ]
+      }
+    ],
+    "cache": {
+      "commonEntries": 4,
+      "commonUsers": 4,
+      "floorSets": [
+        {
+          "id": "F1",
+          "users": 1
+        }
+      ]
+    },
+    "device": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "coldAssetBytes": 81078,
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "viewport": [1280, 720],
+    "camera": [24, 20, 30],
+    "bodies": 28,
+    "logos": [],
+    "textureMipBytes": 0
+  },
+  "after": {
+    "calls": 26,
+    "mainCalls": 24,
+    "shadowCalls": 2,
+    "triangles": 3796,
+    "geometries": 24,
+    "textures": 1,
+    "pixelRatio": 1,
+    "activeFloors": ["F1"],
+    "assets": [
+      {
+        "id": "elevator-entrance",
+        "minimumY": -0.05000000074505806,
+        "dimensions": [1.9999999552965164, 2.650000002235174, 0.30000001192092896],
+        "resources": [
+          "3973f886-a0f6-4ef5-b762-230d46efc8ea",
+          "688fa6d1-b0c1-4342-9140-a145af032e3b",
+          "801f89ba-e60e-41d7-9bab-cedbbf059198",
+          "d4a1ac6e-09bb-44b5-a5dd-bf24ac1835e9",
+          "e388d862-6de1-4ca1-aa28-600cf99359b4",
+          "3fcd1a3b-4908-4d83-ad50-c6a89097cd41",
+          "f4dceb85-28ba-466b-ab99-7263f9a4080c",
+          "0fd3aeea-43ed-405c-baf6-cc29b183186b",
+          "54dcd8bf-ebbb-4b7b-a9fd-b7981a1f1317",
+          "1ab93123-38d7-4782-b020-cad65c262cf0",
+          "a14ef0a0-c729-429f-a68f-882df06bde51",
+          "c6e83c11-fd5d-4ac7-a1e1-37d97672ab15",
+          "085e6a8d-10b4-4376-b007-d8ed1205ab21",
+          "894b083f-f5a3-4196-953f-e69d927c9f04",
+          "43e7d071-fd83-4f17-84ee-e0c341070ea5",
+          "72b5cd43-e421-49fd-856b-beff2d46e414"
+        ]
+      }
+    ],
+    "batches": [
+      {
+        "id": "chair",
+        "count": 1,
+        "placements": [
+          {
+            "id": "logo-a:chair",
+            "boothId": "logo-a",
+            "position": [0.75, 0, 3.5],
+            "yawRadians": 3.141592653589793
+          }
+        ]
+      },
+      {
+        "id": "table",
+        "count": 1,
+        "placements": [
+          {
+            "id": "logo-a:table",
+            "boothId": "logo-a",
+            "position": [3.25, 0, 3.5],
+            "yawRadians": 3.141592653589793
+          }
+        ]
+      },
+      {
+        "id": "wall-panel",
+        "count": 24,
+        "placements": [
+          {
+            "id": "logo-b:wall:0",
+            "boothId": "logo-b",
+            "position": [7.5, 0, 0],
+            "yawRadians": 0,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:1",
+            "boothId": "logo-b",
+            "position": [8.5, 0, 0],
+            "yawRadians": 0,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:2",
+            "boothId": "logo-b",
+            "position": [9.2, 0, 0],
+            "yawRadians": 0,
+            "scale": [0.3999999999999999, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:3",
+            "boothId": "logo-b",
+            "position": [11.1, 0, 0],
+            "yawRadians": 0,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:4",
+            "boothId": "logo-b",
+            "position": [12.1, 0, 0],
+            "yawRadians": 0,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:5",
+            "boothId": "logo-b",
+            "position": [12.8, 0, 0],
+            "yawRadians": 0,
+            "scale": [0.40000000000000036, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:6",
+            "boothId": "logo-b",
+            "position": [13, 0, 0.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:7",
+            "boothId": "logo-b",
+            "position": [13, 0, 1.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:8",
+            "boothId": "logo-b",
+            "position": [13, 0, 2.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:9",
+            "boothId": "logo-b",
+            "position": [13, 0, 3.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:10",
+            "boothId": "logo-b",
+            "position": [13, 0, 4.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:11",
+            "boothId": "logo-b",
+            "position": [13, 0, 5.5],
+            "yawRadians": -1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:12",
+            "boothId": "logo-b",
+            "position": [12.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:13",
+            "boothId": "logo-b",
+            "position": [11.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:14",
+            "boothId": "logo-b",
+            "position": [10.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:15",
+            "boothId": "logo-b",
+            "position": [9.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:16",
+            "boothId": "logo-b",
+            "position": [8.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:17",
+            "boothId": "logo-b",
+            "position": [7.5, 0, 6],
+            "yawRadians": -3.141592653589793,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:18",
+            "boothId": "logo-b",
+            "position": [7, 0, 5.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:19",
+            "boothId": "logo-b",
+            "position": [7, 0, 4.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:20",
+            "boothId": "logo-b",
+            "position": [7, 0, 3.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:21",
+            "boothId": "logo-b",
+            "position": [7, 0, 2.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:22",
+            "boothId": "logo-b",
+            "position": [7, 0, 1.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          },
+          {
+            "id": "logo-b:wall:23",
+            "boothId": "logo-b",
+            "position": [7, 0, 0.5],
+            "yawRadians": 1.5707963267948966,
+            "scale": [1, 1, 1]
+          }
+        ]
+      }
+    ],
+    "cache": {
+      "commonEntries": 4,
+      "commonUsers": 4,
+      "floorSets": [
+        {
+          "id": "F1",
+          "users": 1
+        }
+      ]
+    },
+    "device": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "coldAssetBytes": 81078,
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "viewport": [1280, 720],
+    "camera": [24, 20, 30],
+    "bodies": 28,
+    "logos": [],
+    "textureMipBytes": 0
+  }
+}

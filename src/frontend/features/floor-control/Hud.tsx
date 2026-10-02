@@ -1,54 +1,65 @@
-import { useLayoutStore } from '../../entities/building/model/layout-store.ts';
+import { LayersIcon } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useActiveLayout } from '../../entities/building/model/active-layout.ts';
 import { useWorldStore } from '../../entities/viewer/model/viewer-store.ts';
+import { ViewOptions } from './ViewOptions.tsx';
 
 export function Hud() {
   const currentFloorId = useWorldStore((s) => s.currentFloorId);
   const setCurrentFloor = useWorldStore((s) => s.setCurrentFloor);
-  const dollhouse = useWorldStore((s) => s.dollhouse);
-  const toggleDollhouse = useWorldStore((s) => s.toggleDollhouse);
-  const floors = useLayoutStore((s) => s.layout.floors);
-  const proof = useWorldStore((s) => s.assetProof);
-  const toggleProof = useWorldStore((s) => s.toggleAssetProof);
-  const lowQuality = useWorldStore((s) => s.lowQuality);
-  const toggleQuality = useWorldStore((s) => s.toggleQuality);
+  const { floors } = useActiveLayout();
 
   return (
-    <div className="absolute top-3 left-3 flex items-center gap-2">
-      {floors.map((floor) => (
-        <button
-          key={floor.id}
-          type="button"
-          onClick={() => {
-            setCurrentFloor(floor.id);
-          }}
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            floor.id === currentFloorId ? 'bg-sky-400 text-black' : 'bg-white/10 text-white'
-          }`}
-        >
-          {floor.name}
-        </button>
-      ))}
-      <button
-        type="button"
-        onClick={toggleDollhouse}
-        className="rounded-full bg-white/10 px-3 py-1 text-xs"
+    <div className="absolute top-3 left-3 flex max-w-[calc(100vw-1.5rem)] items-center gap-1 rounded-xl border bg-popover/90 p-1.5 text-popover-foreground shadow-lg backdrop-blur sm:gap-2">
+      <Select value={currentFloorId} onValueChange={setCurrentFloor}>
+        <SelectTrigger className="w-36 sm:hidden" aria-label="Active floor">
+          <SelectValue placeholder="Choose a floor" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>Floors</SelectLabel>
+            {floors.map((floor) => (
+              <SelectItem key={floor.id} value={floor.id}>
+                {floor.name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        spacing={1}
+        value={currentFloorId ?? ''}
+        onValueChange={(value) => {
+          if (value) {
+            setCurrentFloor(value);
+          }
+        }}
+        aria-label="Active floor"
+        className="hidden sm:flex"
       >
-        {dollhouse ? 'Stacked' : 'Dollhouse'}
-      </button>
-      <button
-        type="button"
-        onClick={toggleProof}
-        className="rounded-full bg-white/10 px-3 py-1 text-xs"
-      >
-        {proof ? 'Venue view' : 'Asset preview'}
-      </button>
-      <button
-        type="button"
-        onClick={toggleQuality}
-        className="rounded-full bg-white/10 px-3 py-1 text-xs"
-      >
-        {lowQuality ? 'Quality: low' : 'Quality: normal'}
-      </button>
+        {floors.map((floor) => (
+          <ToggleGroupItem key={floor.id} value={floor.id} aria-label={floor.name}>
+            <LayersIcon data-icon="inline-start" />
+            {floor.name}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+
+      <Separator orientation="vertical" className="h-5!" />
+      <ViewOptions />
     </div>
   );
 }

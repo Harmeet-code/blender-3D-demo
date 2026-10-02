@@ -1,0 +1,163 @@
+{
+  "calls": 41,
+  "mainCalls": 33,
+  "shadowCalls": 8,
+  "triangles": 2262,
+  "geometries": 21,
+  "textures": 2,
+  "pixelRatio": 1,
+  "activeFloors": ["F1"],
+  "assets": [
+    {
+      "id": "booth-frame",
+      "boothId": "F1-proof-a",
+      "minimumY": 0,
+      "dimensions": [4.000000096857548, 2.5, 4.000000096857548],
+      "resources": [
+        "4737b063-fec7-4977-8fb0-657f6441b909",
+        "3b7b142f-bd73-4ff2-8137-f925a842df0f",
+        "660aef48-42c5-488d-9f88-263054f840c0",
+        "63ae0420-0127-4575-8336-a026bd5f302e"
+      ]
+    },
+    {
+      "id": "chair",
+      "minimumY": 0,
+      "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+      "resources": [
+        "9269781a-aba7-4c22-9361-48710dea6f18",
+        "62f12a4d-cfe1-4433-aa9f-12962c87505a",
+        "90287ba2-115d-49f6-8d98-9bac4c35795d",
+        "20df7a50-2cad-43ad-96d4-e98c5f1fab59",
+        "d4b94522-e4fc-4418-bb7f-145baf388a98",
+        "0d495a3b-cfa4-4c3a-83da-e1848cb9c7e1"
+      ]
+    },
+    {
+      "id": "floor-tile",
+      "minimumY": -0.20000000298023224,
+      "dimensions": [4, 0.20000000298023224, 4],
+      "resources": ["16ccc3b1-0b04-45f7-a7a1-e10a2c18e018"]
+    },
+    {
+      "id": "wall-panel",
+      "minimumY": 0,
+      "dimensions": [1, 2.5, 0.10000000149011612],
+      "resources": ["25876c67-f3ae-42e9-92f8-52fa3a324b8f"]
+    },
+    {
+      "id": "chair",
+      "minimumY": 0,
+      "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+      "resources": [
+        "9269781a-aba7-4c22-9361-48710dea6f18",
+        "62f12a4d-cfe1-4433-aa9f-12962c87505a",
+        "90287ba2-115d-49f6-8d98-9bac4c35795d",
+        "20df7a50-2cad-43ad-96d4-e98c5f1fab59",
+        "d4b94522-e4fc-4418-bb7f-145baf388a98",
+        "0d495a3b-cfa4-4c3a-83da-e1848cb9c7e1"
+      ]
+    },
+    {
+      "id": "chair",
+      "minimumY": 0,
+      "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+      "resources": [
+        "9269781a-aba7-4c22-9361-48710dea6f18",
+        "62f12a4d-cfe1-4433-aa9f-12962c87505a",
+        "90287ba2-115d-49f6-8d98-9bac4c35795d",
+        "20df7a50-2cad-43ad-96d4-e98c5f1fab59",
+        "d4b94522-e4fc-4418-bb7f-145baf388a98",
+        "0d495a3b-cfa4-4c3a-83da-e1848cb9c7e1"
+      ]
+    }
+  ],
+  "batches": [
+    {
+      "id": "chair",
+      "count": 2,
+      "placements": [
+        {
+          "id": "F1-proof-a:chair",
+          "boothId": "F1-proof-a",
+          "position": [-4.25, 0, 0.5],
+          "yawRadians": 0
+        },
+        {
+          "id": "F1-proof-b:chair",
+          "boothId": "F1-proof-b",
+          "position": [1.75, 0, 0.5],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "table",
+      "count": 2,
+      "placements": [
+        {
+          "id": "F1-proof-a:table",
+          "boothId": "F1-proof-a",
+          "position": [-1.75, 0, 0.5],
+          "yawRadians": 0
+        },
+        {
+          "id": "F1-proof-b:table",
+          "boothId": "F1-proof-b",
+          "position": [4.25, 0, 0.5],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "booth-frame",
+      "count": 1,
+      "placements": [
+        {
+          "id": "F1-proof-b:frame",
+          "boothId": "F1-proof-b",
+          "position": [3, 0, 2],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "booth-frame",
+      "count": 1,
+      "placements": [
+        {
+          "id": "F1-proof-b:frame",
+          "boothId": "F1-proof-b",
+          "position": [3, 0, 2],
+          "yawRadians": 0
+        }
+      ]
+    }
+  ],
+  "cache": {
+    "commonEntries": 5,
+    "commonUsers": 9,
+    "floorSets": [
+      {
+        "id": "F1",
+        "users": 1
+      }
+    ]
+  },
+  "device": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "coldAssetBytes": 48402,
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+  "viewport": [1280, 720],
+  "camera": [24, 20, 30],
+  "bodies": 8,
+  "logos": [
+    {
+      "boothId": "F1-proof-a",
+      "name": "resize.png",
+      "dimensions": [0.96, 0.24],
+      "sourcePixels": [512, 128],
+      "textureId": "14be422d-10e0-4a26-bf90-4ef39ff478c4"
+    }
+  ],
+  "textureMipBytes": 349525.3333333333
+}

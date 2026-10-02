@@ -1,18 +1,28 @@
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWorldStore } from '../../entities/viewer/model/viewer-store.ts';
 
-/** Top-down radar stub synced to avatar position. */
+/** Top-down radar synced to avatar position. */
 export function MiniMap() {
   const localAvatar = useWorldStore((s) => s.localAvatar);
   const [x, , z] = localAvatar.position;
   return (
-    <div className="absolute right-3 bottom-3 h-32 w-32 rounded-xl border border-white/15 bg-black/60 p-2 text-[10px]">
-      <div>Mini-map — {localAvatar.floorId}</div>
-      <div className="relative mt-1 h-20 w-full rounded bg-white/5">
-        <div
-          className="absolute h-2 w-2 rounded-full bg-sky-400"
-          style={{ left: `${50 + x * 4}%`, top: `${50 + z * 4}%` }}
-        />
-      </div>
-    </div>
+    <Card className="absolute right-3 bottom-3 w-32 gap-2 bg-popover/90 py-3 backdrop-blur sm:w-36">
+      <CardHeader className="flex-row items-center justify-between gap-2">
+        <div>
+          <CardTitle className="text-xs">Mini-map</CardTitle>
+          <CardDescription className="text-[10px]">Top-down radar</CardDescription>
+        </div>
+        <Badge variant="secondary">{localAvatar.floorId}</Badge>
+      </CardHeader>
+      <CardContent>
+        <div className="relative h-20 w-full overflow-hidden rounded-lg bg-muted">
+          <div
+            className="absolute size-2 rounded-full bg-primary"
+            style={{ left: `${50 + x * 4}%`, top: `${50 + z * 4}%` }}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

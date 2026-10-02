@@ -1,0 +1,310 @@
+{
+  "source": {
+    "buildingId": "venue-stress-v1",
+    "floors": [
+      {
+        "id": "B1",
+        "name": "Underground",
+        "heightOffset": -4,
+        "image": "/b1.jpg",
+        "coordinateSystem": {
+          "units": "meters"
+        },
+        "logisticsAnchors": [
+          {
+            "id": "B1-forklift",
+            "position": [-16, 12],
+            "yawRadians": 0,
+            "assetId": "forklift"
+          },
+          {
+            "id": "B1-pallet",
+            "position": [-12, 12],
+            "yawRadians": 0,
+            "assetId": "pallet"
+          }
+        ]
+      },
+      {
+        "id": "F1",
+        "name": "Ground Floor",
+        "heightOffset": 0,
+        "image": "/f1.jpg",
+        "coordinateSystem": {
+          "units": "meters"
+        },
+        "logisticsAnchors": [
+          {
+            "id": "unsafe-forklift",
+            "assetId": "forklift",
+            "position": [0.3, 0.3],
+            "yawRadians": 0
+          }
+        ]
+      }
+    ],
+    "rooms": [
+      {
+        "id": "tiny",
+        "floorId": "F1",
+        "type": "booth",
+        "polygon": [
+          [0, 0],
+          [0.6, 0],
+          [0.6, 0.6],
+          [0, 0.6]
+        ]
+      }
+    ],
+    "portals": [
+      {
+        "id": "lift-01",
+        "type": "elevator",
+        "connects": ["B1", "F1"],
+        "entries": [
+          {
+            "floorId": "B1",
+            "position": [-23, 3],
+            "yawRadians": 0
+          },
+          {
+            "floorId": "F1",
+            "position": [-23, 3],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "stairs-01",
+        "type": "stairs",
+        "connects": ["B1", "F1"],
+        "entries": [
+          {
+            "floorId": "B1",
+            "position": [23, 10],
+            "yawRadians": 0
+          },
+          {
+            "floorId": "F1",
+            "position": [23, 3],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "escalator-01",
+        "type": "escalator",
+        "connects": ["B1", "F1"],
+        "entries": [
+          {
+            "floorId": "B1",
+            "position": [27, 10],
+            "yawRadians": 0
+          },
+          {
+            "floorId": "F1",
+            "position": [27, 3],
+            "yawRadians": 0
+          }
+        ]
+      }
+    ]
+  },
+  "cart": "tiny\n\nChoose add-ons and preview their placement.\n\nAdd-ons\nDetails\nLogo on event floor banner\nbranding\n\nPreview for this booth.\n\nChair\nprop\n\nPreview for this booth.\n\nTable\nprop\n\nPreview for this booth.\n\nDisplay case\nprop\n\nPreview for this booth.\n\nForklift service\nprop\n\nService preview in a designated area.\n\nPallet service\nprop\n\nService preview in a designated area.\n\nSafe service\nlogistics\n\nPreview for this booth.\n\nEarly booth set-up\nlogistics\n\nService selection; no 3D object.\n\nEarly delivery\nlogistics\n\nService selection; no 3D object.\n\nExhibitor parking\nlogistics\n\nService selection; no 3D object.\n\nVisa letter\nlogistics\n\nService selection; no 3D object.\n\nunsafe-forklift: forklift preview overlaps tiny; service remains selected. tiny: Chair cannot fit while preserving a 1 m entrance route. It remains selected. tiny: Table cannot fit while preserving a 1 m entrance route. It remains selected.\nReserve — 3 add-ons\n\nSelections remain in your cart. Reservation is not connected in this demo.\n\nClose",
+  "probe": {
+    "calls": 93,
+    "mainCalls": 89,
+    "shadowCalls": 4,
+    "triangles": 3458,
+    "geometries": 101,
+    "textures": 1,
+    "pixelRatio": 1,
+    "activeFloors": ["F1"],
+    "assets": [
+      {
+        "id": "elevator-entrance",
+        "minimumY": -0.05000000074505806,
+        "dimensions": [1.9999999552965164, 2.650000002235174, 0.30000001192092896],
+        "resources": [
+          "ebf6d7c4-07c2-4e8a-b541-4b5bd99d9bd4",
+          "70999343-3dea-4d89-babf-7a7efc8298d5",
+          "76eb80b0-121a-4dfd-89e7-6c98df2df2a0",
+          "f6b5b2e1-81f3-4810-a4f1-902b44e176d7",
+          "1b79677a-dddc-4104-b6a0-d8027da3bd99",
+          "b84dc4cf-9d86-46f6-ad0b-910a6373f4c2",
+          "1ef5eae9-a067-4cd8-9c19-789fa88b3037",
+          "9c3f0887-1891-4185-96b2-b63073dbf6c0",
+          "2c69d004-075b-4680-b02b-b0e52f27ace1",
+          "15c71337-95ec-472d-8b6e-edfc6b49b776",
+          "466a0c28-b4b5-4fea-a034-a5e17e24bce0",
+          "7f0c944e-99f7-42ac-9836-15a1e5cba0e9",
+          "d383c5ad-336e-46bb-9d9b-87af615939fa",
+          "a5385b9d-3fbb-4cb2-905b-7265ac67c053",
+          "42be4785-58ea-4190-a589-ede823e09c9c",
+          "9720a80a-9b53-4537-8c47-15d13386f186"
+        ]
+      },
+      {
+        "id": "stairs",
+        "minimumY": -4.100000001490116,
+        "dimensions": [2, 5.154999982565641, 8],
+        "resources": [
+          "4af63ea4-11e1-40cc-9b9d-18874768151f",
+          "c5ebf9a9-c9fc-4aaf-ab38-2c6004ee0c0c",
+          "138a0a7e-fefc-4974-bf15-05fccae6a708",
+          "2da5152b-73f3-4f88-be67-e2f80220fea5",
+          "af7f5dcd-64c3-4729-9c64-9b33ae953ed0",
+          "6a243d0b-3a92-4f82-8f01-b12b8b414303",
+          "adb142df-4384-4295-ba71-912236e748aa",
+          "9f91c8e0-2098-42d0-ba24-b0bfb29360dd",
+          "79a9fefb-3f95-413d-9315-ce0150647825",
+          "35f116ed-b308-42bf-be18-ddb7ae59124e",
+          "ee02ced6-ce35-4a00-bf7e-56b16dc09687",
+          "dcd2bfb6-bd1f-4966-be5d-c85ffe6ebe5a",
+          "65e5605a-9b05-4c80-a49d-df73b7ef913d",
+          "dc929336-c302-4a8d-b0e4-fecfd20e77a0",
+          "1c0c19f9-b7d2-4301-9c42-aaf6f352e3d9",
+          "66f9b3d0-208b-4a7b-8029-8dfeab8116f4",
+          "0473c354-8110-4332-9e75-4261f7f7326f",
+          "54c36e7d-1f8d-4c0a-a7a2-6bba6f019fa0",
+          "7a18f250-417f-475a-86d5-94cf2e955a96",
+          "a8338e4a-73ea-450c-9e51-1def773c10a8",
+          "4b7fe4a8-245f-4044-a957-bfed10b7373b",
+          "600ac5c2-9d03-4fff-835f-ce2d4980425f",
+          "ab83b90f-09ce-41e9-b664-d6af6a595fe1",
+          "810dff94-beea-4566-8655-d8937aaf1ecd",
+          "e19c26fe-e6bd-486f-8e65-3e2280d43680",
+          "f7a88db7-3943-4777-b9b4-92449e44e3a7",
+          "26ecdfc6-725f-42cf-b1ec-d954933a2f5b",
+          "6643726f-ef0e-424c-9b7f-09c9cd2919f5",
+          "088ae159-30ab-43b9-8a47-e85307835551",
+          "588dc2d6-39a8-4001-9956-3e7a0f260457",
+          "37fcaa09-87e3-4ebb-ad6a-f30e6f261097",
+          "7a1dcb7e-45c6-489f-9a64-12e33abfbb26",
+          "7cd1f565-4b4b-4691-aa38-cd691dfc8c6e",
+          "2944860f-4b56-4ab4-b282-a2b7095c442d",
+          "a8c44bcf-9aba-45bc-8273-ec18a9a16de8",
+          "7088e630-e938-4eed-8580-60840b08d029",
+          "a01eb501-ec21-40d6-8ea8-428427af92a7",
+          "bc31ffea-3a66-4797-a443-298fd88d44dc",
+          "fd28dd01-96ed-4c39-aa5e-dbbd0b064d31",
+          "bdedd4bd-f68f-4286-a2ae-8bea074e9e59"
+        ]
+      },
+      {
+        "id": "escalator-entrance",
+        "minimumY": -4.100000001490116,
+        "dimensions": [2, 5.150274373590946, 8],
+        "resources": [
+          "c86f905d-ec64-43f1-90ba-886eb9d288e7",
+          "5f509e9f-fae8-4e9a-b828-5fca3ca2a8ab",
+          "70c0a41d-1100-4090-a7b8-459b08e37713",
+          "a62bf80b-362d-457c-bcee-44c3a4511ab2",
+          "db96270d-ff69-4aa7-ba07-9b0b0abf4c64",
+          "4fc6835b-0144-417c-9357-aff854efd87d",
+          "9e1b9fd5-6075-44f8-a71e-28520e635b06",
+          "f8d15e9f-ea23-4250-a046-19b29c832548",
+          "0ab98c45-fcb5-43cb-b5c3-bc001cd5b333",
+          "15a5a48f-7679-4ced-bf63-ceb66264db7c",
+          "8f9517c6-94ae-4482-a08a-bcf45f6f5e28",
+          "35682963-14ca-496d-bde6-51e330732862",
+          "a22dc8c1-0fa0-4946-a472-b1363f2656e9",
+          "b45e2771-b795-4b67-986d-ffccee8e6809",
+          "ce81c688-6e40-43f8-a895-7e77fd3b9136",
+          "eecd54b3-2adf-487d-a00c-f1d1139c68d7",
+          "88620ef5-e5c0-4d07-8402-76ce027c9d37",
+          "0bbe95c7-73da-428c-9ce5-1da36e9a835c",
+          "3ffcb1a7-8fda-4362-a89a-905b4361d770",
+          "3005e4a0-e0f3-41ce-96f0-ad58f1675079",
+          "16b21505-5e2a-43a4-bf60-c48e49d3731a",
+          "ff43ddca-aadd-4a55-a9ae-c38a25596b7a",
+          "0bdf7e96-a5ea-4687-81a7-c36a6cb3a172",
+          "58477b46-b79a-49a9-9767-9872875dd774",
+          "9bec305e-bf5f-47ad-95be-3a1d4c39dc91",
+          "e2596a67-e704-4c80-91dc-a428fca36124",
+          "4cb6ba2a-07b4-4e04-9bb5-d983b9808683",
+          "9b12b0e9-da2a-4803-803f-b2c4641799cc",
+          "148124a8-bcf3-4f8a-8364-71ec2269977c",
+          "4398406e-eb65-4e84-9972-99f48c1bcaa1",
+          "f08d343c-ffaa-4452-86c1-7d1e13956a4b",
+          "beeb06f2-276e-4040-8ff4-956e1bf62d42",
+          "06d3ed0a-e7e8-44bc-977f-9e36b5ebcaed",
+          "fe413b03-5e7c-4842-aedc-14428122484c",
+          "9be66873-aa42-4fe8-a79a-7036a0a1b57b",
+          "3274e5d9-cfb5-49ad-8c7b-42cb11ba8bc5",
+          "db01c760-4145-4ea4-a853-9351bc3b2f0c",
+          "0af0fd2d-5e7d-4eff-b18b-4acdf0ac4284",
+          "fb360ebe-b1b3-4cb1-81ce-b9796f0771ff",
+          "f1870f26-260b-48de-85c9-7dbfd9973650",
+          "e8a1230e-72d5-4fb0-945a-16872f177d8c",
+          "9ff50bfa-0d3a-4ad5-a44c-d58ba64ce7b6",
+          "d45c6a7a-b4c2-4777-9fe3-2fa0a5eaac8d",
+          "eb64463e-8f9c-45e1-8721-9331a854a588",
+          "500475c3-24aa-4560-9413-87b456189649",
+          "51e23838-9019-4533-9618-c244d30fb8d9",
+          "0e5f5bd8-4d60-48c4-9533-9a7bac578e78",
+          "7355d001-5c8e-4bdf-be48-9c635341258d",
+          "73762ae9-d73c-4bb5-8169-671ef16607bc",
+          "801c571e-a792-46dc-9130-0a74a0050d4b",
+          "5f07e8ef-20ce-4eb4-bee6-8874a5ceb590",
+          "6127577d-5d80-449f-9953-9831b68ba8fe",
+          "24d40ae2-4acb-4fbc-9235-d04724c80d67",
+          "f40501e8-7bef-429e-9c55-35b31453e7da",
+          "6e520dbe-92ba-486d-99fa-6cc73392bf8f",
+          "da33a9fa-1f1d-485c-8182-a633c5e1c366",
+          "e0678052-88d2-44de-8bd6-c7987420a47e",
+          "cde5e39f-71d4-4e66-b44e-06ae91b3e469",
+          "80f885c5-4fbd-4723-9ce5-b01dc088cea1",
+          "3cde8cb5-1996-44b8-8be3-41640e71f796"
+        ]
+      }
+    ],
+    "batches": [
+      {
+        "id": "wall-panel",
+        "count": 3,
+        "placements": [
+          {
+            "id": "tiny:wall:0",
+            "boothId": "tiny",
+            "position": [0.6, 0, 0.3],
+            "yawRadians": -1.5707963267948966,
+            "scale": [0.6, 1, 1]
+          },
+          {
+            "id": "tiny:wall:1",
+            "boothId": "tiny",
+            "position": [0.3, 0, 0.6],
+            "yawRadians": -3.141592653589793,
+            "scale": [0.6, 1, 1]
+          },
+          {
+            "id": "tiny:wall:2",
+            "boothId": "tiny",
+            "position": [0, 0, 0.3],
+            "yawRadians": 1.5707963267948966,
+            "scale": [0.6, 1, 1]
+          }
+        ]
+      }
+    ],
+    "cache": {
+      "commonEntries": 8,
+      "commonUsers": 4,
+      "floorSets": [
+        {
+          "id": "F1",
+          "users": 1
+        }
+      ]
+    },
+    "device": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "coldAssetBytes": 292302,
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "viewport": [1280, 720],
+    "camera": [24, 20, 30],
+    "bodies": 5,
+    "logos": [],
+    "textureMipBytes": 0
+  }
+}

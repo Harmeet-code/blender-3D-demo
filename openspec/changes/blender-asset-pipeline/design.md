@@ -1,8 +1,8 @@
-> Change class: **L**. Proposed implementation; no Blender assets or runtime changes have been made by this change.
+> Change class: **L**. Implementation is present in the working tree as of 2026-10-02. The integrated-GPU laptop acceptance gate remains pending; the change is not archived.
 
 ## Context
 
-See [proposal.md](proposal.md) for motivation. CodeGraph inspection of the current working tree shows:
+See [proposal.md](proposal.md) for motivation. The initial CodeGraph inspection, before implementation, showed:
 
 - `FloorStack.tsx` renders a 40 by 30 plane and booth boxes. Booth depth and center are hard-coded rather than derived from the complete polygon.
 - `building-schema.ts` has F1 at 0 m and B1 at -4 m, a 10 by 8 demo room, optional single portal positions, and stable add-on IDs. Its coordinate comment currently allows pixels or meters without a conversion contract.
@@ -40,7 +40,7 @@ Alternative: correcting every GLB with JSX rotations and scale factors is fast i
 
 ### 2. Separate authoring, release metadata, and browser URLs
 
-Proposed locations:
+Implemented locations:
 
 ```text
 assets-source/blender/<asset-id>/<asset-id>.blend
@@ -161,3 +161,15 @@ Estimate decoded texture bytes from dimensions, channel format, and mip levels, 
 - [Three GLTFLoader](https://threejs.org/docs/pages/GLTFLoader.html): required decoders must be configured for corresponding compressed formats, and image bitmap disposal needs explicit attention.
 
 The supplied notes are useful concept input, not performance evidence. They do not establish Higgsfield's current 3D capabilities, fixed compression savings, guaranteed BVH speedups, or guaranteed GPU crowd performance. Smart UV projection can change seams and destroy an existing texture mapping unless rebaked; do not apply it blindly. Asset-origin contracts, material batches, decoded texture sizes, and shared-resource lifetime are the durable constraints to validate.
+
+## Implementation notes — 2026-10-02
+
+The current viewer uses polygon surfaces, canonical frames or wall modules, deterministic placement, per-floor batches, primitive colliders, instance-owned logo resources, and explicit portal/logistics anchors. Common compiled geometry survives floor switches. Floor-specific instance buffers and colliders unmount immediately; the two-entry floor ledger retains no unused GPU buffers. Floor changes are atomic: there is no animated overlap period, so transition activation has a zero-duration source/destination handoff and never exceeds the specified two-floor limit. Dollhouse is a presentation transform with no active walkthrough bodies.
+
+Calibration, room entrances, service areas, and portal entries can be edited and exported through the shadcn editor. Invalid input preserves the last valid layout. The first implementation also added optional persistence fields in `002_asset_layout_metadata.sql` and compatible repository parsing. That additive migration has not been applied. Deterministic local previews do not require a database; a deployment that persists the optional metadata must apply the migration.
+
+The selected releases remain plain Blender GLBs. The lossless reserialization comparison preserves accessor data and node transforms but produces only small byte savings. No external decoder is required. The native kit uses scalar PBR materials; no procedural textures need baking. Baseline display-case alpha glass and its opaque variant have browser screenshots.
+
+Reservation IDs and request DTOs remain unchanged. The existing drawer never called the reservation endpoint; it previously showed a success toast. The preview implementation now leaves that action disabled and reports the unconnected demo behavior explicitly. The backend reservation contract is covered by the existing tests.
+
+The current computer is an i5-12400F desktop with a GT 710, not the required integrated-GPU laptop. Its measured tour is diagnostic evidence. The release gate and archive remain pending until the designated device is available or the user changes the reference-device requirement.

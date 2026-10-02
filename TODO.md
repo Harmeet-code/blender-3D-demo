@@ -11,6 +11,7 @@ date; park ideas in BACKLOG instead of deleting them. Review weekly.
 
 ## TODO > Now
 
+- [ ] Complete integrated-GPU laptop acceptance and archive `blender-asset-pipeline`; use `reports/assets/website-acceptance.md` protocol #quality
 - [ ] Wire BoothDrawer reserve button to `booth-customize` entity client (`reserveBooth`) #frontend
 - [ ] Render layout from API (`getLayout`) instead of the static demo fixture #frontend
 - [ ] Subscribe WorldPage to presence socket (`shared/api/ws.ts`) and lerp remote avatars #frontend
@@ -21,8 +22,6 @@ date; park ideas in BACKLOG instead of deleting them. Review weekly.
 
 - [ ] Replace straight-line path with recast NavMesh single-floor routing #frontend
 - [ ] Extrude wall polygons into 3D meshes with preset heights #frontend
-- [ ] Render identical booth props via `THREE.InstancedMesh` (one draw call) #frontend
-- [ ] Project uploaded logos via DecalGeometry on booth banners #frontend
 - [ ] Dollhouse stack/unstack animation + wall fading + floor-LOD culling #frontend
 - [ ] Double-click teleport + room-search autopilot #frontend
 - [ ] Invoice + order creation flow on reserve (orders slice) #backend
@@ -39,6 +38,9 @@ date; park ideas in BACKLOG instead of deleting them. Review weekly.
 
 ## DONE
 
+- [x] Complete Blender catalog (14 baseline + 5 variants), calibrated editor, placement, branding, batching, recovery and desktop browser acceptance; laptop release gate pending (2026-10-02)
+- [x] Render repeated props in material batches with independent booth picking IDs (2026-10-02)
+- [x] Attach isolated aspect-preserving logo planes to validated branding sockets (2026-10-02)
 - [x] Initialise Vite + React + R3F + Fastify scaffold (2026-10-01)
 - [x] Feature-slice `src/` for frontend and backend (2026-10-01)
 - [x] Docker + Postgres + Redis compose with migrate/seed (2026-10-01)
@@ -46,3 +48,5 @@ date; park ideas in BACKLOG instead of deleting them. Review weekly.
 - [x] neverthrow Result + typed errors as the standard, both sides (2026-10-02)
 - [x] DTOs with request + response validation on every boundary (2026-10-02)
 - [x] Pino structured logging with redaction, no console.* (2026-10-02)
+
+1. remove old and unwanted PNG and GLB files

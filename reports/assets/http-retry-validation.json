@@ -1,0 +1,262 @@
+{
+  "failure": "HTTP 503",
+  "before": {
+    "probe": {
+      "calls": 18,
+      "mainCalls": 14,
+      "shadowCalls": 4,
+      "triangles": 1580,
+      "geometries": 14,
+      "textures": 1,
+      "pixelRatio": 1,
+      "activeFloors": ["F1"],
+      "assets": [
+        {
+          "id": "floor-tile",
+          "minimumY": -0.20000000298023224,
+          "dimensions": [4, 0.20000000298023224, 4],
+          "resources": ["4d182868-cd6c-4a09-ad93-d2868dd4c117"]
+        },
+        {
+          "id": "wall-panel",
+          "minimumY": 0,
+          "dimensions": [1, 2.5, 0.10000000149011612],
+          "resources": ["01cd0419-a426-4eeb-996b-66523ae4be3a"]
+        }
+      ],
+      "batches": [
+        {
+          "id": "booth-frame",
+          "count": 2,
+          "placements": [
+            {
+              "id": "F1-proof-a:frame",
+              "boothId": "F1-proof-a",
+              "position": [-3, 0, 2],
+              "yawRadians": 0
+            },
+            {
+              "id": "F1-proof-b:frame",
+              "boothId": "F1-proof-b",
+              "position": [3, 0, 2],
+              "yawRadians": 0
+            }
+          ]
+        },
+        {
+          "id": "booth-frame",
+          "count": 2,
+          "placements": [
+            {
+              "id": "F1-proof-a:frame",
+              "boothId": "F1-proof-a",
+              "position": [-3, 0, 2],
+              "yawRadians": 0
+            },
+            {
+              "id": "F1-proof-b:frame",
+              "boothId": "F1-proof-b",
+              "position": [3, 0, 2],
+              "yawRadians": 0
+            }
+          ]
+        },
+        {
+          "id": "table",
+          "count": 2,
+          "placements": [
+            {
+              "id": "F1-proof-a:table",
+              "boothId": "F1-proof-a",
+              "position": [-1.75, 0, 0.5],
+              "yawRadians": 0
+            },
+            {
+              "id": "F1-proof-b:table",
+              "boothId": "F1-proof-b",
+              "position": [4.25, 0, 0.5],
+              "yawRadians": 0
+            }
+          ]
+        }
+      ],
+      "cache": {
+        "commonEntries": 4,
+        "commonUsers": 4,
+        "floorSets": [
+          {
+            "id": "F1",
+            "users": 1
+          }
+        ]
+      },
+      "device": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "coldAssetBytes": 33741,
+      "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+      "viewport": [1280, 720],
+      "camera": [24, 20, 30],
+      "bodies": 8,
+      "logos": [],
+      "textureMipBytes": 0
+    },
+    "drawer": "F1-proof-a\n\nChoose add-ons and preview their placement.\n\nAdd-ons\nDetails\nLogo on event floor banner\nbranding\n\nPreview for this booth.\n\nChair\nobject\n\nPreview for this booth.\n\nTable\nobject\n\nPreview for this booth.\n\nDisplay case\nobject\n\nPreview for this booth.\n\nForklift service\nservice preview\n\nService preview in a designated area.\n\nPallet service\nservice preview\n\nService preview in a designated area.\n\nSafe service\nobject\n\nPreview for this booth.\n\nEarly booth set-up\nservice\n\nService selection; no 3D object.\n\nEarly delivery\nservice\n\nService selection; no 3D object.\n\nExhibitor parking\nservice\n\nService selection; no 3D object.\n\nVisa letter\nservice\n\nService selection; no 3D object.\n\nF1-proof-a:chair unavailable; showing geometry fallback\nRetry assets\nReserve — 2 add-ons\n\nSelections remain in your cart. Reservation is not connected in this demo.\n\nClose"
+  },
+  "after": {
+    "probe": {
+      "calls": 32,
+      "mainCalls": 28,
+      "shadowCalls": 4,
+      "triangles": 2260,
+      "geometries": 16,
+      "textures": 1,
+      "pixelRatio": 1,
+      "activeFloors": ["F1"],
+      "assets": [
+        {
+          "id": "chair",
+          "minimumY": 0,
+          "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+          "resources": [
+            "99d6c4b0-cd78-412b-b021-826844a23ea6",
+            "f6d4f398-2a3c-410e-a327-bf00f792c5e0",
+            "50637b52-e09f-47f5-be5b-63fbcf19b316",
+            "ae39e1dc-0d4a-4b9f-84bb-7d6ab6d29ad3",
+            "d94bbe3e-d168-490f-8976-16c5754483ce",
+            "89af5ece-56e6-48ba-86be-d8980a73a174"
+          ]
+        },
+        {
+          "id": "floor-tile",
+          "minimumY": -0.20000000298023224,
+          "dimensions": [4, 0.20000000298023224, 4],
+          "resources": ["4d182868-cd6c-4a09-ad93-d2868dd4c117"]
+        },
+        {
+          "id": "wall-panel",
+          "minimumY": 0,
+          "dimensions": [1, 2.5, 0.10000000149011612],
+          "resources": ["01cd0419-a426-4eeb-996b-66523ae4be3a"]
+        },
+        {
+          "id": "chair",
+          "minimumY": 0,
+          "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+          "resources": [
+            "99d6c4b0-cd78-412b-b021-826844a23ea6",
+            "f6d4f398-2a3c-410e-a327-bf00f792c5e0",
+            "50637b52-e09f-47f5-be5b-63fbcf19b316",
+            "ae39e1dc-0d4a-4b9f-84bb-7d6ab6d29ad3",
+            "d94bbe3e-d168-490f-8976-16c5754483ce",
+            "89af5ece-56e6-48ba-86be-d8980a73a174"
+          ]
+        },
+        {
+          "id": "chair",
+          "minimumY": 0,
+          "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+          "resources": [
+            "99d6c4b0-cd78-412b-b021-826844a23ea6",
+            "f6d4f398-2a3c-410e-a327-bf00f792c5e0",
+            "50637b52-e09f-47f5-be5b-63fbcf19b316",
+            "ae39e1dc-0d4a-4b9f-84bb-7d6ab6d29ad3",
+            "d94bbe3e-d168-490f-8976-16c5754483ce",
+            "89af5ece-56e6-48ba-86be-d8980a73a174"
+          ]
+        }
+      ],
+      "batches": [
+        {
+          "id": "booth-frame",
+          "count": 2,
+          "placements": [
+            {
+              "id": "F1-proof-a:frame",
+              "boothId": "F1-proof-a",
+              "position": [-3, 0, 2],
+              "yawRadians": 0
+            },
+            {
+              "id": "F1-proof-b:frame",
+              "boothId": "F1-proof-b",
+              "position": [3, 0, 2],
+              "yawRadians": 0
+            }
+          ]
+        },
+        {
+          "id": "booth-frame",
+          "count": 2,
+          "placements": [
+            {
+              "id": "F1-proof-a:frame",
+              "boothId": "F1-proof-a",
+              "position": [-3, 0, 2],
+              "yawRadians": 0
+            },
+            {
+              "id": "F1-proof-b:frame",
+              "boothId": "F1-proof-b",
+              "position": [3, 0, 2],
+              "yawRadians": 0
+            }
+          ]
+        },
+        {
+          "id": "chair",
+          "count": 2,
+          "placements": [
+            {
+              "id": "F1-proof-a:chair",
+              "boothId": "F1-proof-a",
+              "position": [-4.25, 0, 0.5],
+              "yawRadians": 0
+            },
+            {
+              "id": "F1-proof-b:chair",
+              "boothId": "F1-proof-b",
+              "position": [1.75, 0, 0.5],
+              "yawRadians": 0
+            }
+          ]
+        },
+        {
+          "id": "table",
+          "count": 2,
+          "placements": [
+            {
+              "id": "F1-proof-a:table",
+              "boothId": "F1-proof-a",
+              "position": [-1.75, 0, 0.5],
+              "yawRadians": 0
+            },
+            {
+              "id": "F1-proof-b:table",
+              "boothId": "F1-proof-b",
+              "position": [4.25, 0, 0.5],
+              "yawRadians": 0
+            }
+          ]
+        }
+      ],
+      "cache": {
+        "commonEntries": 5,
+        "commonUsers": 8,
+        "floorSets": [
+          {
+            "id": "F1",
+            "users": 1
+          }
+        ]
+      },
+      "device": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "coldAssetBytes": 48429,
+      "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+      "viewport": [1280, 720],
+      "camera": [24, 20, 30],
+      "bodies": 8,
+      "logos": [],
+      "textureMipBytes": 0
+    },
+    "drawer": "F1-proof-a\n\nChoose add-ons and preview their placement.\n\nAdd-ons\nDetails\nLogo on event floor banner\nbranding\n\nPreview for this booth.\n\nChair\nobject\n\nPreview for this booth.\n\nTable\nobject\n\nPreview for this booth.\n\nDisplay case\nobject\n\nPreview for this booth.\n\nForklift service\nservice preview\n\nService preview in a designated area.\n\nPallet service\nservice preview\n\nService preview in a designated area.\n\nSafe service\nobject\n\nPreview for this booth.\n\nEarly booth set-up\nservice\n\nService selection; no 3D object.\n\nEarly delivery\nservice\n\nService selection; no 3D object.\n\nExhibitor parking\nservice\n\nService selection; no 3D object.\n\nVisa letter\nservice\n\nService selection; no 3D object.\n\nReserve — 2 add-ons\n\nSelections remain in your cart. Reservation is not connected in this demo.\n\nClose"
+  }
+}

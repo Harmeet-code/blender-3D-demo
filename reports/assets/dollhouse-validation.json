@@ -1,0 +1,296 @@
+{
+  "calls": 68,
+  "mainCalls": 68,
+  "shadowCalls": 0,
+  "triangles": 2096,
+  "geometries": 284,
+  "textures": 1,
+  "pixelRatio": 1,
+  "activeFloors": ["B1", "F1"],
+  "assets": [
+    {
+      "id": "stairs",
+      "minimumY": -4.100000001490116,
+      "dimensions": [2, 5.154999982565641, 8],
+      "resources": [
+        "1fe26226-3135-44b9-b8a1-280354f53a9e",
+        "cff9207f-2106-4135-b078-b89dc46af69a",
+        "41467d56-47d2-43cf-aa51-6558cecda9b4",
+        "f09fd4dd-b82a-4600-9164-d21ba4b41b77",
+        "b0180e03-3c37-4d3d-9ea8-ef72eb9dae96",
+        "06b55f92-14eb-41ed-9015-c3db9c6fa073",
+        "763cac6e-69a1-47c9-8383-81a72cfee2a8",
+        "cab431df-75a4-4ce4-af0f-af97bfc76378",
+        "0334abd8-d594-4680-991a-aea5e89053b0",
+        "378ad37d-4bb3-4a5a-a480-b8f8f6a4b508",
+        "4ba3c89e-1eb8-471f-b6c4-b25afd34f10a",
+        "f2e5ed6a-ea35-4bf9-b79f-7085a7d0c9a1",
+        "d47d8838-b93a-4a62-9e86-763c55d9b285"
+      ]
+    },
+    {
+      "id": "floor-tile",
+      "minimumY": -4.200000002980232,
+      "dimensions": [4, 0.20000000298023224, 4],
+      "resources": ["03e4a654-bf06-45fb-be70-b6ac8c479011"]
+    },
+    {
+      "id": "wall-panel",
+      "minimumY": -4,
+      "dimensions": [1, 2.5, 0.10000000149011612],
+      "resources": ["26f2e86a-a0a6-47a6-beab-bd4b1a8d98b5"]
+    },
+    {
+      "id": "chair",
+      "minimumY": -4,
+      "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+      "resources": [
+        "a9631149-29c3-42a2-b153-c6432c381674",
+        "f4ca2949-8e5d-48e9-9baa-f619b1d942d9",
+        "d51f1711-e5af-4600-9732-13053f8c0bf9",
+        "3db9e7b7-840e-479e-94a9-1e866e44c5a0",
+        "f5d33b66-605d-471d-8a92-c3b180144d45",
+        "c4dd1698-0993-4812-a317-74ce2ca4b432"
+      ]
+    },
+    {
+      "id": "chair",
+      "minimumY": -4,
+      "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+      "resources": [
+        "a9631149-29c3-42a2-b153-c6432c381674",
+        "f4ca2949-8e5d-48e9-9baa-f619b1d942d9",
+        "d51f1711-e5af-4600-9732-13053f8c0bf9",
+        "3db9e7b7-840e-479e-94a9-1e866e44c5a0",
+        "f5d33b66-605d-471d-8a92-c3b180144d45",
+        "c4dd1698-0993-4812-a317-74ce2ca4b432"
+      ]
+    },
+    {
+      "id": "stairs",
+      "minimumY": 7.899999998509884,
+      "dimensions": [2, 5.154999982565641, 8],
+      "resources": [
+        "1fe26226-3135-44b9-b8a1-280354f53a9e",
+        "cff9207f-2106-4135-b078-b89dc46af69a",
+        "41467d56-47d2-43cf-aa51-6558cecda9b4",
+        "f09fd4dd-b82a-4600-9164-d21ba4b41b77",
+        "b0180e03-3c37-4d3d-9ea8-ef72eb9dae96",
+        "06b55f92-14eb-41ed-9015-c3db9c6fa073",
+        "763cac6e-69a1-47c9-8383-81a72cfee2a8",
+        "cab431df-75a4-4ce4-af0f-af97bfc76378",
+        "0334abd8-d594-4680-991a-aea5e89053b0",
+        "378ad37d-4bb3-4a5a-a480-b8f8f6a4b508",
+        "4ba3c89e-1eb8-471f-b6c4-b25afd34f10a",
+        "f2e5ed6a-ea35-4bf9-b79f-7085a7d0c9a1",
+        "d47d8838-b93a-4a62-9e86-763c55d9b285"
+      ]
+    },
+    {
+      "id": "floor-tile",
+      "minimumY": 7.799999997019768,
+      "dimensions": [4, 0.20000000298023224, 4],
+      "resources": ["03e4a654-bf06-45fb-be70-b6ac8c479011"]
+    },
+    {
+      "id": "wall-panel",
+      "minimumY": 8,
+      "dimensions": [1, 2.5, 0.10000000149011612],
+      "resources": ["26f2e86a-a0a6-47a6-beab-bd4b1a8d98b5"]
+    },
+    {
+      "id": "chair",
+      "minimumY": 8,
+      "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+      "resources": [
+        "a9631149-29c3-42a2-b153-c6432c381674",
+        "f4ca2949-8e5d-48e9-9baa-f619b1d942d9",
+        "d51f1711-e5af-4600-9732-13053f8c0bf9",
+        "3db9e7b7-840e-479e-94a9-1e866e44c5a0",
+        "f5d33b66-605d-471d-8a92-c3b180144d45",
+        "c4dd1698-0993-4812-a317-74ce2ca4b432"
+      ]
+    },
+    {
+      "id": "chair",
+      "minimumY": 8,
+      "dimensions": [0.5, 0.8499999791383743, 0.550000011920929],
+      "resources": [
+        "a9631149-29c3-42a2-b153-c6432c381674",
+        "f4ca2949-8e5d-48e9-9baa-f619b1d942d9",
+        "d51f1711-e5af-4600-9732-13053f8c0bf9",
+        "3db9e7b7-840e-479e-94a9-1e866e44c5a0",
+        "f5d33b66-605d-471d-8a92-c3b180144d45",
+        "c4dd1698-0993-4812-a317-74ce2ca4b432"
+      ]
+    }
+  ],
+  "batches": [
+    {
+      "id": "booth-frame",
+      "count": 2,
+      "placements": [
+        {
+          "id": "B1-proof-a:frame",
+          "boothId": "B1-proof-a",
+          "position": [-3, 0, 2],
+          "yawRadians": 0
+        },
+        {
+          "id": "B1-proof-b:frame",
+          "boothId": "B1-proof-b",
+          "position": [3, 0, 2],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "booth-frame",
+      "count": 2,
+      "placements": [
+        {
+          "id": "B1-proof-a:frame",
+          "boothId": "B1-proof-a",
+          "position": [-3, 0, 2],
+          "yawRadians": 0
+        },
+        {
+          "id": "B1-proof-b:frame",
+          "boothId": "B1-proof-b",
+          "position": [3, 0, 2],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "chair",
+      "count": 2,
+      "placements": [
+        {
+          "id": "B1-proof-a:chair",
+          "boothId": "B1-proof-a",
+          "position": [-4.25, 0, 0.5],
+          "yawRadians": 0
+        },
+        {
+          "id": "B1-proof-b:chair",
+          "boothId": "B1-proof-b",
+          "position": [1.75, 0, 0.5],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "table",
+      "count": 2,
+      "placements": [
+        {
+          "id": "B1-proof-a:table",
+          "boothId": "B1-proof-a",
+          "position": [-1.75, 0, 0.5],
+          "yawRadians": 0
+        },
+        {
+          "id": "B1-proof-b:table",
+          "boothId": "B1-proof-b",
+          "position": [4.25, 0, 0.5],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "booth-frame",
+      "count": 2,
+      "placements": [
+        {
+          "id": "F1-proof-a:frame",
+          "boothId": "F1-proof-a",
+          "position": [-3, 0, 2],
+          "yawRadians": 0
+        },
+        {
+          "id": "F1-proof-b:frame",
+          "boothId": "F1-proof-b",
+          "position": [3, 0, 2],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "booth-frame",
+      "count": 2,
+      "placements": [
+        {
+          "id": "F1-proof-a:frame",
+          "boothId": "F1-proof-a",
+          "position": [-3, 0, 2],
+          "yawRadians": 0
+        },
+        {
+          "id": "F1-proof-b:frame",
+          "boothId": "F1-proof-b",
+          "position": [3, 0, 2],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "chair",
+      "count": 2,
+      "placements": [
+        {
+          "id": "F1-proof-a:chair",
+          "boothId": "F1-proof-a",
+          "position": [-4.25, 0, 0.5],
+          "yawRadians": 0
+        },
+        {
+          "id": "F1-proof-b:chair",
+          "boothId": "F1-proof-b",
+          "position": [1.75, 0, 0.5],
+          "yawRadians": 0
+        }
+      ]
+    },
+    {
+      "id": "table",
+      "count": 2,
+      "placements": [
+        {
+          "id": "F1-proof-a:table",
+          "boothId": "F1-proof-a",
+          "position": [-1.75, 0, 0.5],
+          "yawRadians": 0
+        },
+        {
+          "id": "F1-proof-b:table",
+          "boothId": "F1-proof-b",
+          "position": [4.25, 0, 0.5],
+          "yawRadians": 0
+        }
+      ]
+    }
+  ],
+  "cache": {
+    "commonEntries": 19,
+    "commonUsers": 16,
+    "floorSets": [
+      {
+        "id": "F1",
+        "users": 1
+      },
+      {
+        "id": "B1",
+        "users": 1
+      }
+    ]
+  },
+  "device": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "coldAssetBytes": 532144,
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+  "viewport": [1280, 720],
+  "camera": [24, 20, 30],
+  "bodies": 0,
+  "logos": [],
+  "textureMipBytes": 0
+}

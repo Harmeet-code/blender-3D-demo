@@ -1,0 +1,1923 @@
+{
+  "scope": "Development browser acceptance on GT 710",
+  "logoChecks": [
+    {
+      "fixture": "square.png",
+      "result": "\n\nsquare.png\n\n"
+    },
+    {
+      "fixture": "invalid.png",
+      "result": "\n\nsquare.png\n\nThis image could not be decoded. Choose another file.\n"
+    },
+    {
+      "fixture": "oversized.png",
+      "result": "\n\nsquare.png\n\nLogo dimensions must be between 1 and 2048 pixels.\n"
+    },
+    {
+      "fixture": "large.png",
+      "result": "\n\nsquare.png\n\nChoose PNG, JPEG, or WebP up to 2 MiB.\n"
+    },
+    {
+      "fixture": "jpeg.jpg",
+      "result": "\n\njpeg.jpg\n\n"
+    },
+    {
+      "fixture": "webp.webp",
+      "result": "\n\nwebp.webp\n\n"
+    },
+    {
+      "fixture": "wide.png",
+      "result": "\n\nwide.png\n\n"
+    }
+  ],
+  "beforeSwitches": {
+    "calls": 91,
+    "mainCalls": 91,
+    "shadowCalls": 0,
+    "triangles": 11062,
+    "geometries": 91,
+    "textures": 1,
+    "pixelRatio": 1,
+    "activeFloors": ["F1"],
+    "assets": [
+      {
+        "id": "booth-frame",
+        "boothId": "F1-booth-01",
+        "minimumY": 0,
+        "dimensions": [4.000000096857548, 2.5, 4.000000096857548],
+        "resources": [
+          "d1ffcdac-0641-45c4-ab23-63aeafaba66a",
+          "a76366ce-218e-4d2b-986f-70719e79a812",
+          "1580788d-a261-46ca-8ff9-0746074d1256",
+          "1e4a5478-4dd2-429e-8cbd-8656aca655dd"
+        ]
+      },
+      {
+        "id": "forklift",
+        "minimumY": 0,
+        "dimensions": [1.1999999731779099, 2.200000075623393, 3],
+        "resources": [
+          "8ea1e106-6448-4171-bcb9-609243b50052",
+          "e08125fd-eac9-4005-9b39-fb1050889700",
+          "d9a6765d-a6bb-4133-92a8-e740c60462b8",
+          "4e694a5e-547f-4187-b4ae-8874d0098ea3",
+          "2a0a5cba-06ff-4a42-8ced-50efc8a37247",
+          "cabe3141-aebd-4115-b193-5937520d853c",
+          "c54422fc-325e-4705-b90d-dc76f477c751",
+          "d614d179-cee7-4421-944f-e600b1b447f6",
+          "12159826-6094-4392-97a5-b0b66f02e47e",
+          "eb97653c-5af2-41f5-8bc1-2fbfa6a5751b",
+          "51c5ed72-c000-478c-91d1-b8aff2b01743",
+          "81c757e2-e50f-4420-9a59-42ff9c0909f0",
+          "000b7c43-d850-4cfd-b2a3-923a634f15cb",
+          "6431df8a-1477-4c23-b06a-02cbbef52033",
+          "08c58f81-f528-4a6e-9473-1b74a3bd4473",
+          "3688115a-c961-4519-81f0-6bdbb66b78a3",
+          "a27f9fe4-7766-4425-854f-86fb0b76e190"
+        ]
+      },
+      {
+        "id": "pallet",
+        "minimumY": 0,
+        "dimensions": [1.2000000476837158, 0.14999999292194843, 0.800000011920929],
+        "resources": [
+          "b6ff1401-5108-41b5-9282-a6d971409068",
+          "29c730b6-bc67-4086-adc0-eb5ab57ff7ff",
+          "b48a1a4e-473e-4236-8a09-40806ad75125",
+          "c3369f8e-1ef5-4fd0-a8f8-02e0d380bebf",
+          "1e4f3c4b-c334-4535-a1aa-f1648866868d",
+          "b7089efb-6160-4030-9a7f-9c958e90b757",
+          "1c584f95-458c-4b14-bb57-379050cf6858",
+          "8bead8ca-8837-4819-9721-16fd44700e07",
+          "5424df9d-5468-43b9-a7ba-0f41d34b80df",
+          "49286b0a-5fa4-4f44-a7d0-b697616da222",
+          "e6bb9816-79f9-4d24-b3c3-0c25265876cd",
+          "da35db5d-58ae-42bc-a09c-9c6da0ba5e5d",
+          "a31347b9-2838-4e8c-a873-1ae14b648a7e",
+          "8c1daccc-a0a9-4930-bada-661dec6d29dd",
+          "ef5f931c-b1c3-4306-871b-30e2cd358f02",
+          "6e3cee3a-d43a-4353-b889-c151da4aa82e",
+          "880d72a1-2f30-47fe-b6e8-5c9840733b92"
+        ]
+      },
+      {
+        "id": "elevator-entrance",
+        "minimumY": -0.05000000074505806,
+        "dimensions": [1.9999999552965164, 2.650000002235174, 0.30000001192092896],
+        "resources": [
+          "9ec714bb-13f1-43d0-8c6c-d3e8d8882f6e",
+          "ee5e2b4e-3c42-464c-bfbe-fc768a01cc0d",
+          "3da0cb16-0833-434d-93fe-8e98806093c6",
+          "e9a3f277-898e-4b71-ab13-75e2eaee4c38",
+          "e8be0c00-0b3c-4f52-8115-0626022167cd",
+          "34d3bb65-c10b-4101-8032-8df8afc2f313",
+          "2a21811a-ff06-4ced-8e36-805e9e56b0f0"
+        ]
+      },
+      {
+        "id": "stairs",
+        "minimumY": -4.100000001490116,
+        "dimensions": [2, 5.154999982565641, 8],
+        "resources": [
+          "4f24a4fa-c038-4f9e-9a9d-73bc9c6e043d",
+          "e99ee62a-e963-473b-a487-ef931535df4a",
+          "7e109379-0482-439b-9cf0-14638b238fc0",
+          "378df38f-f4a7-4929-af7d-922ca3ccde0d",
+          "1da05d49-775d-47e9-a67a-e7d268c695ad",
+          "7c45a42f-7b16-4fad-a32b-af436d6c15cf",
+          "bb475c39-e81b-47b2-8951-be55baf85d4e",
+          "e11d8675-bb79-42c4-978a-f64325572061",
+          "69ee1071-1c92-449b-8616-d9f21c048069",
+          "8181f24f-2582-47b8-8202-2737901ba481",
+          "9ae0fc4d-50fc-47e4-b6b4-5001e7a8b905",
+          "0f965cd7-ddce-4e3e-8c2e-e35e3ab3bcef",
+          "b5975a8a-044e-48b8-91ac-c64253bd3389"
+        ]
+      },
+      {
+        "id": "escalator-entrance",
+        "minimumY": -4.100000001490116,
+        "dimensions": [2, 5.1548315063118935, 8],
+        "resources": [
+          "74f52a3a-8ff0-4260-a822-1aeb6afec1f2",
+          "b65a171c-ed76-4003-bb8c-ff8a03cba906",
+          "7956ab59-9bf5-4ed4-a6f2-0f3881f13f15",
+          "91218c41-9d5e-49ed-86be-7504fd7d20c8",
+          "292a3aa0-573e-4dd9-acec-12eee6b221a9",
+          "a03baae4-9e53-41ab-84a8-1f962d93cc3b",
+          "a6f33964-b770-4eda-8732-c46ae7ef08ed",
+          "86655bc6-dc50-4bed-bcd5-816a5e2f2ed3",
+          "46b05b8f-60fb-406c-b156-90c05cf0dfa4",
+          "70425465-39ed-488f-a1cb-99f1d5883205",
+          "c1d9e042-98dc-4bdc-a6e6-a4381bf47db0",
+          "e96b3ea5-df37-4b1e-b93b-a88611a5c557",
+          "5195cba3-314e-4bd3-9a21-c4b831e334bc"
+        ]
+      }
+    ],
+    "batches": [
+      {
+        "id": "table",
+        "count": 20,
+        "placements": [
+          {
+            "id": "F1-booth-01:table",
+            "boothId": "F1-booth-01",
+            "position": [-15.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-02:table",
+            "boothId": "F1-booth-02",
+            "position": [-6.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:table",
+            "boothId": "F1-booth-03",
+            "position": [0.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:table",
+            "boothId": "F1-booth-04",
+            "position": [6.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:table",
+            "boothId": "F1-booth-05",
+            "position": [13.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:table",
+            "boothId": "F1-booth-06",
+            "position": [-12.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:table",
+            "boothId": "F1-booth-07",
+            "position": [-6.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:table",
+            "boothId": "F1-booth-08",
+            "position": [0.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:table",
+            "boothId": "F1-booth-09",
+            "position": [6.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:table",
+            "boothId": "F1-booth-10",
+            "position": [13.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:table",
+            "boothId": "F1-booth-11",
+            "position": [-12.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:table",
+            "boothId": "F1-booth-12",
+            "position": [-6.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:table",
+            "boothId": "F1-booth-13",
+            "position": [0.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:table",
+            "boothId": "F1-booth-14",
+            "position": [6.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:table",
+            "boothId": "F1-booth-15",
+            "position": [13.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:table",
+            "boothId": "F1-booth-16",
+            "position": [-12.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:table",
+            "boothId": "F1-booth-17",
+            "position": [-6.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:table",
+            "boothId": "F1-booth-18",
+            "position": [0.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:table",
+            "boothId": "F1-booth-19",
+            "position": [6.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:table",
+            "boothId": "F1-booth-20",
+            "position": [13.25, 0, 5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "display-case",
+        "count": 20,
+        "placements": [
+          {
+            "id": "F1-booth-01:display-case",
+            "boothId": "F1-booth-01",
+            "position": [-12.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-02:display-case",
+            "boothId": "F1-booth-02",
+            "position": [-7.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:display-case",
+            "boothId": "F1-booth-03",
+            "position": [-1.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:display-case",
+            "boothId": "F1-booth-04",
+            "position": [5.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:display-case",
+            "boothId": "F1-booth-05",
+            "position": [11.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:display-case",
+            "boothId": "F1-booth-06",
+            "position": [-14.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:display-case",
+            "boothId": "F1-booth-07",
+            "position": [-7.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:display-case",
+            "boothId": "F1-booth-08",
+            "position": [-1.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:display-case",
+            "boothId": "F1-booth-09",
+            "position": [5.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:display-case",
+            "boothId": "F1-booth-10",
+            "position": [11.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:display-case",
+            "boothId": "F1-booth-11",
+            "position": [-14.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:display-case",
+            "boothId": "F1-booth-12",
+            "position": [-7.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:display-case",
+            "boothId": "F1-booth-13",
+            "position": [-1.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:display-case",
+            "boothId": "F1-booth-14",
+            "position": [5.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:display-case",
+            "boothId": "F1-booth-15",
+            "position": [11.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:display-case",
+            "boothId": "F1-booth-16",
+            "position": [-14.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:display-case",
+            "boothId": "F1-booth-17",
+            "position": [-7.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:display-case",
+            "boothId": "F1-booth-18",
+            "position": [-1.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:display-case",
+            "boothId": "F1-booth-19",
+            "position": [5.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:display-case",
+            "boothId": "F1-booth-20",
+            "position": [11.75, 0, 5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "display-case",
+        "count": 20,
+        "placements": [
+          {
+            "id": "F1-booth-01:display-case",
+            "boothId": "F1-booth-01",
+            "position": [-12.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-02:display-case",
+            "boothId": "F1-booth-02",
+            "position": [-7.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:display-case",
+            "boothId": "F1-booth-03",
+            "position": [-1.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:display-case",
+            "boothId": "F1-booth-04",
+            "position": [5.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:display-case",
+            "boothId": "F1-booth-05",
+            "position": [11.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:display-case",
+            "boothId": "F1-booth-06",
+            "position": [-14.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:display-case",
+            "boothId": "F1-booth-07",
+            "position": [-7.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:display-case",
+            "boothId": "F1-booth-08",
+            "position": [-1.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:display-case",
+            "boothId": "F1-booth-09",
+            "position": [5.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:display-case",
+            "boothId": "F1-booth-10",
+            "position": [11.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:display-case",
+            "boothId": "F1-booth-11",
+            "position": [-14.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:display-case",
+            "boothId": "F1-booth-12",
+            "position": [-7.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:display-case",
+            "boothId": "F1-booth-13",
+            "position": [-1.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:display-case",
+            "boothId": "F1-booth-14",
+            "position": [5.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:display-case",
+            "boothId": "F1-booth-15",
+            "position": [11.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:display-case",
+            "boothId": "F1-booth-16",
+            "position": [-14.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:display-case",
+            "boothId": "F1-booth-17",
+            "position": [-7.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:display-case",
+            "boothId": "F1-booth-18",
+            "position": [-1.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:display-case",
+            "boothId": "F1-booth-19",
+            "position": [5.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:display-case",
+            "boothId": "F1-booth-20",
+            "position": [11.75, 0, 5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "booth-frame",
+        "count": 19,
+        "placements": [
+          {
+            "id": "F1-booth-02:frame",
+            "boothId": "F1-booth-02",
+            "position": [-7.5, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:frame",
+            "boothId": "F1-booth-03",
+            "position": [-1, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:frame",
+            "boothId": "F1-booth-04",
+            "position": [5.5, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:frame",
+            "boothId": "F1-booth-05",
+            "position": [12, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:frame",
+            "boothId": "F1-booth-06",
+            "position": [-14, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:frame",
+            "boothId": "F1-booth-07",
+            "position": [-7.5, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:frame",
+            "boothId": "F1-booth-08",
+            "position": [-1, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:frame",
+            "boothId": "F1-booth-09",
+            "position": [5.5, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:frame",
+            "boothId": "F1-booth-10",
+            "position": [12, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:frame",
+            "boothId": "F1-booth-11",
+            "position": [-14, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:frame",
+            "boothId": "F1-booth-12",
+            "position": [-7.5, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:frame",
+            "boothId": "F1-booth-13",
+            "position": [-1, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:frame",
+            "boothId": "F1-booth-14",
+            "position": [5.5, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:frame",
+            "boothId": "F1-booth-15",
+            "position": [12, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:frame",
+            "boothId": "F1-booth-16",
+            "position": [-14, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:frame",
+            "boothId": "F1-booth-17",
+            "position": [-7.5, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:frame",
+            "boothId": "F1-booth-18",
+            "position": [-1, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:frame",
+            "boothId": "F1-booth-19",
+            "position": [5.5, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:frame",
+            "boothId": "F1-booth-20",
+            "position": [12, 0, 6.5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "booth-frame",
+        "count": 19,
+        "placements": [
+          {
+            "id": "F1-booth-02:frame",
+            "boothId": "F1-booth-02",
+            "position": [-7.5, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:frame",
+            "boothId": "F1-booth-03",
+            "position": [-1, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:frame",
+            "boothId": "F1-booth-04",
+            "position": [5.5, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:frame",
+            "boothId": "F1-booth-05",
+            "position": [12, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:frame",
+            "boothId": "F1-booth-06",
+            "position": [-14, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:frame",
+            "boothId": "F1-booth-07",
+            "position": [-7.5, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:frame",
+            "boothId": "F1-booth-08",
+            "position": [-1, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:frame",
+            "boothId": "F1-booth-09",
+            "position": [5.5, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:frame",
+            "boothId": "F1-booth-10",
+            "position": [12, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:frame",
+            "boothId": "F1-booth-11",
+            "position": [-14, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:frame",
+            "boothId": "F1-booth-12",
+            "position": [-7.5, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:frame",
+            "boothId": "F1-booth-13",
+            "position": [-1, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:frame",
+            "boothId": "F1-booth-14",
+            "position": [5.5, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:frame",
+            "boothId": "F1-booth-15",
+            "position": [12, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:frame",
+            "boothId": "F1-booth-16",
+            "position": [-14, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:frame",
+            "boothId": "F1-booth-17",
+            "position": [-7.5, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:frame",
+            "boothId": "F1-booth-18",
+            "position": [-1, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:frame",
+            "boothId": "F1-booth-19",
+            "position": [5.5, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:frame",
+            "boothId": "F1-booth-20",
+            "position": [12, 0, 6.5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "chair",
+        "count": 19,
+        "placements": [
+          {
+            "id": "F1-booth-02:chair",
+            "boothId": "F1-booth-02",
+            "position": [-8.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:chair",
+            "boothId": "F1-booth-03",
+            "position": [-2.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:chair",
+            "boothId": "F1-booth-04",
+            "position": [4.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:chair",
+            "boothId": "F1-booth-05",
+            "position": [10.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:chair",
+            "boothId": "F1-booth-06",
+            "position": [-15.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:chair",
+            "boothId": "F1-booth-07",
+            "position": [-8.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:chair",
+            "boothId": "F1-booth-08",
+            "position": [-2.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:chair",
+            "boothId": "F1-booth-09",
+            "position": [4.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:chair",
+            "boothId": "F1-booth-10",
+            "position": [10.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:chair",
+            "boothId": "F1-booth-11",
+            "position": [-15.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:chair",
+            "boothId": "F1-booth-12",
+            "position": [-8.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:chair",
+            "boothId": "F1-booth-13",
+            "position": [-2.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:chair",
+            "boothId": "F1-booth-14",
+            "position": [4.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:chair",
+            "boothId": "F1-booth-15",
+            "position": [10.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:chair",
+            "boothId": "F1-booth-16",
+            "position": [-15.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:chair",
+            "boothId": "F1-booth-17",
+            "position": [-8.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:chair",
+            "boothId": "F1-booth-18",
+            "position": [-2.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:chair",
+            "boothId": "F1-booth-19",
+            "position": [4.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:chair",
+            "boothId": "F1-booth-20",
+            "position": [10.75, 0, 5],
+            "yawRadians": 0
+          }
+        ]
+      }
+    ],
+    "cache": {
+      "commonEntries": 9,
+      "commonUsers": 10,
+      "floorSets": [
+        {
+          "id": "F1",
+          "users": 1
+        }
+      ]
+    },
+    "device": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "coldAssetBytes": 180058,
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "viewport": [1384, 704],
+    "camera": [24, 20, 30],
+    "bodies": 83,
+    "logos": [
+      {
+        "boothId": "F1-booth-01",
+        "name": "wide.png",
+        "dimensions": [1.5, 0.24],
+        "sourcePixels": [1000, 160],
+        "textureId": "38f9fdc3-977a-475d-8468-ac36c79328f5"
+      }
+    ],
+    "textureMipBytes": 853333.3333333334
+  },
+  "twentySwitches": [
+    {
+      "step": 1,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 2,
+      "floor": "Ground Floor",
+      "checked": "true"
+    },
+    {
+      "step": 3,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 4,
+      "floor": "Ground Floor",
+      "checked": "true"
+    },
+    {
+      "step": 5,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 6,
+      "floor": "Ground Floor",
+      "checked": "true"
+    },
+    {
+      "step": 7,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 8,
+      "floor": "Ground Floor",
+      "checked": "true"
+    },
+    {
+      "step": 9,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 10,
+      "floor": "Ground Floor",
+      "checked": "true"
+    },
+    {
+      "step": 11,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 12,
+      "floor": "Ground Floor",
+      "checked": "true"
+    },
+    {
+      "step": 13,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 14,
+      "floor": "Ground Floor",
+      "checked": "true"
+    },
+    {
+      "step": 15,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 16,
+      "floor": "Ground Floor",
+      "checked": "true"
+    },
+    {
+      "step": 17,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 18,
+      "floor": "Ground Floor",
+      "checked": "true"
+    },
+    {
+      "step": 19,
+      "floor": "Underground",
+      "checked": "true"
+    },
+    {
+      "step": 20,
+      "floor": "Ground Floor",
+      "checked": "true"
+    }
+  ],
+  "afterSwitches": {
+    "calls": 91,
+    "mainCalls": 91,
+    "shadowCalls": 0,
+    "triangles": 11062,
+    "geometries": 91,
+    "textures": 1,
+    "pixelRatio": 1,
+    "activeFloors": ["F1"],
+    "assets": [
+      {
+        "id": "booth-frame",
+        "boothId": "F1-booth-01",
+        "minimumY": 0,
+        "dimensions": [4.000000096857548, 2.5, 4.000000096857548],
+        "resources": [
+          "d1ffcdac-0641-45c4-ab23-63aeafaba66a",
+          "a76366ce-218e-4d2b-986f-70719e79a812",
+          "1580788d-a261-46ca-8ff9-0746074d1256",
+          "1e4a5478-4dd2-429e-8cbd-8656aca655dd"
+        ]
+      },
+      {
+        "id": "forklift",
+        "minimumY": 0,
+        "dimensions": [1.1999999731779099, 2.200000075623393, 3],
+        "resources": [
+          "8ea1e106-6448-4171-bcb9-609243b50052",
+          "e08125fd-eac9-4005-9b39-fb1050889700",
+          "d9a6765d-a6bb-4133-92a8-e740c60462b8",
+          "4e694a5e-547f-4187-b4ae-8874d0098ea3",
+          "2a0a5cba-06ff-4a42-8ced-50efc8a37247",
+          "cabe3141-aebd-4115-b193-5937520d853c",
+          "c54422fc-325e-4705-b90d-dc76f477c751",
+          "d614d179-cee7-4421-944f-e600b1b447f6",
+          "12159826-6094-4392-97a5-b0b66f02e47e",
+          "eb97653c-5af2-41f5-8bc1-2fbfa6a5751b",
+          "51c5ed72-c000-478c-91d1-b8aff2b01743",
+          "81c757e2-e50f-4420-9a59-42ff9c0909f0",
+          "000b7c43-d850-4cfd-b2a3-923a634f15cb",
+          "6431df8a-1477-4c23-b06a-02cbbef52033",
+          "08c58f81-f528-4a6e-9473-1b74a3bd4473",
+          "3688115a-c961-4519-81f0-6bdbb66b78a3",
+          "a27f9fe4-7766-4425-854f-86fb0b76e190"
+        ]
+      },
+      {
+        "id": "pallet",
+        "minimumY": 0,
+        "dimensions": [1.2000000476837158, 0.14999999292194843, 0.800000011920929],
+        "resources": [
+          "b6ff1401-5108-41b5-9282-a6d971409068",
+          "29c730b6-bc67-4086-adc0-eb5ab57ff7ff",
+          "b48a1a4e-473e-4236-8a09-40806ad75125",
+          "c3369f8e-1ef5-4fd0-a8f8-02e0d380bebf",
+          "1e4f3c4b-c334-4535-a1aa-f1648866868d",
+          "b7089efb-6160-4030-9a7f-9c958e90b757",
+          "1c584f95-458c-4b14-bb57-379050cf6858",
+          "8bead8ca-8837-4819-9721-16fd44700e07",
+          "5424df9d-5468-43b9-a7ba-0f41d34b80df",
+          "49286b0a-5fa4-4f44-a7d0-b697616da222",
+          "e6bb9816-79f9-4d24-b3c3-0c25265876cd",
+          "da35db5d-58ae-42bc-a09c-9c6da0ba5e5d",
+          "a31347b9-2838-4e8c-a873-1ae14b648a7e",
+          "8c1daccc-a0a9-4930-bada-661dec6d29dd",
+          "ef5f931c-b1c3-4306-871b-30e2cd358f02",
+          "6e3cee3a-d43a-4353-b889-c151da4aa82e",
+          "880d72a1-2f30-47fe-b6e8-5c9840733b92"
+        ]
+      },
+      {
+        "id": "elevator-entrance",
+        "minimumY": -0.05000000074505806,
+        "dimensions": [1.9999999552965164, 2.650000002235174, 0.30000001192092896],
+        "resources": [
+          "9ec714bb-13f1-43d0-8c6c-d3e8d8882f6e",
+          "ee5e2b4e-3c42-464c-bfbe-fc768a01cc0d",
+          "3da0cb16-0833-434d-93fe-8e98806093c6",
+          "e9a3f277-898e-4b71-ab13-75e2eaee4c38",
+          "e8be0c00-0b3c-4f52-8115-0626022167cd",
+          "34d3bb65-c10b-4101-8032-8df8afc2f313",
+          "2a21811a-ff06-4ced-8e36-805e9e56b0f0"
+        ]
+      },
+      {
+        "id": "stairs",
+        "minimumY": -4.100000001490116,
+        "dimensions": [2, 5.154999982565641, 8],
+        "resources": [
+          "4f24a4fa-c038-4f9e-9a9d-73bc9c6e043d",
+          "e99ee62a-e963-473b-a487-ef931535df4a",
+          "7e109379-0482-439b-9cf0-14638b238fc0",
+          "378df38f-f4a7-4929-af7d-922ca3ccde0d",
+          "1da05d49-775d-47e9-a67a-e7d268c695ad",
+          "7c45a42f-7b16-4fad-a32b-af436d6c15cf",
+          "bb475c39-e81b-47b2-8951-be55baf85d4e",
+          "e11d8675-bb79-42c4-978a-f64325572061",
+          "69ee1071-1c92-449b-8616-d9f21c048069",
+          "8181f24f-2582-47b8-8202-2737901ba481",
+          "9ae0fc4d-50fc-47e4-b6b4-5001e7a8b905",
+          "0f965cd7-ddce-4e3e-8c2e-e35e3ab3bcef",
+          "b5975a8a-044e-48b8-91ac-c64253bd3389"
+        ]
+      },
+      {
+        "id": "escalator-entrance",
+        "minimumY": -4.100000001490116,
+        "dimensions": [2, 5.1548315063118935, 8],
+        "resources": [
+          "74f52a3a-8ff0-4260-a822-1aeb6afec1f2",
+          "b65a171c-ed76-4003-bb8c-ff8a03cba906",
+          "7956ab59-9bf5-4ed4-a6f2-0f3881f13f15",
+          "91218c41-9d5e-49ed-86be-7504fd7d20c8",
+          "292a3aa0-573e-4dd9-acec-12eee6b221a9",
+          "a03baae4-9e53-41ab-84a8-1f962d93cc3b",
+          "a6f33964-b770-4eda-8732-c46ae7ef08ed",
+          "86655bc6-dc50-4bed-bcd5-816a5e2f2ed3",
+          "46b05b8f-60fb-406c-b156-90c05cf0dfa4",
+          "70425465-39ed-488f-a1cb-99f1d5883205",
+          "c1d9e042-98dc-4bdc-a6e6-a4381bf47db0",
+          "e96b3ea5-df37-4b1e-b93b-a88611a5c557",
+          "5195cba3-314e-4bd3-9a21-c4b831e334bc"
+        ]
+      }
+    ],
+    "batches": [
+      {
+        "id": "table",
+        "count": 20,
+        "placements": [
+          {
+            "id": "F1-booth-01:table",
+            "boothId": "F1-booth-01",
+            "position": [-15.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-02:table",
+            "boothId": "F1-booth-02",
+            "position": [-6.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:table",
+            "boothId": "F1-booth-03",
+            "position": [0.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:table",
+            "boothId": "F1-booth-04",
+            "position": [6.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:table",
+            "boothId": "F1-booth-05",
+            "position": [13.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:table",
+            "boothId": "F1-booth-06",
+            "position": [-12.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:table",
+            "boothId": "F1-booth-07",
+            "position": [-6.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:table",
+            "boothId": "F1-booth-08",
+            "position": [0.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:table",
+            "boothId": "F1-booth-09",
+            "position": [6.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:table",
+            "boothId": "F1-booth-10",
+            "position": [13.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:table",
+            "boothId": "F1-booth-11",
+            "position": [-12.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:table",
+            "boothId": "F1-booth-12",
+            "position": [-6.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:table",
+            "boothId": "F1-booth-13",
+            "position": [0.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:table",
+            "boothId": "F1-booth-14",
+            "position": [6.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:table",
+            "boothId": "F1-booth-15",
+            "position": [13.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:table",
+            "boothId": "F1-booth-16",
+            "position": [-12.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:table",
+            "boothId": "F1-booth-17",
+            "position": [-6.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:table",
+            "boothId": "F1-booth-18",
+            "position": [0.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:table",
+            "boothId": "F1-booth-19",
+            "position": [6.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:table",
+            "boothId": "F1-booth-20",
+            "position": [13.25, 0, 5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "display-case",
+        "count": 20,
+        "placements": [
+          {
+            "id": "F1-booth-01:display-case",
+            "boothId": "F1-booth-01",
+            "position": [-12.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-02:display-case",
+            "boothId": "F1-booth-02",
+            "position": [-7.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:display-case",
+            "boothId": "F1-booth-03",
+            "position": [-1.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:display-case",
+            "boothId": "F1-booth-04",
+            "position": [5.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:display-case",
+            "boothId": "F1-booth-05",
+            "position": [11.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:display-case",
+            "boothId": "F1-booth-06",
+            "position": [-14.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:display-case",
+            "boothId": "F1-booth-07",
+            "position": [-7.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:display-case",
+            "boothId": "F1-booth-08",
+            "position": [-1.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:display-case",
+            "boothId": "F1-booth-09",
+            "position": [5.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:display-case",
+            "boothId": "F1-booth-10",
+            "position": [11.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:display-case",
+            "boothId": "F1-booth-11",
+            "position": [-14.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:display-case",
+            "boothId": "F1-booth-12",
+            "position": [-7.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:display-case",
+            "boothId": "F1-booth-13",
+            "position": [-1.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:display-case",
+            "boothId": "F1-booth-14",
+            "position": [5.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:display-case",
+            "boothId": "F1-booth-15",
+            "position": [11.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:display-case",
+            "boothId": "F1-booth-16",
+            "position": [-14.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:display-case",
+            "boothId": "F1-booth-17",
+            "position": [-7.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:display-case",
+            "boothId": "F1-booth-18",
+            "position": [-1.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:display-case",
+            "boothId": "F1-booth-19",
+            "position": [5.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:display-case",
+            "boothId": "F1-booth-20",
+            "position": [11.75, 0, 5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "display-case",
+        "count": 20,
+        "placements": [
+          {
+            "id": "F1-booth-01:display-case",
+            "boothId": "F1-booth-01",
+            "position": [-12.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-02:display-case",
+            "boothId": "F1-booth-02",
+            "position": [-7.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:display-case",
+            "boothId": "F1-booth-03",
+            "position": [-1.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:display-case",
+            "boothId": "F1-booth-04",
+            "position": [5.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:display-case",
+            "boothId": "F1-booth-05",
+            "position": [11.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:display-case",
+            "boothId": "F1-booth-06",
+            "position": [-14.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:display-case",
+            "boothId": "F1-booth-07",
+            "position": [-7.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:display-case",
+            "boothId": "F1-booth-08",
+            "position": [-1.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:display-case",
+            "boothId": "F1-booth-09",
+            "position": [5.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:display-case",
+            "boothId": "F1-booth-10",
+            "position": [11.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:display-case",
+            "boothId": "F1-booth-11",
+            "position": [-14.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:display-case",
+            "boothId": "F1-booth-12",
+            "position": [-7.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:display-case",
+            "boothId": "F1-booth-13",
+            "position": [-1.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:display-case",
+            "boothId": "F1-booth-14",
+            "position": [5.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:display-case",
+            "boothId": "F1-booth-15",
+            "position": [11.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:display-case",
+            "boothId": "F1-booth-16",
+            "position": [-14.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:display-case",
+            "boothId": "F1-booth-17",
+            "position": [-7.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:display-case",
+            "boothId": "F1-booth-18",
+            "position": [-1.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:display-case",
+            "boothId": "F1-booth-19",
+            "position": [5.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:display-case",
+            "boothId": "F1-booth-20",
+            "position": [11.75, 0, 5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "booth-frame",
+        "count": 19,
+        "placements": [
+          {
+            "id": "F1-booth-02:frame",
+            "boothId": "F1-booth-02",
+            "position": [-7.5, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:frame",
+            "boothId": "F1-booth-03",
+            "position": [-1, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:frame",
+            "boothId": "F1-booth-04",
+            "position": [5.5, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:frame",
+            "boothId": "F1-booth-05",
+            "position": [12, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:frame",
+            "boothId": "F1-booth-06",
+            "position": [-14, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:frame",
+            "boothId": "F1-booth-07",
+            "position": [-7.5, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:frame",
+            "boothId": "F1-booth-08",
+            "position": [-1, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:frame",
+            "boothId": "F1-booth-09",
+            "position": [5.5, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:frame",
+            "boothId": "F1-booth-10",
+            "position": [12, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:frame",
+            "boothId": "F1-booth-11",
+            "position": [-14, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:frame",
+            "boothId": "F1-booth-12",
+            "position": [-7.5, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:frame",
+            "boothId": "F1-booth-13",
+            "position": [-1, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:frame",
+            "boothId": "F1-booth-14",
+            "position": [5.5, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:frame",
+            "boothId": "F1-booth-15",
+            "position": [12, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:frame",
+            "boothId": "F1-booth-16",
+            "position": [-14, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:frame",
+            "boothId": "F1-booth-17",
+            "position": [-7.5, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:frame",
+            "boothId": "F1-booth-18",
+            "position": [-1, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:frame",
+            "boothId": "F1-booth-19",
+            "position": [5.5, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:frame",
+            "boothId": "F1-booth-20",
+            "position": [12, 0, 6.5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "booth-frame",
+        "count": 19,
+        "placements": [
+          {
+            "id": "F1-booth-02:frame",
+            "boothId": "F1-booth-02",
+            "position": [-7.5, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:frame",
+            "boothId": "F1-booth-03",
+            "position": [-1, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:frame",
+            "boothId": "F1-booth-04",
+            "position": [5.5, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:frame",
+            "boothId": "F1-booth-05",
+            "position": [12, 0, -10],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:frame",
+            "boothId": "F1-booth-06",
+            "position": [-14, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:frame",
+            "boothId": "F1-booth-07",
+            "position": [-7.5, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:frame",
+            "boothId": "F1-booth-08",
+            "position": [-1, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:frame",
+            "boothId": "F1-booth-09",
+            "position": [5.5, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:frame",
+            "boothId": "F1-booth-10",
+            "position": [12, 0, -4.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:frame",
+            "boothId": "F1-booth-11",
+            "position": [-14, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:frame",
+            "boothId": "F1-booth-12",
+            "position": [-7.5, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:frame",
+            "boothId": "F1-booth-13",
+            "position": [-1, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:frame",
+            "boothId": "F1-booth-14",
+            "position": [5.5, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:frame",
+            "boothId": "F1-booth-15",
+            "position": [12, 0, 1],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:frame",
+            "boothId": "F1-booth-16",
+            "position": [-14, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:frame",
+            "boothId": "F1-booth-17",
+            "position": [-7.5, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:frame",
+            "boothId": "F1-booth-18",
+            "position": [-1, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:frame",
+            "boothId": "F1-booth-19",
+            "position": [5.5, 0, 6.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:frame",
+            "boothId": "F1-booth-20",
+            "position": [12, 0, 6.5],
+            "yawRadians": 0
+          }
+        ]
+      },
+      {
+        "id": "chair",
+        "count": 19,
+        "placements": [
+          {
+            "id": "F1-booth-02:chair",
+            "boothId": "F1-booth-02",
+            "position": [-8.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-03:chair",
+            "boothId": "F1-booth-03",
+            "position": [-2.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-04:chair",
+            "boothId": "F1-booth-04",
+            "position": [4.25, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-05:chair",
+            "boothId": "F1-booth-05",
+            "position": [10.75, 0, -11.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-06:chair",
+            "boothId": "F1-booth-06",
+            "position": [-15.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-07:chair",
+            "boothId": "F1-booth-07",
+            "position": [-8.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-08:chair",
+            "boothId": "F1-booth-08",
+            "position": [-2.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-09:chair",
+            "boothId": "F1-booth-09",
+            "position": [4.25, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-10:chair",
+            "boothId": "F1-booth-10",
+            "position": [10.75, 0, -6],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-11:chair",
+            "boothId": "F1-booth-11",
+            "position": [-15.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-12:chair",
+            "boothId": "F1-booth-12",
+            "position": [-8.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-13:chair",
+            "boothId": "F1-booth-13",
+            "position": [-2.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-14:chair",
+            "boothId": "F1-booth-14",
+            "position": [4.25, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-15:chair",
+            "boothId": "F1-booth-15",
+            "position": [10.75, 0, -0.5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-16:chair",
+            "boothId": "F1-booth-16",
+            "position": [-15.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-17:chair",
+            "boothId": "F1-booth-17",
+            "position": [-8.75, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-18:chair",
+            "boothId": "F1-booth-18",
+            "position": [-2.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-19:chair",
+            "boothId": "F1-booth-19",
+            "position": [4.25, 0, 5],
+            "yawRadians": 0
+          },
+          {
+            "id": "F1-booth-20:chair",
+            "boothId": "F1-booth-20",
+            "position": [10.75, 0, 5],
+            "yawRadians": 0
+          }
+        ]
+      }
+    ],
+    "cache": {
+      "commonEntries": 9,
+      "commonUsers": 10,
+      "floorSets": [
+        {
+          "id": "F1",
+          "users": 1
+        },
+        {
+          "id": "B1",
+          "users": 0
+        }
+      ]
+    },
+    "device": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "coldAssetBytes": 180058,
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "viewport": [1384, 704],
+    "camera": [24, 20, 30],
+    "bodies": 83,
+    "logos": [
+      {
+        "boothId": "F1-booth-01",
+        "name": "wide.png",
+        "dimensions": [1.5, 0.24],
+        "sourcePixels": [1000, 160],
+        "textureId": "873cd3de-a410-4dd2-b858-aa2e501d73ae"
+      }
+    ],
+    "textureMipBytes": 853333.3333333334
+  }
+}

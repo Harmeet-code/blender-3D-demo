@@ -1,0 +1,90 @@
+{
+  "id": "stairs",
+  "version": 1,
+  "label": "Stairs",
+  "anchor": "portal-entry",
+  "facing": "+Z",
+  "dimensions": [2.0, 5.154999999999999, 8.0],
+  "bounds": {
+    "min": [-1.0, -0.1, -7.5],
+    "max": [1.0, 5.055, 0.5]
+  },
+  "footprint": [
+    [-1.0, -7.5],
+    [1.0, -7.5],
+    [1.0, 0.5],
+    [-1.0, 0.5]
+  ],
+  "requiredNodes": ["root", "portal_lower", "portal_upper"],
+  "materialRoles": {
+    "finish_frame": "frame",
+    "finish_metal": "surface"
+  },
+  "sockets": {
+    "portal_lower": {
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0]
+    },
+    "portal_upper": {
+      "position": [0, 4, -7],
+      "rotation": [0, 0, 0]
+    }
+  },
+  "colliders": [
+    {
+      "halfExtents": [1, 0.05, 0.5],
+      "position": [0, -0.05, 0],
+      "rotation": [0, 0, 0]
+    },
+    {
+      "halfExtents": [1, 0.05, 0.5],
+      "position": [0, 3.95, -7],
+      "rotation": [0, 0, 0]
+    },
+    {
+      "halfExtents": [0.9, 0.05, 3.605551275463989],
+      "position": [0, 1.98, -3.5],
+      "rotation": [0.5880026035475675, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/stairs/stairs.blend",
+    "recipe": "assets-source/blender/stairs/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.1.0"
+  },
+  "budget": {
+    "triangles": 2000,
+    "materials": 2,
+    "bytes": 2097152,
+    "textureSize": 2048
+  },
+  "metrics": {
+    "triangles": 480,
+    "materials": 2,
+    "bytes": 60716,
+    "textureBytes": 0
+  },
+  "portalRise": 4,
+  "variants": {
+    "low": {
+      "file": "stairs.v1.low.glb",
+      "source": {
+        "blend": "assets-source/blender/stairs/stairs.low.blend",
+        "recipe": "assets-source/blender/stairs/build.low.py",
+        "license": "LicenseRef-Project-Owned",
+        "generatorVersion": "1.1.0"
+      },
+      "metrics": {
+        "triangles": 152,
+        "materials": 2,
+        "bytes": 20468,
+        "textureBytes": 0
+      },
+      "materialRoles": {
+        "finish_frame": "frame",
+        "finish_metal": "surface"
+      }
+    }
+  }
+}

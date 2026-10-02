@@ -1,0 +1,53 @@
+{
+  "id": "safe",
+  "version": 1,
+  "label": "Safe",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [0.6, 0.8, 0.6],
+  "bounds": {
+    "min": [-0.3, 0.0, -0.3],
+    "max": [0.3, 0.8, 0.3]
+  },
+  "footprint": [
+    [-0.3, -0.3],
+    [0.3, -0.3],
+    [0.3, 0.3],
+    [-0.3, 0.3]
+  ],
+  "requiredNodes": ["root", "socket_interaction"],
+  "materialRoles": {
+    "finish_metal": "surface"
+  },
+  "sockets": {
+    "socket_interaction": {
+      "position": [0, 0, 0.9],
+      "rotation": [0, 0, 0]
+    }
+  },
+  "colliders": [
+    {
+      "halfExtents": [0.3, 0.4, 0.3],
+      "position": [0.0, 0.4, 0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/safe/safe.blend",
+    "recipe": "assets-source/blender/safe/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.1.0"
+  },
+  "budget": {
+    "triangles": 1000,
+    "materials": 1,
+    "bytes": 1048576,
+    "textureSize": 1024
+  },
+  "metrics": {
+    "triangles": 264,
+    "materials": 1,
+    "bytes": 23588,
+    "textureBytes": 0
+  }
+}

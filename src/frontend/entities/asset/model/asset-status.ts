@@ -10,6 +10,13 @@ export const useAssetStatus = create<AssetStatusState>((set) => ({
   revision: 0,
   setStatus: (id, status) =>
     set((state) => {
+      const previous = state.statuses[id];
+      if (
+        (!status && !previous) ||
+        (status && previous?.kind === status.kind && previous.message === status.message)
+      ) {
+        return state;
+      }
       const statuses = { ...state.statuses };
       if (status) {
         statuses[id] = status;

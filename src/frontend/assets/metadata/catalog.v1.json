@@ -1,22 +1,139 @@
 [
   {
+    "id": "banner-stand",
+    "version": 1,
+    "label": "Banner Stand",
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "dimensions": [1, 2, 0.3],
+    "bounds": {
+      "min": [-0.5, 0, -0.15],
+      "max": [0.5, 2, 0.15]
+    },
+    "footprint": [
+      [-0.5, -0.15],
+      [0.5, -0.15],
+      [0.5, 0.15],
+      [-0.5, 0.15]
+    ],
+    "requiredNodes": [
+      "root",
+      "socket_branding",
+      "branding_surface",
+      "branding_default_0",
+      "branding_default_1",
+      "branding_default_2"
+    ],
+    "materialRoles": {
+      "finish_branding": "branding",
+      "finish_frame": "frame"
+    },
+    "sockets": {
+      "socket_branding": {
+        "position": [0, 1.1, 0.013],
+        "rotation": [0, 0, 0]
+      }
+    },
+    "colliders": [
+      {
+        "halfExtents": [0.5, 1, 0.15],
+        "position": [0, 1, 0],
+        "rotation": [0, 0, 0]
+      }
+    ],
+    "source": {
+      "blend": "assets-source/blender/banner-stand/banner-stand.blend",
+      "recipe": "assets-source/blender/banner-stand/build.py",
+      "license": "LicenseRef-Project-Owned",
+      "generatorVersion": "1.1.0"
+    },
+    "budget": {
+      "triangles": 500,
+      "materials": 2,
+      "bytes": 1048576,
+      "textureSize": 1024
+    },
+    "metrics": {
+      "triangles": 86,
+      "materials": 2,
+      "bytes": 12472,
+      "textureBytes": 0
+    },
+    "branding": {
+      "node": "branding_surface",
+      "socket": "socket_branding",
+      "width": 0.95,
+      "height": 1.8,
+      "normal": [0, 0, 1],
+      "defaultNodes": ["branding_default_0", "branding_default_1", "branding_default_2"]
+    }
+  },
+  {
+    "id": "booth-ceiling",
+    "version": 1,
+    "label": "Booth Ceiling",
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "dimensions": [4, 0.08, 4],
+    "bounds": {
+      "min": [-2, 0, -2],
+      "max": [2, 0.08, 2]
+    },
+    "footprint": [
+      [-2, -2],
+      [2, -2],
+      [2, 2],
+      [-2, 2]
+    ],
+    "requiredNodes": ["root"],
+    "materialRoles": {
+      "finish_panel": "surface"
+    },
+    "sockets": {},
+    "colliders": [
+      {
+        "halfExtents": [2, 0.04, 2],
+        "position": [0, 0.04, 0],
+        "rotation": [0, 0, 0]
+      }
+    ],
+    "source": {
+      "blend": "assets-source/blender/booth-ceiling/booth-ceiling.blend",
+      "recipe": "assets-source/blender/booth-ceiling/build.py",
+      "license": "LicenseRef-Project-Owned",
+      "generatorVersion": "1.1.0"
+    },
+    "budget": {
+      "triangles": 100,
+      "materials": 1,
+      "bytes": 2097152,
+      "textureSize": 2048
+    },
+    "metrics": {
+      "triangles": 12,
+      "materials": 1,
+      "bytes": 2188,
+      "textureBytes": 0
+    }
+  },
+  {
     "id": "booth-frame",
     "version": 1,
     "label": "Booth Frame",
     "anchor": "floor-contact",
     "facing": "+Z",
-    "dimensions": [4.0, 2.5, 4.0],
+    "dimensions": [4, 2.5, 4],
     "bounds": {
-      "min": [-2.0, 0.0, -2.0],
-      "max": [2.0, 2.5, 2.0]
+      "min": [-2, 0, -2],
+      "max": [2, 2.5, 2]
     },
     "footprint": [
-      [-2.0, -2.0],
-      [2.0, -2.0],
-      [2.0, 2.0],
-      [-2.0, 2.0]
+      [-2, -2],
+      [2, -2],
+      [2, 2],
+      [-2, 2]
     ],
-    "requiredNodes": ["root", "socket_branding", "socket_entry"],
+    "requiredNodes": ["root", "socket_branding", "socket_entry", "mesh_branding"],
     "materialRoles": {
       "finish_branding": "branding",
       "finish_panel": "surface"
@@ -33,8 +150,8 @@
     },
     "colliders": [
       {
-        "halfExtents": [2.0, 1.25, 0.05000000074505806],
-        "position": [0.0, 1.25, -1.9500000476837158],
+        "halfExtents": [2, 1.25, 0.05000000074505806],
+        "position": [0, 1.25, -1.9500000476837158],
         "rotation": [0, 0, 0]
       },
       {
@@ -52,7 +169,7 @@
       "blend": "assets-source/blender/booth-frame/booth-frame.blend",
       "recipe": "assets-source/blender/booth-frame/build.py",
       "license": "LicenseRef-Project-Owned",
-      "generatorVersion": "1.0.0"
+      "generatorVersion": "1.1.0"
     },
     "budget": {
       "triangles": 2000,
@@ -63,8 +180,16 @@
     "metrics": {
       "triangles": 48,
       "materials": 2,
-      "bytes": 6796,
+      "bytes": 6904,
       "textureBytes": 0
+    },
+    "branding": {
+      "node": "mesh_branding",
+      "socket": "socket_branding",
+      "width": 3.6,
+      "height": 0.24,
+      "normal": [0, 0, 1],
+      "defaultNodes": []
     }
   },
   {
@@ -75,7 +200,7 @@
     "facing": "+Z",
     "dimensions": [0.5, 0.8499999642372131, 0.550000011920929],
     "bounds": {
-      "min": [-0.25, 0.0, -0.2750000059604645],
+      "min": [-0.25, 0, -0.2750000059604645],
       "max": [0.25, 0.8499999642372131, 0.2750000059604645]
     },
     "footprint": [
@@ -92,7 +217,7 @@
     "colliders": [
       {
         "halfExtents": [0.25, 0.42499998211860657, 0.2750000059604645],
-        "position": [0.0, 0.42499998211860657, 0.0],
+        "position": [0, 0.42499998211860657, 0],
         "rotation": [0, 0, 0]
       }
     ],
@@ -116,21 +241,270 @@
     }
   },
   {
+    "id": "display-case",
+    "version": 1,
+    "label": "Display Case",
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "dimensions": [1.2, 1.1, 0.5],
+    "bounds": {
+      "min": [-0.6, 0, -0.25],
+      "max": [0.6, 1.1, 0.25]
+    },
+    "footprint": [
+      [-0.6, -0.25],
+      [0.6, -0.25],
+      [0.6, 0.25],
+      [-0.6, 0.25]
+    ],
+    "requiredNodes": ["root", "socket_interaction"],
+    "materialRoles": {
+      "finish_frame": "frame",
+      "finish_glass": "glass"
+    },
+    "sockets": {
+      "socket_interaction": {
+        "position": [0, 0, 0.85],
+        "rotation": [0, 0, 0]
+      }
+    },
+    "colliders": [
+      {
+        "halfExtents": [0.6, 0.55, 0.25],
+        "position": [0, 0.55, 0],
+        "rotation": [0, 0, 0]
+      }
+    ],
+    "source": {
+      "blend": "assets-source/blender/display-case/display-case.blend",
+      "recipe": "assets-source/blender/display-case/build.py",
+      "license": "LicenseRef-Project-Owned",
+      "generatorVersion": "1.1.0"
+    },
+    "budget": {
+      "triangles": 1500,
+      "materials": 2,
+      "bytes": 1048576,
+      "textureSize": 1024
+    },
+    "metrics": {
+      "triangles": 200,
+      "materials": 2,
+      "bytes": 24900,
+      "textureBytes": 0
+    },
+    "variants": {
+      "opaque": {
+        "file": "display-case.v1.opaque.glb",
+        "source": {
+          "blend": "assets-source/blender/display-case/display-case.opaque.blend",
+          "recipe": "assets-source/blender/display-case/build.opaque.py",
+          "license": "LicenseRef-Project-Owned",
+          "generatorVersion": "1.1.0"
+        },
+        "metrics": {
+          "triangles": 200,
+          "materials": 2,
+          "bytes": 24868,
+          "textureBytes": 0
+        },
+        "materialRoles": {
+          "finish_frame": "frame",
+          "finish_glass_opaque": "glass"
+        }
+      }
+    }
+  },
+  {
+    "id": "elevator-entrance",
+    "version": 1,
+    "label": "Elevator Entrance",
+    "anchor": "portal-entry",
+    "facing": "+Z",
+    "dimensions": [2, 2.65, 0.3],
+    "bounds": {
+      "min": [-1, -0.05, -0.15],
+      "max": [1, 2.6, 0.15]
+    },
+    "footprint": [
+      [-1, -0.15],
+      [1, -0.15],
+      [1, 0.15],
+      [-1, 0.15]
+    ],
+    "requiredNodes": ["root", "portal_lower", "door_left", "door_right"],
+    "materialRoles": {
+      "finish_branding": "branding",
+      "finish_metal": "surface",
+      "finish_panel": "surface"
+    },
+    "sockets": {
+      "portal_lower": {
+        "position": [0, 0, 0.2],
+        "rotation": [0, 0, 0]
+      }
+    },
+    "colliders": [
+      {
+        "halfExtents": [0.10000000149011612, 1.2999999523162842, 0.15000000596046448],
+        "position": [-0.8999999761581421, 1.2999999523162842, 0],
+        "rotation": [0, 0, 0]
+      },
+      {
+        "halfExtents": [0.10000000149011612, 1.2999999523162842, 0.15000000596046448],
+        "position": [0.8999999761581421, 1.2999999523162842, 0],
+        "rotation": [0, 0, 0]
+      }
+    ],
+    "source": {
+      "blend": "assets-source/blender/elevator-entrance/elevator-entrance.blend",
+      "recipe": "assets-source/blender/elevator-entrance/build.py",
+      "license": "LicenseRef-Project-Owned",
+      "generatorVersion": "1.1.0"
+    },
+    "budget": {
+      "triangles": 3000,
+      "materials": 3,
+      "bytes": 2097152,
+      "textureSize": 2048
+    },
+    "metrics": {
+      "triangles": 352,
+      "materials": 3,
+      "bytes": 37084,
+      "textureBytes": 0
+    },
+    "variants": {
+      "low": {
+        "file": "elevator-entrance.v1.low.glb",
+        "source": {
+          "blend": "assets-source/blender/elevator-entrance/elevator-entrance.low.blend",
+          "recipe": "assets-source/blender/elevator-entrance/build.low.py",
+          "license": "LicenseRef-Project-Owned",
+          "generatorVersion": "1.1.0"
+        },
+        "metrics": {
+          "triangles": 84,
+          "materials": 3,
+          "bytes": 11724,
+          "textureBytes": 0
+        },
+        "materialRoles": {
+          "finish_branding": "branding",
+          "finish_metal": "surface",
+          "finish_panel": "surface"
+        }
+      }
+    }
+  },
+  {
+    "id": "escalator-entrance",
+    "version": 1,
+    "label": "Escalator Entrance",
+    "anchor": "portal-entry",
+    "facing": "+Z",
+    "dimensions": [2, 5.150274, 8],
+    "bounds": {
+      "min": [-1, -0.1, -7.5],
+      "max": [1, 5.050274, 0.5]
+    },
+    "footprint": [
+      [-1, -7.5],
+      [1, -7.5],
+      [1, 0.5],
+      [-1, 0.5]
+    ],
+    "requiredNodes": ["root", "portal_lower", "portal_upper"],
+    "materialRoles": {
+      "finish_frame": "frame",
+      "finish_metal": "surface",
+      "finish_yellow": "surface"
+    },
+    "sockets": {
+      "portal_lower": {
+        "position": [0, 0, 0],
+        "rotation": [0, 0, 0]
+      },
+      "portal_upper": {
+        "position": [0, 4, -7],
+        "rotation": [0, 0, 0]
+      }
+    },
+    "colliders": [
+      {
+        "halfExtents": [1, 0.05, 0.5],
+        "position": [0, -0.05, 0],
+        "rotation": [0, 0, 0]
+      },
+      {
+        "halfExtents": [1, 0.05, 0.5],
+        "position": [0, 3.95, -7],
+        "rotation": [0, 0, 0]
+      },
+      {
+        "halfExtents": [0.9, 0.05, 3.605551275463989],
+        "position": [0, 1.98, -3.5],
+        "rotation": [0.5880026035475675, 0, 0]
+      }
+    ],
+    "source": {
+      "blend": "assets-source/blender/escalator-entrance/escalator-entrance.blend",
+      "recipe": "assets-source/blender/escalator-entrance/build.py",
+      "license": "LicenseRef-Project-Owned",
+      "generatorVersion": "1.1.0"
+    },
+    "budget": {
+      "triangles": 4000,
+      "materials": 3,
+      "bytes": 2097152,
+      "textureSize": 2048
+    },
+    "metrics": {
+      "triangles": 1608,
+      "materials": 3,
+      "bytes": 106940,
+      "textureBytes": 0
+    },
+    "variants": {
+      "low": {
+        "file": "escalator-entrance.v1.low.glb",
+        "source": {
+          "blend": "assets-source/blender/escalator-entrance/escalator-entrance.low.blend",
+          "recipe": "assets-source/blender/escalator-entrance/build.low.py",
+          "license": "LicenseRef-Project-Owned",
+          "generatorVersion": "1.1.0"
+        },
+        "metrics": {
+          "triangles": 480,
+          "materials": 3,
+          "bytes": 26432,
+          "textureBytes": 0
+        },
+        "materialRoles": {
+          "finish_frame": "frame",
+          "finish_metal": "surface",
+          "finish_yellow": "surface"
+        }
+      }
+    },
+    "portalRise": 4
+  },
+  {
     "id": "floor-tile",
     "version": 1,
     "label": "Floor Tile",
     "anchor": "floor-top",
     "facing": "+Z",
-    "dimensions": [4.0, 0.20000000298023224, 4.0],
+    "dimensions": [4, 0.20000000298023224, 4],
     "bounds": {
-      "min": [-2.0, -0.20000000298023224, -2.0],
-      "max": [2.0, 0.0, 2.0]
+      "min": [-2, -0.20000000298023224, -2],
+      "max": [2, 0, 2]
     },
     "footprint": [
-      [-2.0, -2.0],
-      [2.0, -2.0],
-      [2.0, 2.0],
-      [-2.0, 2.0]
+      [-2, -2],
+      [2, -2],
+      [2, 2],
+      [-2, 2]
     ],
     "requiredNodes": ["root"],
     "materialRoles": {
@@ -139,8 +513,8 @@
     "sockets": {},
     "colliders": [
       {
-        "halfExtents": [2.0, 0.10000000149011612, 2.0],
-        "position": [0.0, -0.10000000149011612, 0.0],
+        "halfExtents": [2, 0.10000000149011612, 2],
+        "position": [0, -0.10000000149011612, 0],
         "rotation": [0, 0, 0]
       }
     ],
@@ -164,6 +538,274 @@
     }
   },
   {
+    "id": "forklift",
+    "version": 1,
+    "label": "Forklift",
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "dimensions": [1.2, 2.2, 3],
+    "bounds": {
+      "min": [-0.6, 0, -1.225],
+      "max": [0.6, 2.2, 1.775]
+    },
+    "footprint": [
+      [-0.6, -1.225],
+      [0.6, -1.225],
+      [0.6, 1.775],
+      [-0.6, 1.775]
+    ],
+    "requiredNodes": ["root", "socket_service"],
+    "materialRoles": {
+      "finish_frame": "frame",
+      "finish_metal": "surface",
+      "finish_yellow": "surface"
+    },
+    "sockets": {
+      "socket_service": {
+        "position": [0, 0, 0],
+        "rotation": [0, 0, 0]
+      }
+    },
+    "colliders": [
+      {
+        "halfExtents": [0.6, 1.1, 1.5],
+        "position": [0, 1.1, 0.2749999999999999],
+        "rotation": [0, 0, 0]
+      }
+    ],
+    "source": {
+      "blend": "assets-source/blender/forklift/forklift.blend",
+      "recipe": "assets-source/blender/forklift/build.py",
+      "license": "LicenseRef-Project-Owned",
+      "generatorVersion": "1.1.0"
+    },
+    "budget": {
+      "triangles": 6000,
+      "materials": 3,
+      "bytes": 1048576,
+      "textureSize": 1024
+    },
+    "metrics": {
+      "triangles": 1124,
+      "materials": 3,
+      "bytes": 86792,
+      "textureBytes": 0
+    },
+    "variants": {
+      "low": {
+        "file": "forklift.v1.low.glb",
+        "source": {
+          "blend": "assets-source/blender/forklift/forklift.low.blend",
+          "recipe": "assets-source/blender/forklift/build.low.py",
+          "license": "LicenseRef-Project-Owned",
+          "generatorVersion": "1.1.0"
+        },
+        "metrics": {
+          "triangles": 268,
+          "materials": 3,
+          "bytes": 28432,
+          "textureBytes": 0
+        },
+        "materialRoles": {
+          "finish_frame": "frame",
+          "finish_metal": "surface",
+          "finish_yellow": "surface"
+        }
+      }
+    }
+  },
+  {
+    "id": "pallet",
+    "version": 1,
+    "label": "Pallet",
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "dimensions": [1.2, 0.15, 0.8],
+    "bounds": {
+      "min": [-0.6, 0, -0.4],
+      "max": [0.6, 0.15, 0.4]
+    },
+    "footprint": [
+      [-0.6, -0.4],
+      [0.6, -0.4],
+      [0.6, 0.4],
+      [-0.6, 0.4]
+    ],
+    "requiredNodes": ["root"],
+    "materialRoles": {
+      "finish_wood": "surface"
+    },
+    "sockets": {},
+    "colliders": [
+      {
+        "halfExtents": [0.6, 0.075, 0.4],
+        "position": [0, 0.075, 0],
+        "rotation": [0, 0, 0]
+      }
+    ],
+    "source": {
+      "blend": "assets-source/blender/pallet/pallet.blend",
+      "recipe": "assets-source/blender/pallet/build.py",
+      "license": "LicenseRef-Project-Owned",
+      "generatorVersion": "1.1.0"
+    },
+    "budget": {
+      "triangles": 500,
+      "materials": 1,
+      "bytes": 1048576,
+      "textureSize": 1024
+    },
+    "metrics": {
+      "triangles": 204,
+      "materials": 1,
+      "bytes": 26380,
+      "textureBytes": 0
+    }
+  },
+  {
+    "id": "safe",
+    "version": 1,
+    "label": "Safe",
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "dimensions": [0.6, 0.8, 0.6],
+    "bounds": {
+      "min": [-0.3, 0, -0.3],
+      "max": [0.3, 0.8, 0.3]
+    },
+    "footprint": [
+      [-0.3, -0.3],
+      [0.3, -0.3],
+      [0.3, 0.3],
+      [-0.3, 0.3]
+    ],
+    "requiredNodes": ["root", "socket_interaction"],
+    "materialRoles": {
+      "finish_metal": "surface"
+    },
+    "sockets": {
+      "socket_interaction": {
+        "position": [0, 0, 0.9],
+        "rotation": [0, 0, 0]
+      }
+    },
+    "colliders": [
+      {
+        "halfExtents": [0.3, 0.4, 0.3],
+        "position": [0, 0.4, 0],
+        "rotation": [0, 0, 0]
+      }
+    ],
+    "source": {
+      "blend": "assets-source/blender/safe/safe.blend",
+      "recipe": "assets-source/blender/safe/build.py",
+      "license": "LicenseRef-Project-Owned",
+      "generatorVersion": "1.1.0"
+    },
+    "budget": {
+      "triangles": 1000,
+      "materials": 1,
+      "bytes": 1048576,
+      "textureSize": 1024
+    },
+    "metrics": {
+      "triangles": 264,
+      "materials": 1,
+      "bytes": 23588,
+      "textureBytes": 0
+    }
+  },
+  {
+    "id": "stairs",
+    "version": 1,
+    "label": "Stairs",
+    "anchor": "portal-entry",
+    "facing": "+Z",
+    "dimensions": [2, 5.154999999999999, 8],
+    "bounds": {
+      "min": [-1, -0.1, -7.5],
+      "max": [1, 5.055, 0.5]
+    },
+    "footprint": [
+      [-1, -7.5],
+      [1, -7.5],
+      [1, 0.5],
+      [-1, 0.5]
+    ],
+    "requiredNodes": ["root", "portal_lower", "portal_upper"],
+    "materialRoles": {
+      "finish_frame": "frame",
+      "finish_metal": "surface"
+    },
+    "sockets": {
+      "portal_lower": {
+        "position": [0, 0, 0],
+        "rotation": [0, 0, 0]
+      },
+      "portal_upper": {
+        "position": [0, 4, -7],
+        "rotation": [0, 0, 0]
+      }
+    },
+    "colliders": [
+      {
+        "halfExtents": [1, 0.05, 0.5],
+        "position": [0, -0.05, 0],
+        "rotation": [0, 0, 0]
+      },
+      {
+        "halfExtents": [1, 0.05, 0.5],
+        "position": [0, 3.95, -7],
+        "rotation": [0, 0, 0]
+      },
+      {
+        "halfExtents": [0.9, 0.05, 3.605551275463989],
+        "position": [0, 1.98, -3.5],
+        "rotation": [0.5880026035475675, 0, 0]
+      }
+    ],
+    "source": {
+      "blend": "assets-source/blender/stairs/stairs.blend",
+      "recipe": "assets-source/blender/stairs/build.py",
+      "license": "LicenseRef-Project-Owned",
+      "generatorVersion": "1.1.0"
+    },
+    "budget": {
+      "triangles": 2000,
+      "materials": 2,
+      "bytes": 2097152,
+      "textureSize": 2048
+    },
+    "metrics": {
+      "triangles": 480,
+      "materials": 2,
+      "bytes": 60716,
+      "textureBytes": 0
+    },
+    "variants": {
+      "low": {
+        "file": "stairs.v1.low.glb",
+        "source": {
+          "blend": "assets-source/blender/stairs/stairs.low.blend",
+          "recipe": "assets-source/blender/stairs/build.low.py",
+          "license": "LicenseRef-Project-Owned",
+          "generatorVersion": "1.1.0"
+        },
+        "metrics": {
+          "triangles": 152,
+          "materials": 2,
+          "bytes": 20468,
+          "textureBytes": 0
+        },
+        "materialRoles": {
+          "finish_frame": "frame",
+          "finish_metal": "surface"
+        }
+      }
+    },
+    "portalRise": 4
+  },
+  {
     "id": "table",
     "version": 1,
     "label": "Table",
@@ -171,7 +813,7 @@
     "facing": "+Z",
     "dimensions": [1.2000000476837158, 0.75, 0.6000000238418579],
     "bounds": {
-      "min": [-0.6000000238418579, 0.0, -0.30000001192092896],
+      "min": [-0.6000000238418579, 0, -0.30000001192092896],
       "max": [0.6000000238418579, 0.75, 0.30000001192092896]
     },
     "footprint": [
@@ -188,7 +830,7 @@
     "colliders": [
       {
         "halfExtents": [0.6000000238418579, 0.375, 0.30000001192092896],
-        "position": [0.0, 0.375, 0.0],
+        "position": [0, 0.375, 0],
         "rotation": [0, 0, 0]
       }
     ],
@@ -217,9 +859,9 @@
     "label": "Wall Panel",
     "anchor": "floor-contact",
     "facing": "+Z",
-    "dimensions": [1.0, 2.5, 0.10000000149011612],
+    "dimensions": [1, 2.5, 0.10000000149011612],
     "bounds": {
-      "min": [-0.5, 0.0, -0.05000000074505806],
+      "min": [-0.5, 0, -0.05000000074505806],
       "max": [0.5, 2.5, 0.05000000074505806]
     },
     "footprint": [
@@ -236,7 +878,7 @@
     "colliders": [
       {
         "halfExtents": [0.5, 1.25, 0.05000000074505806],
-        "position": [0.0, 1.25, 0.0],
+        "position": [0, 1.25, 0],
         "rotation": [0, 0, 0]
       }
     ],

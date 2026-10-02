@@ -1,6 +1,29 @@
-# Paused implementation — 2026-10-01
+# Current implementation update — 2026-10-02
 
-The user requested a stop and will bring an updated plan tomorrow. Incorporate that plan before continuing. No release or archive has been claimed.
+The user resumed the remaining website work after another agent added shadcn. The eight assets, optional ceiling, frontend integration, editor, placement, branding, batching, recovery, and diagnostic tooling are implemented. See [website-acceptance.md](website-acceptance.md) for current evidence and release limitations. All 19 editable asset sources and GLB releases pass validation. No commit or push was requested for this turn.
+
+The integrated-GPU laptop gate remains pending. The change is not archived. Reservation UI was already unconnected; it is explicitly disabled instead of reporting a purchase that never occurred. The additive optional-metadata migration remains unapplied.
+
+The following is retained as historical context; its pending-work statements are superseded by the current acceptance report.
+
+---
+
+# Implementation handoff — 2026-10-02
+
+The user resumed only asset production on 2026-10-02 and prioritized the remaining eight assets. That production is complete. Continue the remaining website work later, as requested. The full OpenSpec change has not been archived.
+
+## Current production update
+
+- Delivered display case, safe, pallet, banner stand, forklift, elevator entrance, stairs, and escalator; also delivered opaque display case and low-detail forklift/elevator/stairs/escalator variants.
+- All 13 new editable Blender sources and all 18 GLBs in the full catalog pass asset inspection. Native previews, the packed overview scene, recipes, metadata, and validation evidence are saved. See [remaining-asset-production.md](remaining-asset-production.md).
+- Generator 1.1.0 writes a candidate catalog; `bun run assets:validate --publish` inspects actual files before publishing. Low variants retain sockets and placement interfaces and use at most half the baseline triangles.
+- Portal geometry has a 4 m rise and an 8 m full footprint including landings. Source recipes now use correct rail transforms. Portal entry anchors allow slab thickness below the entry plane.
+- OpenSpec production tasks 6.1–6.5, 7.1–7.3, and 8.2 are complete. Browser glass and branding acceptance remain pending as 6.6/6.7, alongside the existing website tasks.
+- No website integration or unit tests were performed in this production scope. Concurrent unrelated UI edits were preserved. No commit/push was requested for this delivery.
+
+The notes below retain the state from the earlier 2026-10-01 pause. The remaining-asset and production-ordering statements in that historical section are superseded by this update. The earlier snapshot was subsequently committed and pushed as `1e97fbd`.
+
+## Historical pause — 2026-10-01
 
 ## Saved work
 

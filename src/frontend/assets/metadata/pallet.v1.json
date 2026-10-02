@@ -1,0 +1,48 @@
+{
+  "id": "pallet",
+  "version": 1,
+  "label": "Pallet",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [1.2, 0.15, 0.8],
+  "bounds": {
+    "min": [-0.6, 0.0, -0.4],
+    "max": [0.6, 0.15, 0.4]
+  },
+  "footprint": [
+    [-0.6, -0.4],
+    [0.6, -0.4],
+    [0.6, 0.4],
+    [-0.6, 0.4]
+  ],
+  "requiredNodes": ["root"],
+  "materialRoles": {
+    "finish_wood": "surface"
+  },
+  "sockets": {},
+  "colliders": [
+    {
+      "halfExtents": [0.6, 0.075, 0.4],
+      "position": [0.0, 0.075, 0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/pallet/pallet.blend",
+    "recipe": "assets-source/blender/pallet/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.1.0"
+  },
+  "budget": {
+    "triangles": 500,
+    "materials": 1,
+    "bytes": 1048576,
+    "textureSize": 1024
+  },
+  "metrics": {
+    "triangles": 204,
+    "materials": 1,
+    "bytes": 26380,
+    "textureBytes": 0
+  }
+}

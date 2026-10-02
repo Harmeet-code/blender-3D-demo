@@ -6,10 +6,14 @@ import bpy
 source = Path(__file__).resolve().parent
 kit = runpy.run_path(str(source / "build.py"))
 bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.context.scene.unit_settings.system = "METRIC"
+bpy.context.scene.unit_settings.scale_length = 1
 root = bpy.data.objects.new("root", None)
 bpy.context.collection.objects.link(root)
 kit["box"](root, "meter_cube", (1, 1, 1), (0, .5, 0), "branding")
 kit["socket"](root, "front_positive_z", (0, 0, 1))
+kit["socket"](root, "floor_F1", (0, 0, 0))
+kit["socket"](root, "floor_B1", (0, -4, 0))
 bpy.ops.wm.save_as_mainfile(filepath=str(source / "calibration.blend"))
 bpy.ops.export_scene.gltf(filepath=str(source / "calibration.glb"), export_format="GLB", export_yup=True)
 bpy.ops.wm.read_factory_settings(use_empty=True)

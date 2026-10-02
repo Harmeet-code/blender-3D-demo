@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-02",
+  "exportStatus": "Layout JSON exported.",
+  "downloadEvent": "Browser automation did not expose the blob download event; saved JSON file not independently inspected.",
+  "calibration": {
+    "units": "pixels",
+    "metersPerPixel": 0.01,
+    "origin": [0, 0]
+  },
+  "pixelPolygon": [
+    [0, 0],
+    [1000, 0],
+    [1000, 800],
+    [0, 800]
+  ],
+  "normalizedMeterPolygon": [
+    [0, 0],
+    [10, 0],
+    [10, 8],
+    [0, 8]
+  ],
+  "imageFit": [
+    {
+      "backgroundSize": "600px 150px",
+      "height": "360px",
+      "width": "600px"
+    }
+  ]
+}

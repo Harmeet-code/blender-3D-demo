@@ -102,3 +102,6 @@ graphify-out/
 .augment/rules/byterover-rules.md
 # Regenerable floor-image thumbnails (sharp cache)
 storage/**/_thumbs/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

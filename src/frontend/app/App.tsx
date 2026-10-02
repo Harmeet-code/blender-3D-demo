@@ -1,36 +1,39 @@
 import { useState } from 'react';
-import { WorldPage } from '../pages/world-page/WorldPage.tsx';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { type Room } from '../entities/building/model/building-schema.ts';
+import { useWorldStore } from '../entities/viewer/model/viewer-store.ts';
+import { CommandPalette } from '../features/command-palette/CommandPalette.tsx';
 import { AdminBuilderPage } from '../pages/admin-builder-page/AdminBuilderPage.tsx';
+import { WorldPage } from '../pages/world-page/WorldPage.tsx';
+import { AppHeader } from '../widgets/app-shell/AppHeader.tsx';
+import { AppSidebar, type AppMode } from '../widgets/app-shell/AppSidebar.tsx';
 
 export function App() {
-  const [mode, setMode] = useState<'world' | 'admin'>('world');
+  const [mode, setMode] = useState<AppMode>('world');
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const setCurrentFloor = useWorldStore((s) => s.setCurrentFloor);
+  const selectBooth = useWorldStore((s) => s.selectBooth);
+
+  const openPalette = () => {
+    setPaletteOpen(true);
+  };
+
+  const locateRoom = (room: Room) => {
+    setMode('world');
+    setCurrentFloor(room.floorId);
+    selectBooth(room.id);
+  };
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-white/10 px-4 py-2">
-        <h1 className="text-sm font-bold">Spatial Venue 3D</h1>
-        <nav className="flex gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => {
-              setMode('world');
-            }}
-            className={`rounded-full px-3 py-1 ${mode === 'world' ? 'bg-white text-black' : 'bg-white/10'}`}
-          >
-            3D World
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('admin');
-            }}
-            className={`rounded-full px-3 py-1 ${mode === 'admin' ? 'bg-white text-black' : 'bg-white/10'}`}
-          >
-            Admin builder
-          </button>
-        </nav>
-      </header>
-      {mode === 'world' ? <WorldPage /> : <AdminBuilderPage />}
-    </div>
+    <SidebarProvider defaultOpen className="h-svh min-h-0 overflow-hidden">
+      <AppSidebar mode={mode} onNavigate={setMode} onOpenPalette={openPalette} />
+      <SidebarInset className="h-full min-h-0 overflow-hidden">
+        <AppHeader mode={mode} onNavigate={setMode} onOpenPalette={openPalette} />
+        <div className="flex min-h-0 flex-1 flex-col">
+          {mode === 'world' ? <WorldPage /> : <AdminBuilderPage onLocate={locateRoom} />}
+        </div>
+      </SidebarInset>
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} onNavigate={setMode} />
+    </SidebarProvider>
   );
 }

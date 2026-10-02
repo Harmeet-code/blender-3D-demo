@@ -1,6 +1,10 @@
 # Blender asset production and website placement plan
 
-Status: proposed, 2026-10-01. Dimensions below are the initial project defaults. Budgets are normative in [the asset spec](specs/blender-asset-library/spec.md); the checklist is [tasks.md](tasks.md). This plan describes future modeling and integration, and does not claim any assets have been built.
+Status: asset production and website integration completed on 2026-10-02; designated integrated-GPU laptop acceptance and archive remain pending. Dimensions below are the initial project defaults. Budgets are normative in [the asset spec](specs/blender-asset-library/spec.md); the checklist is [tasks.md](tasks.md). Actual exported dimensions and production evidence are in `reports/assets/remaining-asset-production.md`; website scenario evidence is in `reports/assets/website-acceptance.md`.
+
+Scheduling update, 2026-10-02: the user explicitly prioritized production of the remaining eight assets. Produce their sources, baseline/quality exports, metadata, and authoring previews now; complete browser placement and interaction acceptance later. This overrides the earlier first-slice browser gate as a production prerequisite.
+
+Resume update: the user subsequently authorized the remaining website work after another agent added shadcn. That implementation is now present; the earlier scheduling deferral is historical.
 
 ## 1. Set up the asset workspace
 
@@ -90,6 +94,8 @@ Gate: logistics previews are clearly labeled; selecting a service with no anchor
 
 ### Stairs — 2 × 4 × 6 m between the reference floors
 
+Production clarification: 4 m is the landing-to-landing rise and 6 m is the sloped flight's horizontal run. Two 1 m landings make the full exported depth 8 m. Rails and the landing thickness make the actual height approximately 5.155 m. Placement must use the measured metadata bounds and footprint, not the nominal flight dimensions. Landing-center sockets are `[0, 0, 0]` and `[0, 4, -7]` in exported root space.
+
 1. Block out lower/upper landings and a 4 m rise across 6 m depth; divide the visual flight into a modest number of repeated steps.
 2. Add simple rails with low-sided sections; keep the underside uncomplicated.
 3. Place the root at the lower approach threshold; put `portal_lower` and `portal_upper` at the landing centers.
@@ -97,6 +103,8 @@ Gate: logistics previews are clearly labeled; selecting a service with no anchor
 5. Export and place the root at B1's -4 m so the upper anchor reaches F1's 0 m. Keep the reference preview outside the slab envelope; reject other floor rises with a diagnostic. Internal cutouts and working stair traversal require a separate layout/navigation change.
 
 ### Escalator entrance — 2 × 4 × 6 m reference portal representation
+
+Production clarification: the escalator shares the stairs' 4 m rise, 6 m flight run, 8 m complete depth, and landing-center sockets. Its full height, including the continuous handrails, is approximately 5.150274 m. Both portals use their lower entry plane as the anchor; a landing slab may extend below that plane.
 
 1. Build a static incline/step silhouette with entry and exit landings plus simple side panels.
 2. Add low-sided rails and a neutral belt appearance; omit mechanical interiors and animated individual steps.

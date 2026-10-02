@@ -1,0 +1,69 @@
+{
+  "id": "banner-stand",
+  "version": 1,
+  "label": "Banner Stand",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [1.0, 2.0, 0.3],
+  "bounds": {
+    "min": [-0.5, 0.0, -0.15],
+    "max": [0.5, 2.0, 0.15]
+  },
+  "footprint": [
+    [-0.5, -0.15],
+    [0.5, -0.15],
+    [0.5, 0.15],
+    [-0.5, 0.15]
+  ],
+  "requiredNodes": [
+    "root",
+    "socket_branding",
+    "branding_surface",
+    "branding_default_0",
+    "branding_default_1",
+    "branding_default_2"
+  ],
+  "materialRoles": {
+    "finish_branding": "branding",
+    "finish_frame": "frame"
+  },
+  "sockets": {
+    "socket_branding": {
+      "position": [0, 1.1, 0.013],
+      "rotation": [0, 0, 0]
+    }
+  },
+  "colliders": [
+    {
+      "halfExtents": [0.5, 1.0, 0.15],
+      "position": [0.0, 1.0, 0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/banner-stand/banner-stand.blend",
+    "recipe": "assets-source/blender/banner-stand/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.1.0"
+  },
+  "budget": {
+    "triangles": 500,
+    "materials": 2,
+    "bytes": 1048576,
+    "textureSize": 1024
+  },
+  "metrics": {
+    "triangles": 86,
+    "materials": 2,
+    "bytes": 12472,
+    "textureBytes": 0
+  },
+  "branding": {
+    "node": "branding_surface",
+    "socket": "socket_branding",
+    "width": 0.95,
+    "height": 1.8,
+    "normal": [0, 0, 1],
+    "defaultNodes": ["branding_default_0", "branding_default_1", "branding_default_2"]
+  }
+}

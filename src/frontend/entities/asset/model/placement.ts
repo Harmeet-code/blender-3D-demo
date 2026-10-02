@@ -1,7 +1,7 @@
 import { err, ok, type Result } from 'neverthrow';
 import type { AssetMetadata } from './asset-schema.ts';
 import { ADD_ON_VISUALS } from './add-on-visuals.ts';
-import type { Room } from '../../building/model/building-schema.ts';
+import type { Room, Floor } from '../../building/model/building-schema.ts';
 import { roomEntrance } from '../../building/model/room-assembly.ts';
 import {
   boundaryDistance,
@@ -31,6 +31,53 @@ export interface PlacementPlan {
   warnings: PlacementError[];
 }
 const STEP = 0.25;
+/** An anchor is author intent; its complete footprint must still clear booths and circulation. */
+export function placeLogistics(
+  floor: Floor,
+  rooms: readonly Room[],
+  selectedAssets: readonly string[],
+  catalog: readonly AssetMetadata[],
+): Result<
+  { anchors: NonNullable<Floor['logisticsAnchors']>; warnings: PlacementError[] },
+  PlacementError
+> {
+  const anchors: NonNullable<Floor['logisticsAnchors']> = [],
+    warnings: PlacementError[] = [],
+    occupied: Array<Array<[number, number]>> = [];
+  const serviceAreas = rooms.filter((room) => room.type === 'service');
+  for (const anchor of floor.logisticsAnchors ?? []) {
+    if (!selectedAssets.includes(anchor.assetId)) {
+      continue;
+    }
+    const metadata = catalog.find((asset) => asset.id === anchor.assetId && asset.version === 1);
+    if (!metadata) {
+      warnings.push({
+        code: 'UNKNOWN_ASSET',
+        message: `${anchor.id}: ${anchor.assetId} is unavailable; service remains selected.`,
+      });
+      continue;
+    }
+    const footprint = transformFootprint(metadata.footprint, anchor.position, anchor.yawRadians);
+    const conflict = rooms.find(
+      (room) => room.type !== 'service' && polygonsOverlap(room.polygon, footprint),
+    );
+    if (
+      conflict ||
+      occupied.some((previous) => polygonsOverlap(previous, footprint)) ||
+      (serviceAreas.length &&
+        !serviceAreas.some((area) => polygonContains(area.polygon, footprint, 0.05)))
+    ) {
+      warnings.push({
+        code: 'NO_FIT',
+        message: `${anchor.id}: ${anchor.assetId} preview overlaps ${conflict?.id ?? 'another preview or the service boundary'}; service remains selected.`,
+      });
+      continue;
+    }
+    anchors.push(anchor);
+    occupied.push(footprint);
+  }
+  return ok({ anchors, warnings });
+}
 function envelope(center: Point2, radius = 0.5): Array<[number, number]> {
   return [
     [center[0] - radius, center[1] - radius],

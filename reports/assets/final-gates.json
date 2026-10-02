@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-02",
+  "scope": "blender-asset-pipeline implementation on the current workspace",
+  "typecheck": {
+    "command": "bunx tsc --noEmit",
+    "exitCode": 0
+  },
+  "lint": {
+    "command": "bunx oxlint",
+    "exitCode": 0,
+    "notes": "Warnings remain; no errors."
+  },
+  "tests": {
+    "command": "bun test",
+    "exitCode": 0,
+    "passed": 43,
+    "failed": 0,
+    "expectCalls": 264
+  },
+  "assets": {
+    "command": "bun run assets:validate",
+    "exitCode": 0,
+    "releases": 19
+  },
+  "calibration": {
+    "command": "bun run assets:calibration",
+    "exitCode": 0,
+    "losslessComparisons": 19
+  },
+  "defaultBuild": {
+    "command": "bun run build",
+    "exitCode": 0
+  },
+  "basePathBuild": {
+    "command": "bunx vite build --base /expo/",
+    "exitCode": 0
+  },
+  "format": {
+    "exitCode": 0,
+    "command": "bunx oxfmt --check"
+  },
+  "openspec": {
+    "command": "bunx openspec validate blender-asset-pipeline --strict",
+    "exitCode": 0
+  },
+  "remaining": ["Designated integrated-GPU laptop acceptance", "Archive after acceptance"],
+  "warnings": [
+    "Large Vite application chunk remains a separate roadmap item",
+    "Editor blob download not exposed by browser automation; success status observed",
+    "Frontend reservation remains unwired and is visibly disabled",
+    "Optional metadata database migration unapplied"
+  ],
+  "commit": "Not created in this turn"
+}

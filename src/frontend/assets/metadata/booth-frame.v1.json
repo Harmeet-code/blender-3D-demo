@@ -15,7 +15,7 @@
     [2.0, 2.0],
     [-2.0, 2.0]
   ],
-  "requiredNodes": ["root", "socket_branding", "socket_entry"],
+  "requiredNodes": ["root", "socket_branding", "socket_entry", "mesh_branding"],
   "materialRoles": {
     "finish_branding": "branding",
     "finish_panel": "surface"
@@ -51,7 +51,7 @@
     "blend": "assets-source/blender/booth-frame/booth-frame.blend",
     "recipe": "assets-source/blender/booth-frame/build.py",
     "license": "LicenseRef-Project-Owned",
-    "generatorVersion": "1.0.0"
+    "generatorVersion": "1.1.0"
   },
   "budget": {
     "triangles": 2000,
@@ -62,7 +62,15 @@
   "metrics": {
     "triangles": 48,
     "materials": 2,
-    "bytes": 6796,
+    "bytes": 6904,
     "textureBytes": 0
+  },
+  "branding": {
+    "node": "mesh_branding",
+    "socket": "socket_branding",
+    "width": 3.6,
+    "height": 0.24,
+    "normal": [0, 0, 1],
+    "defaultNodes": []
   }
 }

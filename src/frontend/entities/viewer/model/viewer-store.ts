@@ -1,12 +1,29 @@
 import { create } from 'zustand';
 import type { AvatarState } from '../../building/model/building-schema.ts';
 import { useLayoutStore } from '../../building/model/layout-store.ts';
+import type { Logo } from '../../asset/model/branding.ts';
+import { assetProofLayout } from '../../building/model/asset-proof-layout.ts';
+import { assetStressLayout } from '../../building/model/asset-stress-layout.ts';
 
 interface WorldState {
   currentFloorId: string;
   dollhouse: boolean;
   assetProof: boolean;
   lowQuality: boolean;
+  stressPreview: boolean;
+  geometryFallback: boolean;
+  showCeilings: boolean;
+  galleryAssetId: string;
+  diagnosticsEnabled: boolean;
+  toggleDiagnostics: () => void;
+  setGalleryAsset: (id: string) => void;
+  previewDoorsOpen: boolean;
+  togglePreviewDoors: () => void;
+  toggleCeilings: () => void;
+  logos: Record<string, Logo>;
+  setLogo: (boothId: string, logo: Logo | null) => void;
+  toggleStressPreview: () => void;
+  toggleGeometryFallback: () => void;
   toggleAssetProof: () => void;
   toggleQuality: () => void;
   selectedBoothId: string | null;
@@ -27,7 +44,34 @@ export const useWorldStore = create<WorldState>((set) => ({
   assetProof:
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('asset-preview'),
-  lowQuality: false,
+  lowQuality:
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('quality') === 'low',
+  stressPreview:
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('asset-stress'),
+  geometryFallback: false,
+  showCeilings: false,
+  galleryAssetId: 'chair',
+  diagnosticsEnabled: false,
+  toggleDiagnostics: () => set((state) => ({ diagnosticsEnabled: !state.diagnosticsEnabled })),
+  setGalleryAsset: (galleryAssetId) => set({ galleryAssetId }),
+  previewDoorsOpen: false,
+  togglePreviewDoors: () => set((state) => ({ previewDoorsOpen: !state.previewDoorsOpen })),
+  toggleCeilings: () => set((state) => ({ showCeilings: !state.showCeilings })),
+  logos: {},
+  setLogo: (boothId, logo) =>
+    set((state) => {
+      const logos = { ...state.logos };
+      if (logo) {
+        logos[boothId] = logo;
+      } else {
+        delete logos[boothId];
+      }
+      return { logos };
+    }),
+  toggleStressPreview: () => set((state) => ({ stressPreview: !state.stressPreview })),
+  toggleGeometryFallback: () => set((state) => ({ geometryFallback: !state.geometryFallback })),
   toggleAssetProof: () => set((state) => ({ assetProof: !state.assetProof })),
   toggleQuality: () => set((state) => ({ lowQuality: !state.lowQuality })),
   selectedBoothId: null,
@@ -48,8 +92,12 @@ export const useWorldStore = create<WorldState>((set) => ({
         floorId,
         position: [
           0,
-          (useLayoutStore.getState().layout.floors.find((floor) => floor.id === floorId)
-            ?.heightOffset ?? 0) + 1.2,
+          ((state.stressPreview
+            ? assetStressLayout
+            : state.assetProof
+              ? assetProofLayout
+              : useLayoutStore.getState().layout
+          ).floors.find((floor) => floor.id === floorId)?.heightOffset ?? 0) + 1.2,
           6,
         ],
       },

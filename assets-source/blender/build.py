@@ -16,9 +16,11 @@ MODEL_DIR = PROJECT / "src/frontend/assets/models"
 META_DIR = PROJECT / "src/frontend/assets/metadata"
 PREVIEW_DIR = PROJECT / "src/frontend/assets/images/asset-previews"
 SOURCE_DIR = PROJECT / "assets-source/blender"
-VERSION = "1.0.0"
-FIRST = ["floor-tile", "wall-panel", "booth-frame", "chair", "table"]
+sys.path.insert(0, str(SOURCE_DIR))
+VERSION = "1.1.0"
+FIRST = ["floor-tile", "wall-panel", "booth-frame", "chair", "table", "booth-ceiling"]
 BUDGETS = {
+    "booth-ceiling": (100, 1),
     "floor-tile": (100, 1), "wall-panel": (200, 1), "booth-frame": (2000, 2),
     "chair": (800, 1), "table": (500, 1), "display-case": (1500, 2),
     "safe": (1000, 1), "pallet": (500, 1), "forklift": (6000, 3),
@@ -30,6 +32,7 @@ COLORS = {
     "branding": (0.02, 0.38, 0.50, 1), "chair": (0.045, 0.20, 0.26, 1),
     "wood": (0.52, 0.34, 0.17, 1), "metal": (0.27, 0.32, 0.37, 1),
     "yellow": (0.98, 0.53, 0.025, 1), "glass": (0.40, 0.72, 0.83, 0.24),
+    "glass_opaque": (0.40, 0.72, 0.83, 1),
     "floor": (0.18, 0.22, 0.26, 1),
 }
 
@@ -97,17 +100,27 @@ def cylinder(root, name, radius, depth, position, finish, axis="Y", vertices=12)
     return obj
 
 
-def model(asset_id):
+def model(asset_id, quality="baseline"):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.context.scene.unit_settings.system = "METRIC"
     bpy.context.scene.unit_settings.scale_length = 1
     root = bpy.data.objects.new("root", None)
     bpy.context.collection.objects.link(root)
+    root["asset_id"] = asset_id
+    root["asset_version"] = 1
+    root["generator_version"] = VERSION
+    root["quality_variant"] = quality
+    if asset_id not in FIRST:
+        sys.path.insert(0, str(SOURCE_DIR))
+        from remaining import build_remaining
+        return build_remaining(asset_id, quality, root, box, cylinder, socket, material, xyz)
     sockets = {}
     anchor = "floor-contact"
     if asset_id == "floor-tile":
         box(root, "mesh_floor", (4, .2, 4), (0, -.1, 0), "floor")
         anchor = "floor-top"
+    elif asset_id == "booth-ceiling":
+        box(root, "mesh_ceiling", (4, .08, 4), (0, .04, 0), "panel")
     elif asset_id == "wall-panel":
         box(root, "mesh_panel", (1, 2.5, .1), (0, 1.25, 0), bevel=.004)
     elif asset_id == "booth-frame":
@@ -127,68 +140,14 @@ def model(asset_id):
         for x in [-.51, .51]:
             for z in [-.21, .21]:
                 box(root, f"mesh_leg_{x}_{z}", (.08, .69, .08), (x, .345, z), "wood")
-    elif asset_id == "display-case":
-        box(root, "mesh_cabinet", (1.2, .65, .5), (0, .325, 0), "frame", .006)
-        box(root, "mesh_glass", (1.18, .45, .48), (0, .875, 0), "glass")
-        box(root, "mesh_shelf", (1.16, .025, .46), (0, .68, 0), "frame")
-    elif asset_id == "safe":
-        box(root, "mesh_body", (.6, .8, .6), (0, .4, 0), "metal", .012)
-        box(root, "mesh_door", (.5, .67, .025), (0, .4, .2875), "metal", .004)
-        box(root, "mesh_handle", (.12, .04, .03), (.11, .42, .29), "metal")
-    elif asset_id == "pallet":
-        for i in range(5):
-            box(root, f"mesh_board_{i}", (1.2, .035, .13), (0, .1325, -.335 + i * .1675), "wood")
-        for x in [-.48, 0, .48]:
-            box(root, f"mesh_runner_{x}", (.14, .035, .8), (x, .0175, 0), "wood")
-            for z in [-.28, 0, .28]:
-                box(root, f"mesh_block_{x}_{z}", (.14, .08, .14), (x, .075, z), "wood")
-    elif asset_id == "banner-stand":
-        box(root, "mesh_base", (1, .045, .3), (0, .0225, 0), "frame")
-        box(root, "mesh_banner", (.95, 1.8, .02), (0, 1.1, 0), "branding")
-        for x in [-.46, .46]:
-            box(root, f"mesh_post_{x}", (.03, 1.9, .03), (x, .95, -.02), "frame")
-        sockets = {"socket_branding": [0, 1.1, .013]}
-    elif asset_id == "forklift":
-        box(root, "mesh_chassis", (1.05, .55, 1.65), (0, .6, -.45), "yellow", .03)
-        box(root, "mesh_counterweight", (1.05, .45, .45), (0, .95, -1.0), "yellow", .025)
-        box(root, "mesh_seat", (.42, .14, .4), (0, 1.05, -.4), "frame")
-        for x in [-.53, .53]:
-            for z in [-.9, .1]:
-                cylinder(root, f"mesh_wheel_{x}_{z}", .3, .14, (x, .3, z), "frame", "X")
-        for x in [-.43, .43]:
-            box(root, f"mesh_mast_{x}", (.07, 1.9, .08), (x, 1.2, .48), "metal")
-            for z in [-.9, .2]:
-                box(root, f"mesh_cab_post_{x}_{z}", (.045, 1.25, .045), (x, 1.55, z), "metal")
-        box(root, "mesh_roof", (1.1, .06, 1.35), (0, 2.17, -.35), "yellow")
-        for x in [-.33, .33]:
-            box(root, f"mesh_fork_{x}", (.12, .07, 1.55), (x, .14, 1.0), "metal")
-    elif asset_id == "elevator-entrance":
-        anchor = "portal-entry"
-        for x in [-.9, .9]:
-            box(root, f"mesh_frame_{x}", (.2, 2.6, .3), (x, 1.3, 0), "metal")
-        box(root, "mesh_lintel", (1.6, .2, .3), (0, 2.5, 0), "metal")
-        for name, x in [("door_left", -.4), ("door_right", .4)]:
-            box(root, name, (.79, 2.4, .08), (x, 1.2, -.06), "panel")
-        box(root, "mesh_button", (.08, .16, .04), (.9, 1.1, .12), "branding")
-        sockets = {"portal_lower": [0, 0, .2]}
-    elif asset_id in ["stairs", "escalator-entrance"]:
-        anchor = "portal-entry"
-        count = 20 if asset_id == "stairs" else 16
-        for i in range(count):
-            rise = 4 * (i + 1) / count
-            depth = 6 / count
-            box(root, f"mesh_step_{i:02}", (2, rise, depth), (0, rise / 2, -depth * (i + .5)), "frame")
-        for x in [-.95, .95]:
-            rail = box(root, f"mesh_rail_{x}", (.07, .07, math.hypot(6, 4)), (x, 2.85, -3), "metal")
-            rail.rotation_euler[0] = -math.atan2(4, 6)
-        sockets = {"portal_lower": [0, 0, 0], "portal_upper": [0, 4, -6]}
     for name, position in sockets.items():
         socket(root, name, position)
     return root, anchor, sockets
 
 
-def export_asset(asset_id, previews):
-    root, anchor, sockets = model(asset_id)
+def export_asset(asset_id, previews, quality="baseline"):
+    root, anchor, sockets = model(asset_id, quality)
+    suffix = "" if quality == "baseline" else f".{quality}"
     objects = [root] + list(root.children_recursive)
     meshes = [obj for obj in objects if obj.type == "MESH"]
     points = [obj.matrix_world @ Vector(corner) for obj in meshes for corner in obj.bound_box]
@@ -197,8 +156,9 @@ def export_asset(asset_id, previews):
     points = [obj.matrix_world @ Vector(corner) for obj in meshes for corner in obj.bound_box]
     source_min = [min(p[i] for p in points) for i in range(3)]
     source_max = [max(p[i] for p in points) for i in range(3)]
-    lower = [source_min[0], source_min[2], -source_max[1]]
-    upper = [source_max[0], source_max[2], -source_min[1]]
+    # Micro-meter rounding removes float noise without changing the 5 mm interface tolerance.
+    lower = [round(value, 6) for value in [source_min[0], source_min[2], -source_max[1]]]
+    upper = [round(value, 6) for value in [source_max[0], source_max[2], -source_min[1]]]
     dimensions = [upper[i] - lower[i] for i in range(3)]
     materials = {mat.name for obj in meshes for mat in obj.data.materials}
     triangles = 0
@@ -207,10 +167,10 @@ def export_asset(asset_id, previews):
         triangles += len(obj.data.loop_triangles)
     source = SOURCE_DIR / asset_id
     source.mkdir(parents=True, exist_ok=True)
-    bpy.ops.wm.save_as_mainfile(filepath=str(source / f"{asset_id}.blend"))
-    (source / "build.py").write_text(
+    bpy.ops.wm.save_as_mainfile(filepath=str(source / f"{asset_id}{suffix}.blend"))
+    (source / f"build{suffix}.py").write_text(
         'import runpy, sys\nfrom pathlib import Path\n'
-        f'sys.argv = [sys.argv[0], "--", "--asset", "{asset_id}"]\n'
+        f'sys.argv = [sys.argv[0], "--", "--asset", "{asset_id}", "--variant", "{"all" if quality == "baseline" else quality}"]\n'
         'runpy.run_path(str(Path(__file__).resolve().parents[1] / "build.py"), run_name="__main__")\n',
         encoding="utf-8",
     )
@@ -218,12 +178,12 @@ def export_asset(asset_id, previews):
     for obj in objects:
         obj.select_set(True)
     bpy.context.view_layer.objects.active = root
-    output = MODEL_DIR / f"{asset_id}.v1.glb"
+    output = MODEL_DIR / f"{asset_id}.v1{suffix}.glb"
     bpy.ops.export_scene.gltf(filepath=str(output), export_format="GLB", use_selection=True,
         export_yup=True, export_cameras=False, export_lights=False, export_animations=False,
         export_extras=True, export_materials="EXPORT")
-    structural = asset_id in ["floor-tile", "wall-panel", "booth-frame", "elevator-entrance", "stairs", "escalator-entrance"]
-    roles = {name: "branding" if "branding" in name else "glass" if "glass" in name else "surface" for name in sorted(materials)}
+    structural = asset_id in ["floor-tile", "wall-panel", "booth-frame", "booth-ceiling", "elevator-entrance", "stairs", "escalator-entrance"]
+    roles = {name: "branding" if "branding" in name else "glass" if "glass" in name else "frame" if name == "finish_frame" else "surface" for name in sorted(materials)}
     metadata = {
         "id": asset_id, "version": 1, "label": asset_id.replace("-", " ").title(),
         "anchor": anchor, "facing": "+Z", "dimensions": dimensions,
@@ -233,12 +193,15 @@ def export_asset(asset_id, previews):
         "materialRoles": roles,
         "sockets": {name: {"position": position, "rotation": [0, 0, 0]} for name, position in sockets.items()},
         "colliders": [{"halfExtents": [value / 2 for value in dimensions], "position": [(lower[i] + upper[i]) / 2 for i in range(3)], "rotation": [0, 0, 0]}],
-        "source": {"blend": f"assets-source/blender/{asset_id}/{asset_id}.blend", "recipe": f"assets-source/blender/{asset_id}/build.py", "license": "LicenseRef-Project-Owned", "generatorVersion": VERSION},
+        "source": {"blend": f"assets-source/blender/{asset_id}/{asset_id}{suffix}.blend", "recipe": f"assets-source/blender/{asset_id}/build{suffix}.py", "license": "LicenseRef-Project-Owned", "generatorVersion": VERSION},
         "budget": {"triangles": BUDGETS[asset_id][0], "materials": BUDGETS[asset_id][1], "bytes": 2097152 if structural else 1048576, "textureSize": 2048 if structural else 1024},
         "metrics": {"triangles": triangles, "materials": len(materials), "bytes": output.stat().st_size, "textureBytes": 0},
     }
     if asset_id in ["stairs", "escalator-entrance"]:
         metadata["portalRise"] = 4
+    if asset_id == "booth-frame":
+        metadata["branding"] = {"node": "mesh_branding", "socket": "socket_branding", "width": 3.6, "height": .24, "normal": [0, 0, 1], "defaultNodes": []}
+        metadata["requiredNodes"].append("mesh_branding")
     # A booth/elevator needs an entrance gap; collision is composed from its frame pieces.
     if asset_id in ["booth-frame", "elevator-entrance"]:
         metadata["colliders"] = []
@@ -247,14 +210,41 @@ def export_asset(asset_id, previews):
                 size = obj.dimensions
                 center = obj.matrix_world.translation
                 metadata["colliders"].append({"halfExtents": [size.x / 2, size.z / 2, size.y / 2], "position": [center.x, center.z, -center.y], "rotation": [0, 0, 0]})
-    (META_DIR / f"{asset_id}.v1.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    if asset_id not in FIRST:
+        from remaining import interface_details
+        details = interface_details(asset_id)
+        metadata["requiredNodes"] += details.pop("requiredNodes", [])
+        metadata.update(details)
+    (META_DIR / f"{asset_id}.v1{suffix}.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
     if previews:
-        render_previews(asset_id, dimensions)
-    print("ASSET_EXPORTED", asset_id, triangles, output.stat().st_size, flush=True)
+        render_previews(asset_id + suffix, dimensions)
+        if asset_id == "elevator-entrance" and quality == "baseline":
+            left, right = bpy.data.objects["door_left"], bpy.data.objects["door_right"]
+            left.location.x -= .82
+            right.location.x += .82
+            render_previews(asset_id + ".door-open", dimensions, views=[("hero", (1, -1, .85))])
+            left.location.x += .82
+            right.location.x -= .82
+        if asset_id == "banner-stand":
+            for name in metadata["branding"]["defaultNodes"]:
+                bpy.data.objects[name].hide_render = True
+            for name, size in [("square", (.8, .8, .003)), ("wide", (.9, .3, .003))]:
+                sample = box(root, "preview_logo", size, (0, 1.1, .019), "panel")
+                render_previews(asset_id + ".logo-" + name, dimensions, views=[("front", (0, -1, .05))])
+                bpy.data.objects.remove(sample, do_unlink=True)
+    print("ASSET_EXPORTED", asset_id, quality, triangles, output.stat().st_size, flush=True)
+    return metadata
 
 
-def render_previews(asset_id, dimensions):
+def render_previews(asset_id, dimensions, views=None):
     scene = bpy.context.scene
+    for obj in list(scene.objects):
+        if obj.type in ["LIGHT", "CAMERA"]:
+            bpy.data.objects.remove(obj, do_unlink=True)
+    bpy.context.view_layer.update()
+    points = [obj.matrix_world @ Vector(corner) for obj in scene.objects if obj.type == "MESH" for corner in obj.bound_box]
+    lower = Vector([min(p[i] for p in points) for i in range(3)])
+    upper = Vector([max(p[i] for p in points) for i in range(3)])
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
     scene.cycles.samples = 12
@@ -274,10 +264,10 @@ def render_previews(asset_id, dimensions):
     camera = bpy.context.object
     scene.camera = camera
     camera.data.type = "ORTHO"
-    extent = max(dimensions)
-    camera.data.ortho_scale = extent * 1.4
-    target = Vector((0, 0, dimensions[1] / 2))
-    for view, direction in [("front", (0, -1, .18)), ("side", (1, 0, .18)), ("top", (0, -.01, 1)), ("hero", (1, -1, .85))]:
+    extent = max(upper - lower)
+    camera.data.ortho_scale = extent * 1.55
+    target = (lower + upper) / 2
+    for view, direction in views or [("front", (0, -1, .18)), ("side", (1, 0, .18)), ("top", (0, -.01, 1)), ("hero", (1, -1, .85))]:
         camera.location = target + Vector(direction).normalized() * (extent * 3 + 1)
         camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
         scene.render.filepath = str(PREVIEW_DIR / f"{asset_id}.{view}.png")
@@ -289,14 +279,36 @@ def main():
     parser.add_argument("--stage", choices=["first", "remaining", "all"], default="first")
     parser.add_argument("--asset", choices=list(BUDGETS))
     parser.add_argument("--previews", action="store_true")
+    parser.add_argument("--variant", choices=["all", "baseline", "low", "opaque"], default="all")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else [])
     for path in [MODEL_DIR, META_DIR, PREVIEW_DIR]:
         path.mkdir(parents=True, exist_ok=True)
     assets = [args.asset] if args.asset else FIRST if args.stage == "first" else list(BUDGETS) if args.stage == "all" else [key for key in BUDGETS if key not in FIRST]
     for asset_id in assets:
-        export_asset(asset_id, args.previews)
-    catalog = [json.loads(path.read_text(encoding="utf-8")) for path in sorted(META_DIR.glob("*.v1.json"))]
-    (META_DIR / "catalog.v1.json").write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+        from remaining import QUALITY_VARIANTS
+        qualities = QUALITY_VARIANTS.get(asset_id, [])
+        if args.variant not in ["all", "baseline"] and args.variant not in qualities:
+            raise ValueError(f"Unsupported quality {args.variant} for {asset_id}")
+        if args.variant in ["all", "baseline"]:
+            metadata = export_asset(asset_id, args.previews)
+        else:
+            metadata = json.loads((META_DIR / f"{asset_id}.v1.json").read_text(encoding="utf-8"))
+        for quality in qualities:
+            if args.variant not in ["all", quality]:
+                continue
+            variant = export_asset(asset_id, args.previews, quality)
+            metadata.setdefault("variants", {})[quality] = {
+                "file": f"{asset_id}.v1.{quality}.glb",
+                "source": variant["source"], "metrics": variant["metrics"],
+                "materialRoles": variant["materialRoles"],
+            }
+        (META_DIR / f"{asset_id}.v1.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    catalog = [json.loads(path.read_text(encoding="utf-8")) for path in
+               [META_DIR / f"{asset_id}.v1.json" for asset_id in sorted(BUDGETS)] if path.exists()]
+    candidate_dir = PROJECT / ".cache/assets"
+    candidate_dir.mkdir(parents=True, exist_ok=True)
+    (candidate_dir / "catalog.candidate.v1.json").write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    print("CATALOG_CANDIDATE_READY: run bun run assets:validate --publish", flush=True)
 
 
 if __name__ == "__main__":

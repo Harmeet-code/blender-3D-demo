@@ -1,0 +1,60 @@
+{
+  "id": "elevator-entrance",
+  "version": 1,
+  "label": "Elevator Entrance",
+  "anchor": "portal-entry",
+  "facing": "+Z",
+  "dimensions": [2.0, 2.65, 0.3],
+  "bounds": {
+    "min": [-1.0, -0.05, -0.15],
+    "max": [1.0, 2.6, 0.15]
+  },
+  "footprint": [
+    [-1.0, -0.15],
+    [1.0, -0.15],
+    [1.0, 0.15],
+    [-1.0, 0.15]
+  ],
+  "requiredNodes": ["root", "portal_lower", "door_left", "door_right"],
+  "materialRoles": {
+    "finish_branding": "branding",
+    "finish_metal": "surface",
+    "finish_panel": "surface"
+  },
+  "sockets": {
+    "portal_lower": {
+      "position": [0, 0, 0.2],
+      "rotation": [0, 0, 0]
+    }
+  },
+  "colliders": [
+    {
+      "halfExtents": [0.10000000149011612, 1.2999999523162842, 0.15000000596046448],
+      "position": [-0.8999999761581421, 1.2999999523162842, -0.0],
+      "rotation": [0, 0, 0]
+    },
+    {
+      "halfExtents": [0.10000000149011612, 1.2999999523162842, 0.15000000596046448],
+      "position": [0.8999999761581421, 1.2999999523162842, -0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/elevator-entrance/elevator-entrance.low.blend",
+    "recipe": "assets-source/blender/elevator-entrance/build.low.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.1.0"
+  },
+  "budget": {
+    "triangles": 3000,
+    "materials": 3,
+    "bytes": 2097152,
+    "textureSize": 2048
+  },
+  "metrics": {
+    "triangles": 84,
+    "materials": 3,
+    "bytes": 11724,
+    "textureBytes": 0
+  }
+}

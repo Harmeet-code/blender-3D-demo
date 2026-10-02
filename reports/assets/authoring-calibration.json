@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "blender": "4.5.9 LTS",
+  "unitScale": 1,
+  "meterCubeDimensions": [1, 1, 1],
+  "materials": [
+    "finish_branding",
+    "finish_chair",
+    "finish_floor",
+    "finish_frame",
+    "finish_glass",
+    "finish_glass_opaque",
+    "finish_metal",
+    "finish_panel",
+    "finish_wood",
+    "finish_yellow"
+  ]
+}

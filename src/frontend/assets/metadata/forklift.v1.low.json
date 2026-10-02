@@ -1,0 +1,55 @@
+{
+  "id": "forklift",
+  "version": 1,
+  "label": "Forklift",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [1.2, 2.2, 3.0],
+  "bounds": {
+    "min": [-0.6, 0.0, -1.225],
+    "max": [0.6, 2.2, 1.775]
+  },
+  "footprint": [
+    [-0.6, -1.225],
+    [0.6, -1.225],
+    [0.6, 1.775],
+    [-0.6, 1.775]
+  ],
+  "requiredNodes": ["root", "socket_service"],
+  "materialRoles": {
+    "finish_frame": "frame",
+    "finish_metal": "surface",
+    "finish_yellow": "surface"
+  },
+  "sockets": {
+    "socket_service": {
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0]
+    }
+  },
+  "colliders": [
+    {
+      "halfExtents": [0.6, 1.1, 1.5],
+      "position": [0.0, 1.1, 0.2749999999999999],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/forklift/forklift.low.blend",
+    "recipe": "assets-source/blender/forklift/build.low.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.1.0"
+  },
+  "budget": {
+    "triangles": 6000,
+    "materials": 3,
+    "bytes": 1048576,
+    "textureSize": 1024
+  },
+  "metrics": {
+    "triangles": 268,
+    "materials": 3,
+    "bytes": 28432,
+    "textureBytes": 0
+  }
+}

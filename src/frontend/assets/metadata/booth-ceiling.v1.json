@@ -1,0 +1,48 @@
+{
+  "id": "booth-ceiling",
+  "version": 1,
+  "label": "Booth Ceiling",
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "dimensions": [4.0, 0.08, 4.0],
+  "bounds": {
+    "min": [-2.0, 0.0, -2.0],
+    "max": [2.0, 0.08, 2.0]
+  },
+  "footprint": [
+    [-2.0, -2.0],
+    [2.0, -2.0],
+    [2.0, 2.0],
+    [-2.0, 2.0]
+  ],
+  "requiredNodes": ["root"],
+  "materialRoles": {
+    "finish_panel": "surface"
+  },
+  "sockets": {},
+  "colliders": [
+    {
+      "halfExtents": [2.0, 0.04, 2.0],
+      "position": [0.0, 0.04, 0.0],
+      "rotation": [0, 0, 0]
+    }
+  ],
+  "source": {
+    "blend": "assets-source/blender/booth-ceiling/booth-ceiling.blend",
+    "recipe": "assets-source/blender/booth-ceiling/build.py",
+    "license": "LicenseRef-Project-Owned",
+    "generatorVersion": "1.1.0"
+  },
+  "budget": {
+    "triangles": 100,
+    "materials": 1,
+    "bytes": 2097152,
+    "textureSize": 2048
+  },
+  "metrics": {
+    "triangles": 12,
+    "materials": 1,
+    "bytes": 2188,
+    "textureBytes": 0
+  }
+}
