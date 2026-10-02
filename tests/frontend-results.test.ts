@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { apiResult, type ApiError } from '../src/frontend/shared/result/api-result.ts';
 import { apiResultValidated } from '../src/frontend/shared/result/api-result.ts';
 import { layoutResponseSchema } from '../src/frontend/entities/building/api/dto.ts';
@@ -17,6 +17,11 @@ afterAll(async () => {
 });
 
 describe('frontend Result api client', () => {
+  beforeEach(() => {
+    useLayoutStore.getState().update(demoLayout);
+    useLayoutStore.setState({ loadStatus: 'idle', loadError: null });
+  });
+
   test('layout store load replaces the current layout with validated API data', async () => {
     const originalFetch = globalThis.fetch;
     const originalBaseUrl = process.env['VITE_API_BASE_URL'];
@@ -118,6 +123,104 @@ describe('frontend Result api client', () => {
       expect(useLayoutStore.getState().layout.buildingId).toBe('last-valid-parse-event');
       expect(useLayoutStore.getState().loadStatus).toBe('error');
       expect(useLayoutStore.getState().loadError).toContain('Response validation failed');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
+  test('layout store ignores an earlier response that resolves after the latest request', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    const responses = new Map<string, (response: Response) => void>();
+    process.env['VITE_API_BASE_URL'] = 'http://layout-api.test';
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, _init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          const eventId = new URL(String(input)).pathname.split('/').at(-2);
+          if (eventId) {
+            responses.set(eventId, resolve);
+          }
+        }),
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      const earlierLoad = useLayoutStore.getState().load('earlier-event');
+      const latestLoad = useLayoutStore.getState().load('latest-event');
+      responses.get('latest-event')?.(Response.json({ ...demoLayout, buildingId: 'latest-event' }));
+      await latestLoad;
+      responses.get('earlier-event')?.(Response.json({ ...demoLayout, buildingId: 'earlier-event' }));
+      await earlierLoad;
+
+      expect(useLayoutStore.getState().source.buildingId).toBe('latest-event');
+      expect(useLayoutStore.getState().layout.buildingId).toBe('latest-event');
+      expect(useLayoutStore.getState().loadStatus).toBe('ready');
+      expect(useLayoutStore.getState().loadError).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
+  test('layout store shares one in-flight fetch for repeated loads of the same event', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    let fetchCount = 0;
+    process.env['VITE_API_BASE_URL'] = 'http://layout-api.test';
+    globalThis.fetch = Object.assign(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => {
+        fetchCount += 1;
+        return Response.json({ ...demoLayout, buildingId: 'shared-event' });
+      },
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      const firstLoad = useLayoutStore.getState().load('shared-event');
+      const secondLoad = useLayoutStore.getState().load('shared-event');
+      await Promise.all([firstLoad, secondLoad]);
+
+      expect(fetchCount).toBe(1);
+      expect(useLayoutStore.getState().source.buildingId).toBe('shared-event');
+      expect(useLayoutStore.getState().loadStatus).toBe('ready');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
+  test('layout store invalid JSON response retains the last valid layout', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    const currentLayout = { ...demoLayout, buildingId: 'last-valid-json-event' };
+    useLayoutStore.getState().update(currentLayout);
+    process.env['VITE_API_BASE_URL'] = 'http://layout-api.test';
+    globalThis.fetch = Object.assign(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response('{ invalid json', {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      await useLayoutStore.getState().load('invalid-json-event');
+
+      expect(useLayoutStore.getState().source.buildingId).toBe('last-valid-json-event');
+      expect(useLayoutStore.getState().layout.buildingId).toBe('last-valid-json-event');
+      expect(useLayoutStore.getState().loadStatus).toBe('error');
+      expect(useLayoutStore.getState().loadError).toContain('Invalid JSON');
     } finally {
       globalThis.fetch = originalFetch;
       if (originalBaseUrl === undefined) {
