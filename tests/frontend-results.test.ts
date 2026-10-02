@@ -239,6 +239,35 @@ describe('frontend Result api client', () => {
     }
   });
 
+  test('layout store fetches again for a same-event load after the previous load settles', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    let fetchCount = 0;
+    process.env['VITE_API_BASE_URL'] = 'http://layout-api.test';
+    globalThis.fetch = Object.assign(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => {
+        fetchCount += 1;
+        return Response.json({ ...demoLayout, buildingId: 'settled-event' });
+      },
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      await useLayoutStore.getState().load('settled-event');
+      await useLayoutStore.getState().load('settled-event');
+
+      expect(fetchCount).toBe(2);
+      expect(useLayoutStore.getState().source.buildingId).toBe('settled-event');
+      expect(useLayoutStore.getState().loadStatus).toBe('ready');
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
   test('layout store invalid JSON response retains the last valid layout', async () => {
     const originalFetch = globalThis.fetch;
     const originalBaseUrl = process.env['VITE_API_BASE_URL'];
