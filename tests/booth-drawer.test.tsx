@@ -27,7 +27,7 @@ Object.assign(globalThis, {
   IS_REACT_ACT_ENVIRONMENT: true,
 });
 
-const { cleanup, fireEvent, render, screen, waitFor } = await import('@testing-library/react');
+const { act, cleanup, fireEvent, render, screen, waitFor } = await import('@testing-library/react');
 const { BoothDrawer } = await import('../src/frontend/features/booth-customize/BoothDrawer.tsx');
 const { useWorldStore } = await import('../src/frontend/entities/viewer/model/viewer-store.ts');
 
@@ -121,6 +121,39 @@ describe('BoothDrawer reservation', () => {
     expect((successfulChairCheckbox as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(successfulChairCheckbox);
     expect(useWorldStore.getState().cart['room-101']).toEqual(['chair']);
+  });
+
+  test('submits only once when Reserve is clicked twice before the first request settles', async () => {
+    let postCount = 0;
+    let finishRequest: (response: Response) => void = () => {};
+    globalThis.fetch = Object.assign(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => {
+        postCount++;
+        return new Promise<Response>((resolve) => {
+          finishRequest = resolve;
+        });
+      },
+      { preconnect: originalFetch.preconnect },
+    );
+    render(<BoothDrawer />);
+    const reserveButton = screen.getByRole('button', { name: /Reserve/ });
+
+    act(() => {
+      fireEvent.click(reserveButton);
+      fireEvent.click(reserveButton);
+    });
+
+    expect(postCount).toBe(1);
+    await screen.findByText('Creating your pending order…');
+    finishRequest(
+      Response.json({
+        reserved: true,
+        boothId: 'room-101',
+        addOns: ['chair'],
+        orderId: 'order-ui-duplicate-check',
+      }),
+    );
+    await screen.findByText(/order-ui-duplicate-check/);
   });
 
   test('shows a reservation error and preserves the selected add-on after failure', async () => {
