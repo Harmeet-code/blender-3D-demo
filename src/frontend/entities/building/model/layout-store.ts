@@ -5,7 +5,10 @@ import { buildingLayoutSchema, demoLayout, type BuildingLayout } from './buildin
 import { normalizeLayout, type LayoutError, type NormalizedLayout } from './normalize-layout.ts';
 
 let latestLoadRequestId = 0;
-const inFlightLoads = new Map<string, { requestId: number; promise: Promise<void> }>();
+const inFlightLoads = new Map<
+  string,
+  { identity: { requestId: number }; promise: Promise<void> }
+>();
 
 const initial = normalizeLayout(demoLayout);
 if (initial.isErr()) {
@@ -42,15 +45,17 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   load: (eventId) => {
     const existingLoad = inFlightLoads.get(eventId);
     if (existingLoad) {
+      existingLoad.identity.requestId = ++latestLoadRequestId;
+      set({ loadStatus: 'loading', loadError: null });
       return existingLoad.promise;
     }
 
-    const requestId = ++latestLoadRequestId;
+    const identity = { requestId: ++latestLoadRequestId };
     set({ loadStatus: 'loading', loadError: null });
     const request = (async () => {
       try {
         const result = await getLayout(eventId);
-        if (requestId !== latestLoadRequestId) {
+        if (identity.requestId !== latestLoadRequestId) {
           return;
         }
         if (result.isErr()) {
@@ -64,7 +69,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
         }
         set({ loadStatus: 'ready', loadError: null });
       } catch (error) {
-        if (requestId === latestLoadRequestId) {
+        if (identity.requestId === latestLoadRequestId) {
           set({
             loadStatus: 'error',
             loadError: error instanceof Error ? error.message : String(error),
@@ -72,11 +77,11 @@ export const useLayoutStore = create<LayoutState>((set) => ({
         }
       }
     })().finally(() => {
-      if (inFlightLoads.get(eventId)?.requestId === requestId) {
+      if (inFlightLoads.get(eventId)?.identity === identity) {
         inFlightLoads.delete(eventId);
       }
     });
-    inFlightLoads.set(eventId, { requestId, promise: request });
+    inFlightLoads.set(eventId, { identity, promise: request });
     return request;
   },
 }));

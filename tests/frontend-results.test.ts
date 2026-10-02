@@ -170,6 +170,45 @@ describe('frontend Result api client', () => {
     }
   });
 
+  test('most recent load invocation wins when it reuses an in-flight event request', async () => {
+    const originalFetch = globalThis.fetch;
+    const originalBaseUrl = process.env['VITE_API_BASE_URL'];
+    const responses = new Map<string, (response: Response) => void>();
+    process.env['VITE_API_BASE_URL'] = 'http://layout-api.test';
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, _init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          const eventId = new URL(String(input)).pathname.split('/').at(-2);
+          if (eventId) {
+            responses.set(eventId, resolve);
+          }
+        }),
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      const firstALoad = useLayoutStore.getState().load('event-a');
+      const bLoad = useLayoutStore.getState().load('event-b');
+      const latestALoad = useLayoutStore.getState().load('event-a');
+
+      responses.get('event-b')?.(Response.json({ ...demoLayout, buildingId: 'event-b' }));
+      await bLoad;
+      responses.get('event-a')?.(Response.json({ ...demoLayout, buildingId: 'event-a' }));
+      await Promise.all([firstALoad, latestALoad]);
+
+      expect(useLayoutStore.getState().source.buildingId).toBe('event-a');
+      expect(useLayoutStore.getState().layout.buildingId).toBe('event-a');
+      expect(useLayoutStore.getState().loadStatus).toBe('ready');
+      expect(useLayoutStore.getState().loadError).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (originalBaseUrl === undefined) {
+        delete process.env['VITE_API_BASE_URL'];
+      } else {
+        process.env['VITE_API_BASE_URL'] = originalBaseUrl;
+      }
+    }
+  });
+
   test('layout store shares one in-flight fetch for repeated loads of the same event', async () => {
     const originalFetch = globalThis.fetch;
     const originalBaseUrl = process.env['VITE_API_BASE_URL'];
