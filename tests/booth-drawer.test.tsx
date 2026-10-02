@@ -88,6 +88,41 @@ describe('BoothDrawer reservation', () => {
     });
   });
 
+  test('locks add-on changes while a reservation is pending and after it succeeds', async () => {
+    let finishRequest: (response: Response) => void = () => {};
+    globalThis.fetch = Object.assign(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Promise<Response>((resolve) => {
+          finishRequest = resolve;
+        }),
+      { preconnect: originalFetch.preconnect },
+    );
+    render(<BoothDrawer />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Reserve/ }));
+    await screen.findByText('Creating your pending order…');
+
+    const pendingChairCheckbox = screen.getByRole('checkbox', { name: /Chair/ });
+    expect((pendingChairCheckbox as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(pendingChairCheckbox);
+    expect(useWorldStore.getState().cart['room-101']).toEqual(['chair']);
+
+    finishRequest(
+      Response.json({
+        reserved: true,
+        boothId: 'room-101',
+        addOns: ['chair'],
+        orderId: 'order-ui-pending',
+      }),
+    );
+    await screen.findByText(/order-ui-pending/);
+
+    const successfulChairCheckbox = screen.getByRole('checkbox', { name: /Chair/ });
+    expect((successfulChairCheckbox as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(successfulChairCheckbox);
+    expect(useWorldStore.getState().cart['room-101']).toEqual(['chair']);
+  });
+
   test('shows a reservation error and preserves the selected add-on after failure', async () => {
     globalThis.fetch = Object.assign(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
@@ -100,5 +135,10 @@ describe('BoothDrawer reservation', () => {
 
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('API 409'));
     expect(useWorldStore.getState().cart['room-101']).toEqual(['chair']);
+
+    const chairCheckbox = screen.getByRole('checkbox', { name: /Chair/ });
+    expect((chairCheckbox as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(chairCheckbox);
+    expect(useWorldStore.getState().cart['room-101']).toEqual([]);
   });
 });

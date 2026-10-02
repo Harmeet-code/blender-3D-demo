@@ -131,6 +131,10 @@ export function BoothDrawer() {
                       <Checkbox
                         id={`addon-${addOn.id}`}
                         checked={checked}
+                        disabled={
+                          reservationStatus.state === 'pending' ||
+                          reservationStatus.state === 'success'
+                        }
                         onCheckedChange={() => {
                           if (selectedBoothId) {
                             toggleAddOn(selectedBoothId, addOn.id);
