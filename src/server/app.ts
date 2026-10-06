@@ -25,6 +25,7 @@ export function buildServer(): FastifyInstance {
       ? false
       : (_address: string, hop: number) => hop < env.TRUST_PROXY_HOPS;
   const app = Fastify({ logger: baseLoggerOptions(), trustProxy });
+  app.decorate('serverMode', env.NODE_ENV);
 
   void app.register(cors, { origin: env.CORS_ORIGIN === 'true' ? true : env.CORS_ORIGIN });
   void app.register(websocket);

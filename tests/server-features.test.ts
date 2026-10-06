@@ -140,6 +140,7 @@ describe('server feature slices (demo fallback, no DB)', () => {
     const app = Fastify();
     app.decorate('sql', sql);
     app.decorate('redis', null);
+    app.decorate('serverMode', 'test');
     await app.register(registerBoothRoutes, { prefix: '/api/events' });
 
     const request = () =>

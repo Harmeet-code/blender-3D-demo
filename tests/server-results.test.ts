@@ -148,14 +148,20 @@ describe('server Result errors (no DB)', () => {
     expect(calls[0]?.[2]).toContain('event-a');
   });
 
-  test('TRUST_PROXY_HOPS defaults to zero and parses a numeric hop count', () => {
+  test('server mode and proxy hops have explicit development-safe defaults', () => {
     expect(loadServerEnv({}).TRUST_PROXY_HOPS).toBe(0);
+    expect(loadServerEnv({}).NODE_ENV).toBe('development');
     expect(loadServerEnv({ TRUST_PROXY_HOPS: '1' }).TRUST_PROXY_HOPS).toBe(1);
+    expect(loadServerEnv({ NODE_ENV: 'production' }).NODE_ENV).toBe('production');
+    expect(loadServerEnv({ NODE_ENV: 'production', TRUST_PROXY_HOPS: 'bad' }).NODE_ENV).toBe(
+      'production',
+    );
   });
 
   test('Redis eval failures return the typed 503 reservation error', async () => {
     const app = Fastify();
     app.decorate('sql', null);
+    app.decorate('serverMode', 'test');
     app.decorate('redis', {
       eval: async () => {
         throw new Error('redis down');
@@ -176,24 +182,42 @@ describe('server Result errors (no DB)', () => {
     await app.close();
   });
 
-  test('fallback capacity denial expires and releases tracked keys', async () => {
-    let now = 10_000;
-    const limiter = createReservationRateLimiter({ now: () => now });
-    for (let key = 0; key < 10_000; key++) {
-      expect(await limiter.consume(`event-${key}`, '127.0.0.1', null)).toMatchObject({
-        allowed: true,
-      });
-    }
+  test('production reservation without Redis returns typed 503', async () => {
+    const app = Fastify();
+    app.decorate('sql', null);
+    app.decorate('redis', null);
+    app.decorate('serverMode', 'production');
+    await app.register(registerBoothRoutes, { prefix: '/api/events' });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/events/missing-redis-event/booths/reserve',
+      payload: { boothId: 'room-101' },
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({
+      code: 'UNAVAILABLE',
+      error: 'Reservation rate limiter requires Redis in production',
+    });
+    await app.close();
+  });
+
+  test('fallback capacity denial reports earliest expiry and retries after cleanup', async () => {
+    let now = 1_000;
+    const limiter = createReservationRateLimiter({ now: () => now, maxFallbackKeys: 2 });
+    expect(await limiter.consume('event-a', '127.0.0.1', null)).toMatchObject({ allowed: true });
+    now += 20_000;
+    expect(await limiter.consume('event-b', '127.0.0.1', null)).toMatchObject({ allowed: true });
+    now += 20_000;
     expect(await limiter.consume('capacity-denied', '127.0.0.1', null)).toMatchObject({
       allowed: false,
-      retryAfterSeconds: 60,
+      retryAfterSeconds: 20,
     });
 
-    now += 60_000;
+    now += 20_000;
     expect(await limiter.consume('after-expiry', '127.0.0.1', null)).toMatchObject({
       allowed: true,
     });
-    expect(await limiter.consume('event-0', '127.0.0.1', null)).toMatchObject({ allowed: true });
   });
 
   test('fallback retry-after counts down to window reset', async () => {

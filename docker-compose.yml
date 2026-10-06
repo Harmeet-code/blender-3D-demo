@@ -10,6 +10,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-spatial}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-spatial} -d $${POSTGRES_DB:-spatial}']
       interval: 5s
@@ -22,6 +24,8 @@ services:
     command: ['redis-server', '--appendonly', 'yes']
     volumes:
       - redisdata:/data
+    networks:
+      - backend
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -38,7 +42,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - backend
+      - ingress
     environment:
+      NODE_ENV: production
       PORT: 8000
       HOST: 0.0.0.0
       TRUST_PROXY_HOPS: 1
@@ -54,9 +62,16 @@ services:
     restart: unless-stopped
     depends_on:
       - server
+    networks:
+      - ingress
     ports:
       - '${WEB_PORT:-8080}:80'
 
 volumes:
   pgdata:
   redisdata:
+
+networks:
+  backend:
+    internal: true
+  ingress:
