@@ -47,7 +47,26 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     preview: {},
-    build: { assetsInlineLimit: (path) => (path.endsWith('.glb') ? false : undefined) },
+    build: {
+      assetsInlineLimit: (path) => (path.endsWith('.glb') ? false : undefined),
+      chunkSizeWarningLimit: 500,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
+            'vendor-physics': ['@react-three/rapier', '@dimforge/rapier3d-compat'],
+            'vendor-ui': [
+              'radix-ui',
+              'class-variance-authority',
+              'lucide-react',
+              'sonner',
+              'cmdk',
+              'next-themes',
+            ],
+          },
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

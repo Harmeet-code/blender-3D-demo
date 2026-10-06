@@ -27,3 +27,6 @@ jobs:
 
       - name: Build production bundle
         run: bun run build
+
+      - name: Check production chunks
+        run: bun scripts/assets/check-build-chunks.ts
