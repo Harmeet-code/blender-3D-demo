@@ -1,5 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { Shape, Vector2 } from 'three';
+import type { Group } from 'three';
+import { gsap } from 'gsap';
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { Html } from '@react-three/drei';
 import type { Room, Floor } from '../../entities/building/model/building-schema.ts';
@@ -9,6 +12,7 @@ import { portalPlacements } from '../../entities/building/model/portal-placement
 import { useWorldStore } from '../../entities/viewer/model/viewer-store.ts';
 import { AssetInstance } from '../../entities/asset/ui/AssetInstance.tsx';
 import { RoomWalls } from './RoomWalls.tsx';
+import { floorDisplayOffset } from './floor-presentation.ts';
 import { AssetBatch, type BatchPlacement } from '../../entities/asset/ui/AssetBatch.tsx';
 import { getAssetCatalog, resolveAsset } from '../../entities/asset/model/catalog.ts';
 import { placeAddOns, placeLogistics } from '../../entities/asset/model/placement.ts';
@@ -290,6 +294,49 @@ function FloorContents({
     </>
   );
 }
+/**
+ * Floor group whose stack offset animates on dollhouse toggle. The tween is
+ * interruptible (overwrite) so rapid toggles reverse cleanly, and the saved
+ * floor height is never mutated — unmount/remount restores canonical offsets.
+ */
+function AnimatedFloorGroup({
+  floor,
+  index,
+  dollhouse,
+  children,
+}: {
+  floor: Floor;
+  index: number;
+  dollhouse: boolean;
+  children: ReactNode;
+}) {
+  const group = useRef<Group>(null);
+  useEffect(() => {
+    const node = group.current;
+    if (!node) {
+      return;
+    }
+    node.position.set(0, floorDisplayOffset(floor.heightOffset, index, dollhouse), 0);
+    const tween = gsap.to(node.position, {
+      y: floorDisplayOffset(floor.heightOffset, index, dollhouse),
+      duration: 0.6,
+      ease: 'power2.inOut',
+      overwrite: true,
+    });
+    return () => {
+      tween.kill();
+    };
+  }, [floor.heightOffset, index, dollhouse]);
+  return (
+    <group
+      ref={group}
+      position={[0, floorDisplayOffset(floor.heightOffset, index, dollhouse), 0]}
+      userData={{ floorId: floor.id }}
+    >
+      {children}
+    </group>
+  );
+}
 export function FloorStack() {
   const layout = useActiveLayout(),
     currentFloorId = useWorldStore((s) => s.currentFloorId),
@@ -353,17 +400,16 @@ export function FloorStack() {
           return null;
         }
         return (
-          <group
-            key={floor.id}
-            position={[0, floor.heightOffset + (dollhouse ? index * 8 : 0), 0]}
-            userData={{ floorId: floor.id }}
-          >
+          <AnimatedFloorGroup key={floor.id} floor={floor} index={index} dollhouse={dollhouse}>
             <FloorContents
               floor={floor}
               rooms={floorRooms.get(floor.id) ?? []}
               benchmark={stress}
             />
-            <RoomWalls rooms={layout.rooms.filter((room) => room.floorId === floor.id)} />
+            <RoomWalls
+              rooms={layout.rooms.filter((room) => room.floorId === floor.id)}
+              dimmed={dollhouse}
+            />
             {portalPlan.records
               .filter(
                 (p) =>
@@ -411,7 +457,7 @@ export function FloorStack() {
                 />
               </group>
             )}
-          </group>
+          </AnimatedFloorGroup>
         );
       })}
     </group>
