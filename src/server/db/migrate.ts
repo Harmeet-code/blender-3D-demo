@@ -24,6 +24,10 @@ async function migrate(): Promise<Result<void, AppError>> {
   }
 
   try {
+    await sql`create table if not exists schema_migrations (
+      version text primary key,
+      applied_at timestamptz not null default now()
+    )`;
     const files = (await readdir(migrationsDir)).filter((f) => f.endsWith('.sql')).sort();
     if (files.length === 0) {
       log.info('No migrations found.');
