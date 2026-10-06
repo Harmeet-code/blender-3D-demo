@@ -5,6 +5,7 @@ import { Physics } from '@react-three/rapier';
 import { LightingRig } from './LightingRig.tsx';
 import { FloorStack } from './FloorStack.tsx';
 import { AvatarController } from './AvatarController.tsx';
+import { RemoteAvatarLayer } from './RemoteAvatarLayer.tsx';
 import { useWorldStore } from '../../entities/viewer/model/viewer-store.ts';
 import { retainViewer } from '../../entities/asset/model/resource-cache.ts';
 import { AssetDiagnostics, AssetDiagnosticsPanel } from './AssetDiagnostics.tsx';
@@ -29,6 +30,7 @@ export function WorldCanvas() {
         <Physics gravity={[0, -9.81, 0]} paused={dollhouse}>
           <FloorStack />
           {!dollhouse && <AvatarController key={currentFloorId} />}
+          {!dollhouse && <RemoteAvatarLayer />}
           {diagnostics && <AssetDiagnostics />}
         </Physics>
         <OrbitControls makeDefault />

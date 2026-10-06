@@ -36,6 +36,8 @@ interface WorldState {
   toggleAddOn: (boothId: string, addOnId: string) => void;
   moveLocalAvatar: (patch: Partial<AvatarState>) => void;
   upsertRemoteAvatar: (avatar: AvatarState) => void;
+  removeRemoteAvatar: (avatarId: string) => void;
+  clearRemoteAvatars: () => void;
 }
 
 export const useWorldStore = create<WorldState>((set) => ({
@@ -127,5 +129,18 @@ export const useWorldStore = create<WorldState>((set) => ({
       next.set(avatar.id, avatar);
       return { remoteAvatars: next };
     });
+  },
+  removeRemoteAvatar: (avatarId) => {
+    set((state) => {
+      if (!state.remoteAvatars.has(avatarId)) {
+        return state;
+      }
+      const next = new Map(state.remoteAvatars);
+      next.delete(avatarId);
+      return { remoteAvatars: next };
+    });
+  },
+  clearRemoteAvatars: () => {
+    set((state) => (state.remoteAvatars.size === 0 ? state : { remoteAvatars: new Map() }));
   },
 }));
