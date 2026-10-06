@@ -23,6 +23,9 @@ export function WorldPage() {
       },
     });
     const sendTimer = window.setInterval(() => {
+      if (handle.socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
       const localAvatar = useWorldStore.getState().localAvatar;
       try {
         handle.socket.send(JSON.stringify(localAvatar));

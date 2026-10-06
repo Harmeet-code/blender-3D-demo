@@ -102,6 +102,7 @@ export function BoothDrawer() {
   return (
     <Sheet
       open={!!selectedBoothId}
+      modal={false}
       onOpenChange={(open) => {
         if (!open) {
           selectBooth(null);

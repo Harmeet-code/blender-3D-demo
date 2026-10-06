@@ -44,6 +44,8 @@ temp/
 # Testing
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
 
 # Secrets - NEVER commit these!
 *.key

@@ -43,7 +43,9 @@ export function App() {
           {loadStatus === 'loading' && (
             <Alert className="mx-4 mt-4 w-auto">
               <AlertTitle>Loading event layout</AlertTitle>
-              <AlertDescription>The demo layout remains available while the event loads.</AlertDescription>
+              <AlertDescription>
+                The demo layout remains available while the event loads.
+              </AlertDescription>
             </Alert>
           )}
           {loadStatus === 'error' && (

@@ -22,22 +22,25 @@ function layoutWithRooms(
 }
 
 function length(points: RoutePoint[]): number {
-  return points.slice(1).reduce(
-    (sum, point, index) => {
-      const prev = points[index] as RoutePoint;
-      return (
-        sum +
-        Math.hypot(point[0] - prev[0], point[1] - prev[1], point[2] - prev[2])
-      );
-    },
-    0,
-  );
+  return points.slice(1).reduce((sum, point, index) => {
+    const prev = points[index] as RoutePoint;
+    return sum + Math.hypot(point[0] - prev[0], point[1] - prev[1], point[2] - prev[2]);
+  }, 0);
 }
 
 describe('queryFloorRoute', () => {
   test('routes straight across an open room', async () => {
     const layout = layoutWithRooms([
-      { id: 'hall', floorId: 'F1', polygon: [[0, 0], [10, 0], [10, 2], [0, 2]] },
+      {
+        id: 'hall',
+        floorId: 'F1',
+        polygon: [
+          [0, 0],
+          [10, 0],
+          [10, 2],
+          [0, 2],
+        ],
+      },
     ]);
     const result = await queryFloorRoute(layout, 'F1', [1, 1.2, 1], [9, 1.2, 1]);
     expect(result.ok).toBe(true);
@@ -74,8 +77,26 @@ describe('queryFloorRoute', () => {
 
   test('reports no route between disconnected rooms', async () => {
     const layout = layoutWithRooms([
-      { id: 'a', floorId: 'F1', polygon: [[0, 0], [4, 0], [4, 4], [0, 4]] },
-      { id: 'b', floorId: 'F1', polygon: [[10, 10], [14, 10], [14, 14], [10, 14]] },
+      {
+        id: 'a',
+        floorId: 'F1',
+        polygon: [
+          [0, 0],
+          [4, 0],
+          [4, 4],
+          [0, 4],
+        ],
+      },
+      {
+        id: 'b',
+        floorId: 'F1',
+        polygon: [
+          [10, 10],
+          [14, 10],
+          [14, 14],
+          [10, 14],
+        ],
+      },
     ]);
     const result = await queryFloorRoute(layout, 'F1', [2, 1.2, 2], [12, 1.2, 12]);
     expect(result).toEqual({ ok: false, reason: 'NO_PATH' });
@@ -83,7 +104,16 @@ describe('queryFloorRoute', () => {
 
   test('reports outside mesh when starting far from any room', async () => {
     const layout = layoutWithRooms([
-      { id: 'a', floorId: 'F1', polygon: [[0, 0], [4, 0], [4, 4], [0, 4]] },
+      {
+        id: 'a',
+        floorId: 'F1',
+        polygon: [
+          [0, 0],
+          [4, 0],
+          [4, 4],
+          [0, 4],
+        ],
+      },
     ]);
     const result = await queryFloorRoute(layout, 'F1', [100, 1.2, 100], [2, 1.2, 2]);
     expect(result).toEqual({ ok: false, reason: 'OUTSIDE_MESH' });

@@ -154,7 +154,9 @@ describe('frontend Result api client', () => {
       const latestLoad = useLayoutStore.getState().load('latest-event');
       responses.get('latest-event')?.(Response.json({ ...demoLayout, buildingId: 'latest-event' }));
       await latestLoad;
-      responses.get('earlier-event')?.(Response.json({ ...demoLayout, buildingId: 'earlier-event' }));
+      responses.get('earlier-event')?.(
+        Response.json({ ...demoLayout, buildingId: 'earlier-event' }),
+      );
       await earlierLoad;
 
       expect(useLayoutStore.getState().source.buildingId).toBe('latest-event');

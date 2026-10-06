@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BoxesIcon, MapPinIcon, PencilRulerIcon, ScanEyeIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import {
   Command,
@@ -53,6 +54,14 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
     setCurrentFloor(floorId);
     selectBooth(roomId);
     onOpenChange(false);
+    void useWorldStore
+      .getState()
+      .startAutopilot(roomId)
+      .then((started) => {
+        if (!started) {
+          toast.error(`No walkable route to ${roomId}.`);
+        }
+      });
   };
 
   return (
