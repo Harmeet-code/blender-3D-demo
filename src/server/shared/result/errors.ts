@@ -1,12 +1,19 @@
 import { err, ok, type Result } from 'neverthrow';
 
 /** Closed error taxonomy for the API. Services return these, routes map them to HTTP. */
-export type ErrorCode = 'VALIDATION' | 'NOT_FOUND' | 'CONFLICT' | 'UNAVAILABLE' | 'INTERNAL';
+export type ErrorCode =
+  | 'VALIDATION'
+  | 'NOT_FOUND'
+  | 'CONFLICT'
+  | 'RATE_LIMITED'
+  | 'UNAVAILABLE'
+  | 'INTERNAL';
 
 const STATUS_BY_CODE: Record<ErrorCode, number> = {
   VALIDATION: 400,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  RATE_LIMITED: 429,
   UNAVAILABLE: 503,
   INTERNAL: 500,
 };
@@ -35,6 +42,10 @@ export function notFoundError(message: string): AppError {
 
 export function conflictError(message: string): AppError {
   return new AppError('CONFLICT', message);
+}
+
+export function rateLimitError(): AppError {
+  return new AppError('RATE_LIMITED', 'Reservation rate limit exceeded');
 }
 
 export function unavailableError(message: string): AppError {

@@ -18,6 +18,7 @@ function sendPublishFailure(
     case 'VALIDATION':
     case 'NOT_FOUND':
     case 'CONFLICT':
+    case 'RATE_LIMITED':
     case 'INTERNAL': {
       socket.send(JSON.stringify({ type: 'error', ...toHttpBody(error) }));
       break;
