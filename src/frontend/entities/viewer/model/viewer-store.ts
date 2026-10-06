@@ -4,6 +4,8 @@ import { useLayoutStore } from '../../building/model/layout-store.ts';
 import type { Logo } from '../../asset/model/branding.ts';
 import { assetProofLayout } from '../../building/model/asset-proof-layout.ts';
 import { assetStressLayout } from '../../building/model/asset-stress-layout.ts';
+import { roomEntrance } from '../../building/model/room-assembly.ts';
+import { queryFloorRoute } from '../../building/model/navigation.ts';
 
 interface WorldState {
   currentFloorId: string;
@@ -38,9 +40,14 @@ interface WorldState {
   upsertRemoteAvatar: (avatar: AvatarState) => void;
   removeRemoteAvatar: (avatarId: string) => void;
   clearRemoteAvatars: () => void;
+  autopilot: { destinationId: string; waypoints: Array<[number, number, number]> } | null;
+  teleportToRoom: (roomId: string) => boolean;
+  startAutopilot: (roomId: string) => Promise<boolean>;
+  advanceAutopilot: (position: [number, number, number], step: number) => void;
+  cancelAutopilot: () => void;
 }
 
-export const useWorldStore = create<WorldState>((set) => ({
+export const useWorldStore = create<WorldState>()((set, get) => ({
   currentFloorId: 'F1',
   dollhouse: false,
   assetProof:
@@ -142,5 +149,106 @@ export const useWorldStore = create<WorldState>((set) => ({
   },
   clearRemoteAvatars: () => {
     set((state) => (state.remoteAvatars.size === 0 ? state : { remoteAvatars: new Map() }));
+  },
+  autopilot: null,
+  teleportToRoom: (roomId) => {
+    const state = get();
+    const layout = state.stressPreview
+      ? assetStressLayout
+      : state.assetProof
+        ? assetProofLayout
+        : useLayoutStore.getState().layout;
+    const room = layout.rooms.find((candidate) => candidate.id === roomId);
+    if (!room) {
+      return false;
+    }
+    const entrance = room.entrance?.position ?? roomEntrance(room).position;
+    const height = layout.floors.find((floor) => floor.id === room.floorId)?.heightOffset ?? 0;
+    set({
+      currentFloorId: room.floorId,
+      autopilot: null,
+      localAvatar: {
+        ...state.localAvatar,
+        floorId: room.floorId,
+        animationState: 'idle',
+        position: [entrance[0], height + 1.2, entrance[1]],
+      },
+    });
+    return true;
+  },
+  startAutopilot: async (roomId) => {
+    const state = get();
+    const layout = state.stressPreview
+      ? assetStressLayout
+      : state.assetProof
+        ? assetProofLayout
+        : useLayoutStore.getState().layout;
+    const room = layout.rooms.find((candidate) => candidate.id === roomId);
+    if (!room) {
+      return false;
+    }
+    const entrance = room.entrance?.position ?? roomEntrance(room).position;
+    if (room.floorId !== state.currentFloorId) {
+      state.setCurrentFloor(room.floorId);
+    }
+    const origin = get().localAvatar.position;
+    const height = layout.floors.find((floor) => floor.id === room.floorId)?.heightOffset ?? 0;
+    const destination: [number, number, number] = [entrance[0], height + 1.2, entrance[1]];
+    const route = await queryFloorRoute(layout, room.floorId, origin, destination);
+    if (!route.ok) {
+      return false;
+    }
+    set({
+      autopilot: { destinationId: roomId, waypoints: route.points },
+      localAvatar: { ...get().localAvatar, animationState: 'walk' },
+    });
+    return true;
+  },
+  advanceAutopilot: (position, step) => {
+    const autopilot = get().autopilot;
+    if (!autopilot) {
+      return;
+    }
+    const remaining = autopilot.waypoints.slice();
+    while (remaining.length > 0) {
+      const next = remaining[0];
+      if (!next) {
+        break;
+      }
+      const distance = Math.hypot(next[0] - position[0], next[2] - position[2]);
+      if (distance <= step) {
+        position = next;
+        remaining.shift();
+        continue;
+      }
+      const ratio = step / distance;
+      position = [
+        position[0] + (next[0] - position[0]) * ratio,
+        next[1],
+        position[2] + (next[2] - position[2]) * ratio,
+      ];
+      break;
+    }
+    if (remaining.length === 0) {
+      set((state) => ({
+        autopilot: null,
+        localAvatar: { ...state.localAvatar, animationState: 'idle', position },
+      }));
+      return;
+    }
+    set((state) => ({
+      autopilot: { ...autopilot, waypoints: remaining },
+      localAvatar: { ...state.localAvatar, animationState: 'walk', position },
+    }));
+  },
+  cancelAutopilot: () => {
+    set((state) =>
+      state.autopilot
+        ? {
+            autopilot: null,
+            localAvatar: { ...state.localAvatar, animationState: 'idle' },
+          }
+        : state,
+    );
   },
 }));

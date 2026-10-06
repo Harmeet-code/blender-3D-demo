@@ -61,10 +61,7 @@ function appendRoom(
   }
 }
 
-async function floorQuery(
-  layout: NormalizedLayout,
-  floorId: string,
-): Promise<NavMeshQuery | null> {
+async function floorQuery(layout: NormalizedLayout, floorId: string): Promise<NavMeshQuery | null> {
   const cached = floorMeshes.get(floorId);
   if (cached && cached.layout === layout) {
     return cached.query;
@@ -111,16 +108,23 @@ export async function queryFloorRoute(
     { x: to[0], y: to[1], z: to[2] },
     { halfExtents: PROJECTION_EXTENTS },
   );
-  if (!start.success || !start.isOverPoly || !end.success || !end.isOverPoly) {
+  if (!start.success || !end.success) {
     return { ok: false, reason: 'OUTSIDE_MESH' };
   }
-  const path = query.computePath(
-    { x: from[0], y: from[1], z: from[2] },
-    { x: to[0], y: to[1], z: to[2] },
-  );
+  // Endpoints on room boundaries project nearby instead of directly overhead.
+  // Projections farther than the search extents mean the point is off-mesh.
+  const startPoint = start.isOverPoly ? { x: from[0], y: from[1], z: from[2] } : start.nearestPoint;
+  const endPoint = end.isOverPoly ? { x: to[0], y: to[1], z: to[2] } : end.nearestPoint;
+  const maxSnap = Math.hypot(PROJECTION_EXTENTS.x, PROJECTION_EXTENTS.y, PROJECTION_EXTENTS.z);
+  if (
+    Math.hypot(startPoint.x - from[0], startPoint.y - from[1], startPoint.z - from[2]) > maxSnap ||
+    Math.hypot(endPoint.x - to[0], endPoint.y - to[1], endPoint.z - to[2]) > maxSnap
+  ) {
+    return { ok: false, reason: 'OUTSIDE_MESH' };
+  }
+  const path = query.computePath(startPoint, endPoint);
   const last = path.path.at(-1);
-  const reached =
-    last !== undefined && Math.hypot(last.x - to[0], last.z - to[2]) <= 1;
+  const reached = last !== undefined && Math.hypot(last.x - to[0], last.z - to[2]) <= 1;
   if (!path.success || path.path.length === 0 || !reached) {
     return { ok: false, reason: 'NO_PATH' };
   }

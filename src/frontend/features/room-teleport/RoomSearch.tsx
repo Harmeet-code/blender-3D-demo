@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { SearchIcon } from 'lucide-react';
+import { FootprintsIcon, SearchIcon, XIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,8 +11,9 @@ import { useWorldStore } from '../../entities/viewer/model/viewer-store.ts';
 
 export function RoomSearch() {
   const [query, setQuery] = useState('');
-  const setCurrentFloor = useWorldStore((s) => s.setCurrentFloor);
   const selectBooth = useWorldStore((s) => s.selectBooth);
+  const autopilot = useWorldStore((s) => s.autopilot);
+  const cancelAutopilot = useWorldStore((s) => s.cancelAutopilot);
   const layout = useActiveLayout();
   const results = layout.rooms.filter((room) =>
     room.id.toLowerCase().includes(query.toLowerCase()),
@@ -32,6 +34,12 @@ export function RoomSearch() {
             className="pl-8"
           />
         </div>
+        {autopilot && (
+          <Button type="button" variant="outline" size="sm" onClick={cancelAutopilot}>
+            <XIcon data-icon="inline-start" />
+            Stop walking to {autopilot.destinationId}
+          </Button>
+        )}
         {query && (
           <ScrollArea className="max-h-32">
             {results.length === 0 ? (
@@ -46,11 +54,20 @@ export function RoomSearch() {
                       size="sm"
                       className="w-full justify-start"
                       onClick={() => {
-                        setCurrentFloor(room.floorId);
                         selectBooth(room.id);
-                        setQuery('');
+                        void useWorldStore
+                          .getState()
+                          .startAutopilot(room.id)
+                          .then((started) => {
+                            if (!started) {
+                              toast.error(`No walkable route to ${room.id}.`);
+                              return;
+                            }
+                            setQuery('');
+                          });
                       }}
                     >
+                      <FootprintsIcon data-icon="inline-start" />
                       <span className="truncate">{room.id}</span>
                       <Badge variant="secondary" className="ml-auto">
                         {room.floorId}

@@ -49,6 +49,10 @@ function BoothSurface({ room, ceiling = false }: { room: Room; ceiling?: boolean
         event.stopPropagation();
         select(room.id);
       }}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        useWorldStore.getState().teleportToRoom(room.id);
+      }}
     >
       <shapeGeometry args={[shape]} />
       <meshStandardMaterial

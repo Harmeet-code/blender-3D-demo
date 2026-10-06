@@ -3,15 +3,22 @@ import { useFrame } from '@react-three/fiber';
 import { CuboidCollider, RigidBody, type RapierRigidBody } from '@react-three/rapier';
 import { useWorldStore } from '../../entities/viewer/model/viewer-store.ts';
 
-/** WASD capsule avatar stub. Physics + orbit camera wired via Rapier. */
+const AUTOPILOT_SPEED = 3;
+
+/** WASD capsule avatar stub with autopilot route following. */
 export function AvatarController() {
   const body = useRef<RapierRigidBody>(null);
   const localAvatar = useWorldStore((s) => s.localAvatar);
 
-  useFrame(() => {
-    // Movement input (WASD) + socket broadcast hook goes here.
-    void body;
-    void localAvatar;
+  useFrame((_, delta) => {
+    const { autopilot, advanceAutopilot } = useWorldStore.getState();
+    if (!autopilot) {
+      return;
+    }
+    const current = useWorldStore.getState().localAvatar.position;
+    advanceAutopilot(current, AUTOPILOT_SPEED * Math.min(delta, 0.1));
+    const next = useWorldStore.getState().localAvatar.position;
+    body.current?.setTranslation({ x: next[0], y: next[1], z: next[2] }, true);
   });
 
   return (
