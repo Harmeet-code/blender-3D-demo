@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import Fastify from 'fastify';
 import { reserveBooth } from '../src/server/features/booths/service.ts';
 import { saveLayout } from '../src/server/features/layouts/service.ts';
 import { parsePresenceFrame } from '../src/server/features/presence/service.ts';
@@ -15,6 +16,8 @@ import {
 import { parseRequest, validateResponse } from '../src/server/shared/result/validate.ts';
 import { createReservationRateLimiter } from '../src/server/shared/plugins/rate-limit.ts';
 import { orderSummarySchema } from '../src/frontend/entities/order/api/dto.ts';
+import { loadServerEnv } from '../src/server/shared/config/env.ts';
+import { registerBoothRoutes } from '../src/server/features/booths/routes.ts';
 
 describe('server Result errors (no DB)', () => {
   test('reserve rejects unknown add-ons as VALIDATION err', async () => {
@@ -143,5 +146,70 @@ describe('server Result errors (no DB)', () => {
     expect(calls[0]?.[0]).toContain('INCR');
     expect(calls[0]?.[1]).toBe(1);
     expect(calls[0]?.[2]).toContain('event-a');
+  });
+
+  test('TRUST_PROXY_HOPS defaults to zero and parses a numeric hop count', () => {
+    expect(loadServerEnv({}).TRUST_PROXY_HOPS).toBe(0);
+    expect(loadServerEnv({ TRUST_PROXY_HOPS: '1' }).TRUST_PROXY_HOPS).toBe(1);
+  });
+
+  test('Redis eval failures return the typed 503 reservation error', async () => {
+    const app = Fastify();
+    app.decorate('sql', null);
+    app.decorate('redis', {
+      eval: async () => {
+        throw new Error('redis down');
+      },
+    } as never);
+    await app.register(registerBoothRoutes, { prefix: '/api/events' });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/events/redis-error-event/booths/reserve',
+      payload: { boothId: 'room-101' },
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({
+      code: 'UNAVAILABLE',
+      error: 'Reservation rate limiter unavailable',
+    });
+    await app.close();
+  });
+
+  test('fallback capacity denial expires and releases tracked keys', async () => {
+    let now = 10_000;
+    const limiter = createReservationRateLimiter({ now: () => now });
+    for (let key = 0; key < 10_000; key++) {
+      expect(await limiter.consume(`event-${key}`, '127.0.0.1', null)).toMatchObject({
+        allowed: true,
+      });
+    }
+    expect(await limiter.consume('capacity-denied', '127.0.0.1', null)).toMatchObject({
+      allowed: false,
+      retryAfterSeconds: 60,
+    });
+
+    now += 60_000;
+    expect(await limiter.consume('after-expiry', '127.0.0.1', null)).toMatchObject({
+      allowed: true,
+    });
+    expect(await limiter.consume('event-0', '127.0.0.1', null)).toMatchObject({ allowed: true });
+  });
+
+  test('fallback retry-after counts down to window reset', async () => {
+    let now = 20_000;
+    const limiter = createReservationRateLimiter({ now: () => now });
+    for (let request = 0; request < 10; request++) {
+      await limiter.consume('retry-event', '127.0.0.1', null);
+    }
+    now += 12_000;
+    expect(await limiter.consume('retry-event', '127.0.0.1', null)).toMatchObject({
+      allowed: false,
+      retryAfterSeconds: 48,
+    });
+    now += 48_000;
+    expect(await limiter.consume('retry-event', '127.0.0.1', null)).toMatchObject({
+      allowed: true,
+    });
   });
 });

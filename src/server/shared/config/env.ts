@@ -3,6 +3,7 @@ import { z } from 'zod';
 const serverEnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8000),
   HOST: z.string().default('127.0.0.1'),
+  TRUST_PROXY_HOPS: z.coerce.number().int().nonnegative().default(0),
   DATABASE_URL: z.string().min(1).optional(),
   REDIS_URL: z.string().min(1).optional(),
   CORS_ORIGIN: z.string().default('true'),
@@ -17,5 +18,11 @@ export function loadServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
   if (parsed.success) {
     return parsed.data;
   }
-  return { PORT: 8000, HOST: '127.0.0.1', CORS_ORIGIN: 'true', LOG_LEVEL: 'info' };
+  return {
+    PORT: 8000,
+    HOST: '127.0.0.1',
+    TRUST_PROXY_HOPS: 0,
+    CORS_ORIGIN: 'true',
+    LOG_LEVEL: 'info',
+  };
 }

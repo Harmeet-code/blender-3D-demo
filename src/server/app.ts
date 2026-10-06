@@ -18,7 +18,13 @@ import { registerRealtimeHub } from './features/presence/hub.ts';
 
 export function buildServer(): FastifyInstance {
   const env = loadServerEnv();
-  const app = Fastify({ logger: baseLoggerOptions() });
+  // Fastify treats a numeric trustProxy value as fail-closed; use its callback
+  // form to apply the configured hop count after Compose constrains the peer.
+  const trustProxy =
+    env.TRUST_PROXY_HOPS === 0
+      ? false
+      : (_address: string, hop: number) => hop < env.TRUST_PROXY_HOPS;
+  const app = Fastify({ logger: baseLoggerOptions(), trustProxy });
 
   void app.register(cors, { origin: env.CORS_ORIGIN === 'true' ? true : env.CORS_ORIGIN });
   void app.register(websocket);

@@ -45,7 +45,14 @@ describe('server feature slices (demo fallback, no DB)', () => {
   });
 
   test('POST reserve rate limits requests per event and client IP', async () => {
+    const previousTrustProxyHops = process.env['TRUST_PROXY_HOPS'];
+    process.env['TRUST_PROXY_HOPS'] = '0';
     const app = buildServer();
+    if (previousTrustProxyHops === undefined) {
+      delete process.env['TRUST_PROXY_HOPS'];
+    } else {
+      process.env['TRUST_PROXY_HOPS'] = previousTrustProxyHops;
+    }
     const url = '/api/events/rate-limit-event/booths/reserve';
 
     for (let request = 0; request < 10; request++) {
@@ -69,6 +76,33 @@ describe('server feature slices (demo fallback, no DB)', () => {
       code: 'RATE_LIMITED',
       error: 'Reservation rate limit exceeded',
     });
+    await app.close();
+  });
+
+  test('POST reserve uses the single forwarded IP when one proxy hop is trusted', async () => {
+    const previousTrustProxyHops = process.env['TRUST_PROXY_HOPS'];
+    process.env['TRUST_PROXY_HOPS'] = '1';
+    const app = buildServer();
+    if (previousTrustProxyHops === undefined) {
+      delete process.env['TRUST_PROXY_HOPS'];
+    } else {
+      process.env['TRUST_PROXY_HOPS'] = previousTrustProxyHops;
+    }
+    const url = '/api/events/trusted-proxy-event/booths/reserve';
+    const forwardedIp = '198.51.100.20';
+    const request = (ip: string) =>
+      app.inject({
+        method: 'POST',
+        url,
+        payload: { boothId: 'room-101' },
+        headers: { 'x-forwarded-for': ip },
+      });
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+      expect((await request(forwardedIp)).statusCode).toBe(200);
+    }
+    expect((await request(forwardedIp)).statusCode).toBe(429);
+    expect((await request('198.51.100.21')).statusCode).toBe(200);
     await app.close();
   });
 
