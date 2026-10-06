@@ -8,6 +8,7 @@ import { assembleRoom } from '../../entities/building/model/room-assembly.ts';
 import { portalPlacements } from '../../entities/building/model/portal-placement.ts';
 import { useWorldStore } from '../../entities/viewer/model/viewer-store.ts';
 import { AssetInstance } from '../../entities/asset/ui/AssetInstance.tsx';
+import { RoomWalls } from './RoomWalls.tsx';
 import { AssetBatch, type BatchPlacement } from '../../entities/asset/ui/AssetBatch.tsx';
 import { getAssetCatalog, resolveAsset } from '../../entities/asset/model/catalog.ts';
 import { placeAddOns, placeLogistics } from '../../entities/asset/model/placement.ts';
@@ -362,6 +363,7 @@ export function FloorStack() {
               rooms={floorRooms.get(floor.id) ?? []}
               benchmark={stress}
             />
+            <RoomWalls rooms={layout.rooms.filter((room) => room.floorId === floor.id)} />
             {portalPlan.records
               .filter(
                 (p) =>
