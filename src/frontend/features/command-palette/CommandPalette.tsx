@@ -1,5 +1,13 @@
 import { useEffect } from 'react';
-import { BoxesIcon, MapPinIcon, PencilRulerIcon, ScanEyeIcon } from 'lucide-react';
+import {
+  BoxesIcon,
+  LayersIcon,
+  MapPinIcon,
+  PencilRulerIcon,
+  ScanEyeIcon,
+  SearchXIcon,
+  StoreIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -77,7 +85,16 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
           placeholder="Search booths, floors, commands…"
         />
         <CommandList>
-          <CommandEmpty>No booths or commands match your search.</CommandEmpty>
+          <CommandEmpty>
+            <div className="flex flex-col items-center gap-2 px-4 py-6 text-center">
+              <SearchXIcon className="size-5 text-muted-foreground" />
+              <p className="text-sm font-medium">No booths or commands match your search.</p>
+              <p className="text-xs text-muted-foreground">
+                Try a booth ID, floor name, or “dollhouse”. Press ↑↓ to navigate, ↵ to teleport,
+                esc to close.
+              </p>
+            </div>
+          </CommandEmpty>
           <CommandGroup heading="Go to">
             <CommandItem
               value="go-3d-world"
@@ -112,9 +129,9 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
                   onOpenChange(false);
                 }}
               >
-                <BoxesIcon />
+                <LayersIcon className="text-muted-foreground" />
                 {floor.name}
-                <Badge variant="secondary" className="ml-auto">
+                <Badge variant="secondary" className="ml-auto font-mono text-[10px]">
                   {floor.id}
                 </Badge>
               </CommandItem>
@@ -125,16 +142,25 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
             {rooms.map((room) => (
               <CommandItem
                 key={room.id}
-                value={`booth-${room.id} ${room.label ?? ''} ${room.floorId}`}
+                value={`booth-${room.id} ${room.label ?? ''} ${room.floorId} ${room.type}`}
                 onSelect={() => {
                   goToBooth(room.id, room.floorId);
                 }}
               >
-                <MapPinIcon />
+                {room.type === 'booth' ? (
+                  <StoreIcon className="text-muted-foreground" />
+                ) : (
+                  <MapPinIcon className="text-muted-foreground" />
+                )}
                 <span className="truncate">{room.label ?? room.id}</span>
-                <Badge variant="secondary" className="ml-auto">
-                  {room.floorId}
-                </Badge>
+                <span className="ml-auto flex items-center gap-1">
+                  <Badge variant="outline" className="font-mono text-[10px]">
+                    {room.type}
+                  </Badge>
+                  <Badge variant="secondary" className="font-mono text-[10px]">
+                    {room.floorId}
+                  </Badge>
+                </span>
               </CommandItem>
             ))}
           </CommandGroup>
@@ -175,6 +201,16 @@ export function CommandPalette({ open, onOpenChange, onNavigate }: CommandPalett
             </CommandItem>
           </CommandGroup>
         </CommandList>
+        <div className="flex items-center gap-2 border-t px-3 py-2 text-[11px] text-muted-foreground">
+          <span className="font-medium">↑↓ navigate</span>
+          <span aria-hidden>·</span>
+          <span className="font-medium">↵ teleport</span>
+          <span aria-hidden>·</span>
+          <span className="font-medium">esc close</span>
+          <span className="ml-auto font-mono">
+            {rooms.length} booths · {floors.length} floors
+          </span>
+        </div>
       </Command>
     </CommandDialog>
   );

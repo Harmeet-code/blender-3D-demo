@@ -50,6 +50,14 @@ describe('remote avatar lifecycle', () => {
     useWorldStore.getState().clearRemoteAvatars();
   });
 
+  test('local avatar uses a per-session identity distinct from peer IDs', () => {
+    const localId = useWorldStore.getState().localAvatar.id;
+    expect(localId).not.toBe('local');
+    expect(localId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+  });
+
   test('upserts and removes individual peers', () => {
     const store = useWorldStore.getState();
     store.upsertRemoteAvatar(snapshot({ id: 'peer-1' }));

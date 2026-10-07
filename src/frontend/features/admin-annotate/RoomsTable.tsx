@@ -117,7 +117,7 @@ export function RoomsTable({ onLocate }: RoomsTableProps) {
         ) : (
           <ScrollArea className="max-h-96 rounded-lg border">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm">
                 <TableRow>
                   <TableHead>Room</TableHead>
                   <TableHead>Floor</TableHead>
@@ -130,8 +130,11 @@ export function RoomsTable({ onLocate }: RoomsTableProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visible.map((room) => (
-                  <TableRow key={room.id}>
+                {visible.map((room, index) => (
+                  <TableRow
+                    key={room.id}
+                    className={index % 2 === 1 ? 'bg-muted/30' : undefined}
+                  >
                     <TableCell className="font-medium">{room.label ?? room.id}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{room.floorId}</Badge>

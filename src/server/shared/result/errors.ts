@@ -18,42 +18,46 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   INTERNAL: 500,
 };
 
-export class AppError extends Error {
+export interface AppError {
+  readonly name: 'AppError';
   readonly code: ErrorCode;
   readonly status: number;
+  readonly message: string;
   readonly details?: unknown;
+}
 
-  constructor(code: ErrorCode, message: string, details?: unknown) {
-    super(message);
-    this.name = 'AppError';
-    this.code = code;
-    this.status = STATUS_BY_CODE[code];
-    this.details = details;
-  }
+function createAppError(code: ErrorCode, message: string, details?: unknown): AppError {
+  return {
+    name: 'AppError',
+    code,
+    status: STATUS_BY_CODE[code],
+    message,
+    details,
+  };
 }
 
 export function validationError(message: string, details?: unknown): AppError {
-  return new AppError('VALIDATION', message, details);
+  return createAppError('VALIDATION', message, details);
 }
 
 export function notFoundError(message: string): AppError {
-  return new AppError('NOT_FOUND', message);
+  return createAppError('NOT_FOUND', message);
 }
 
 export function conflictError(message: string): AppError {
-  return new AppError('CONFLICT', message);
+  return createAppError('CONFLICT', message);
 }
 
 export function rateLimitError(): AppError {
-  return new AppError('RATE_LIMITED', 'Reservation rate limit exceeded');
+  return createAppError('RATE_LIMITED', 'Reservation rate limit exceeded');
 }
 
 export function unavailableError(message: string): AppError {
-  return new AppError('UNAVAILABLE', message);
+  return createAppError('UNAVAILABLE', message);
 }
 
 export function internalError(message: string, details?: unknown): AppError {
-  return new AppError('INTERNAL', message, details);
+  return createAppError('INTERNAL', message, details);
 }
 
 /** Typed details for persistence failures: what statement, what cause. */
@@ -64,7 +68,7 @@ export interface DbFailureDetails {
 
 export function dbError(statement: string, cause: unknown): AppError {
   const message = cause instanceof Error ? cause.message : String(cause);
-  return new AppError('INTERNAL', `${statement} failed: ${message}`, {
+  return createAppError('INTERNAL', `${statement} failed: ${message}`, {
     statement,
     cause: message,
   } satisfies DbFailureDetails);

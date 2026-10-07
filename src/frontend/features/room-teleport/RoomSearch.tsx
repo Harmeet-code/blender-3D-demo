@@ -20,7 +20,7 @@ export function RoomSearch() {
   );
 
   return (
-    <Card className="absolute bottom-3 left-3 w-[calc(100vw-11rem)] max-w-64 gap-2 py-3">
+    <Card className="absolute bottom-3 left-3 w-[calc(100vw-11rem)] max-w-64 gap-2 rounded-xl border bg-background/80 py-3 shadow-lg ring-1 ring-white/10 backdrop-blur-md">
       <CardContent className="flex flex-col gap-2">
         <div className="relative">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />

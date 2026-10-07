@@ -1,0 +1,11 @@
+{
+  "retail_floors": 4,
+  "garage_vehicles": 18,
+  "valet_vehicles": 2,
+  "garage_tyre_contacts": 72,
+  "maximum_tyre_contact_error_m": 2.861022947442393e-07,
+  "parking_bays": 31,
+  "free_bays": 13,
+  "canopy_projection_m": 18,
+  "complete_scene": "luminary-galleria.blend"
+}

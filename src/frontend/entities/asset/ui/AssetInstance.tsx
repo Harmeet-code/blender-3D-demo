@@ -1,4 +1,5 @@
-import { Component, Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
@@ -10,31 +11,6 @@ import { useWorldStore } from '../../viewer/model/viewer-store.ts';
 import type { AssetMetadata } from '../model/asset-schema.ts';
 import type { Logo } from '../model/branding.ts';
 import { BrandingSurface } from './BrandingSurface.tsx';
-const failedUrls = new Set<string>();
-class AssetBoundary extends Component<
-  { id: string; url: string; revision: number; children: ReactNode; fallback: ReactNode },
-  { failed: boolean }
-> {
-  override state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  override componentDidCatch(error: Error) {
-    failedUrls.add(this.props.url);
-    useAssetStatus.getState().setStatus(this.props.id, {
-      kind: 'error',
-      message: `Could not load ${this.props.id}: ${error.message}`,
-    });
-  }
-  override componentDidUpdate(previous: { revision: number }) {
-    if (previous.revision !== this.props.revision && this.state.failed) {
-      this.setState({ failed: false });
-    }
-  }
-  override render() {
-    return this.state.failed ? this.props.fallback : this.props.children;
-  }
-}
 export function AssetPlaceholder({
   statusId,
   metadata,
@@ -114,11 +90,18 @@ export function AssetLoad({
   }
   const { url, metadata } = resolved.value;
   return (
-    <AssetBoundary
+    <ErrorBoundary
       key={url}
-      revision={revision}
-      id={statusId}
-      url={url}
+      resetKeys={[revision]}
+      onError={(error) => {
+        useAssetStatus.getState().markFailedUrl(url);
+        useAssetStatus.getState().setStatus(statusId, {
+          kind: 'error',
+          message: `Could not load ${statusId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
+      }}
       fallback={
         customFallback('error') ?? <AssetPlaceholder statusId={statusId} metadata={metadata} />
       }
@@ -132,7 +115,7 @@ export function AssetLoad({
       >
         {children(url, metadata)}
       </Suspense>
-    </AssetBoundary>
+    </ErrorBoundary>
   );
 }
 function LoadedAsset({
@@ -302,13 +285,12 @@ export function AssetInstance({
   );
 }
 export function retryAssetLoads() {
-  for (const url of failedUrls) {
+  for (const url of useAssetStatus.getState().failedUrls) {
     useGLTF.clear(url);
   }
-  failedUrls.clear();
   clearAssetFault();
   useAssetStatus.getState().retry();
 }
 export function hasFailedAssetLoads() {
-  return failedUrls.size > 0;
+  return useAssetStatus.getState().failedUrls.length > 0;
 }

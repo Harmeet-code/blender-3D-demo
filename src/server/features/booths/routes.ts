@@ -1,9 +1,10 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import { reservationRateLimiter } from '../../shared/plugins/rate-limit.ts';
 import { rateLimitError, toHttpBody, unavailableError } from '../../shared/result/errors.ts';
 import { replyResult } from '../../shared/result/http.ts';
 import type { ServerMode } from '../../shared/config/env.ts';
-import { listBooths, reserveBooth } from './service.ts';
+import { createBoothService } from './service.ts';
+import type { BoothRepository } from './repository.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -11,9 +12,18 @@ declare module 'fastify' {
   }
 }
 
-export async function registerBoothRoutes(app: FastifyInstance): Promise<void> {
+interface BoothRoutesOptions {
+  repository: BoothRepository;
+}
+
+export const registerBoothRoutes: FastifyPluginAsync<BoothRoutesOptions> = async (
+  app,
+  { repository },
+) => {
+  const service = createBoothService(repository);
+
   app.get<{ Params: { eventId: string } }>('/:eventId/booths', async (request, reply) => {
-    return replyResult(reply, await listBooths(request.params.eventId, app.sql));
+    return replyResult(reply, await service.listBooths(request.params.eventId));
   });
 
   app.post<{ Params: { eventId: string } }>('/:eventId/booths/reserve', async (request, reply) => {
@@ -25,7 +35,8 @@ export async function registerBoothRoutes(app: FastifyInstance): Promise<void> {
         app.redis,
         app.serverMode,
       );
-    } catch {
+    } catch (cause) {
+      app.log.error({ err: cause }, 'Reservation rate limiter request failed.');
       const error = unavailableError('Reservation rate limiter unavailable');
       return reply.code(error.status).send(toHttpBody(error));
     }
@@ -38,6 +49,6 @@ export async function registerBoothRoutes(app: FastifyInstance): Promise<void> {
       const error = rateLimitError();
       return reply.code(error.status).send(toHttpBody(error));
     }
-    return replyResult(reply, await reserveBooth(request.params.eventId, request.body, app.sql));
+    return replyResult(reply, await service.reserveBooth(request.params.eventId, request.body));
   });
-}
+};

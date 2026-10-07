@@ -3,6 +3,7 @@ import { buildServer } from './app.ts';
 import { internalError } from './shared/result/errors.ts';
 import { getLogger } from './shared/logger/logger.ts';
 import { loadServerEnv } from './shared/config/env.ts';
+import { installShutdownHandlers } from './shared/shutdown.ts';
 
 const log = getLogger('server');
 const env = loadServerEnv();
@@ -17,13 +18,20 @@ const started = await ResultAsync.fromPromise(
 );
 if (started.isErr()) {
   log.error({ code: started.error.code }, started.error.message);
-  process.exit(1);
+  try {
+    await app.close();
+  } catch (cause) {
+    log.error({ err: cause }, 'Failed to close server resources after listen failure.');
+  }
+  process.exitCode = 1;
+} else {
+  log.info(
+    {
+      port: env.PORT,
+      database: env.DATABASE_URL ? 'configured' : 'unconfigured',
+      redis: env.REDIS_URL ? 'configured' : 'unconfigured',
+    },
+    'Server listening.',
+  );
+  installShutdownHandlers(() => app.close());
 }
-log.info(
-  {
-    port: env.PORT,
-    database: env.DATABASE_URL ? 'configured' : 'unconfigured',
-    redis: env.REDIS_URL ? 'configured' : 'unconfigured',
-  },
-  'Server listening.',
-);

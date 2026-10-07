@@ -188,7 +188,7 @@ export const boothAddOnSchema = z.object({
 export type BoothAddOn = z.infer<typeof boothAddOnSchema>;
 
 /** Catalogue of e-commerce add-ons shown in the booth customizer drawer. */
-export const BOOTH_ADD_ONS: BoothAddOn[] = [
+export const BOOTH_ADD_ONS = [
   { id: 'logo-banner', label: 'Logo on event floor banner', kind: 'branding' },
   { id: 'chair', label: 'Chair', kind: 'prop' },
   { id: 'table', label: 'Table', kind: 'prop' },
@@ -200,7 +200,8 @@ export const BOOTH_ADD_ONS: BoothAddOn[] = [
   { id: 'early-delivery', label: 'Early delivery', kind: 'logistics' },
   { id: 'exhibitor-parking', label: 'Exhibitor parking', kind: 'logistics' },
   { id: 'visa-letter', label: 'Visa letter', kind: 'logistics' },
-];
+] as const satisfies readonly BoothAddOn[];
+export type BoothAddOnId = (typeof BOOTH_ADD_ONS)[number]['id'];
 
 export const demoLayout: BuildingLayout = {
   buildingId: 'convention-center-01',

@@ -1,4 +1,4 @@
-import type { Sql } from '../../shared/db/postgres.ts';
+import type { Database } from '../../shared/db/postgres.ts';
 import { orderSummarySchema, type OrderSummary } from '../../../frontend/entities/order/api/dto.ts';
 import {
   err,
@@ -11,12 +11,13 @@ import { validateResponse } from '../../shared/result/validate.ts';
 import { fetchOrder } from './repository.ts';
 
 export async function getOrder(
+  eventId: string,
   orderId: string,
-  sql: Sql | null,
+  db: Database | null,
 ): Promise<Result<OrderSummary, AppError>> {
   const loaded = await fromRepository<OrderSummary | null>(
-    () => fetchOrder(orderId, sql),
-    `Load order ${orderId}`,
+    () => fetchOrder(eventId, orderId, db),
+    `Load order ${orderId} for event ${eventId}`,
   );
   if (loaded.isErr()) {
     return err(loaded.error);

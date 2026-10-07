@@ -1,4 +1,5 @@
 import type { Redis } from 'ioredis';
+import { getLogger } from '../../shared/logger/logger.ts';
 import {
   avatarStateSchema,
   type AvatarState,
@@ -14,6 +15,7 @@ import {
 
 /** Redis channel all presence frames fan out through. */
 export const PRESENCE_CHANNEL = 'presence:avatars';
+const log = getLogger('presence');
 
 /** Validate an inbound socket frame. Err when malformed. */
 export function parsePresenceFrame(raw: unknown): Result<AvatarState, AppError> {
@@ -43,8 +45,9 @@ export async function publishPresence(
   }
   try {
     await redis.publish(PRESENCE_CHANNEL, JSON.stringify({ type: 'avatar', ...avatar }));
-    return ok(undefined);
-  } catch {
+    return ok();
+  } catch (cause) {
+    log.warn({ err: cause }, 'Presence relay publish failed.');
     return err(unavailableError('presence relay unavailable'));
   }
 }

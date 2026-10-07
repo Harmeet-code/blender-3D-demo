@@ -36,39 +36,73 @@ function sendPublishFailure(
  * the hub echoes back to the sender (local-dev fallback); clients lerp at 60 FPS.
  */
 export async function registerRealtimeHub(app: FastifyInstance): Promise<void> {
-  app.get('/avatars', { websocket: true }, (socket) => {
-    let subscriber: ReturnType<NonNullable<FastifyInstance['redis']>['duplicate']> | null = null;
+  type PresenceSubscriber = ReturnType<NonNullable<FastifyInstance['redis']>['duplicate']>;
+  const closeSubscribers = new Set<() => Promise<void>>();
 
-    const closeSubscriber = (): void => {
+  app.addHook('onClose', async () => {
+    const closed = await Promise.allSettled([...closeSubscribers].map((close) => close()));
+    for (const result of closed) {
+      if (result.status === 'rejected') {
+        app.log.error({ err: result.reason }, 'Failed to close a presence Redis subscriber.');
+      }
+    }
+  });
+
+  app.get('/avatars', { websocket: true }, (socket) => {
+    let subscriber: PresenceSubscriber | null = null;
+    let closed = false;
+
+    const closeSubscriber = async (): Promise<void> => {
+      closed = true;
+      closeSubscribers.delete(closeSubscriber);
+      const active = subscriber;
+      subscriber = null;
+      if (!active) {
+        return;
+      }
       try {
-        void subscriber?.unsubscribe(PRESENCE_CHANNEL);
-        subscriber?.disconnect();
-      } catch {
-        // Best-effort teardown.
-      } finally {
-        subscriber = null;
+        if (active.status === 'ready') {
+          await active.unsubscribe(PRESENCE_CHANNEL);
+        }
+        if (active.status === 'wait' || active.status === 'end') {
+          active.disconnect();
+        } else {
+          await active.quit();
+        }
+      } catch (cause) {
+        app.log.warn({ err: cause }, 'Graceful presence subscriber shutdown failed.');
+        active.disconnect();
       }
     };
+    closeSubscribers.add(closeSubscriber);
 
     if (app.redis) {
       try {
-        subscriber = app.redis.duplicate();
-        void subscriber
+        const active = app.redis.duplicate();
+        subscriber = active;
+        void active
           .connect()
-          .then(() =>
-            subscriber?.subscribe(PRESENCE_CHANNEL, (_channel, message) => {
+          .then(async () => {
+            if (closed) {
+              await closeSubscriber();
+              return;
+            }
+            await active.subscribe(PRESENCE_CHANNEL, (_channel, message) => {
               try {
                 socket.send(message);
-              } catch {
-                // Socket already gone; close handler cleans up.
+              } catch (cause) {
+                app.log.debug({ err: cause }, 'Ignoring presence frame for closed socket.');
               }
-            }),
-          )
-          .catch(() => {
-            subscriber = null;
+            });
+          })
+          .catch((cause: unknown) => {
+            app.log.warn({ err: cause }, 'Presence Redis subscriber connection failed.');
+            if (subscriber === active) {
+              void closeSubscriber();
+            }
           });
-      } catch {
-        subscriber = null;
+      } catch (cause) {
+        app.log.warn({ err: cause }, 'Could not create a presence Redis subscriber.');
       }
     }
 
@@ -88,7 +122,7 @@ export async function registerRealtimeHub(app: FastifyInstance): Promise<void> {
     });
 
     socket.on('close', () => {
-      closeSubscriber();
+      void closeSubscriber();
     });
   });
 }

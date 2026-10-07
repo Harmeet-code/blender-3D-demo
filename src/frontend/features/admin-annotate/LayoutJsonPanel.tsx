@@ -71,7 +71,7 @@ export function LayoutJsonPanel() {
             value={draft}
             rows={16}
             spellCheck={false}
-            className="font-mono text-xs"
+            className="font-mono text-[11px] leading-relaxed"
             onChange={(event) => {
               setDraft(event.target.value);
             }}

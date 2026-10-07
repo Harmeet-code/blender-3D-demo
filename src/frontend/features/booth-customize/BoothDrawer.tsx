@@ -109,10 +109,33 @@ export function BoothDrawer() {
         }
       }}
     >
-      <SheetContent side="right" className="flex w-80 flex-col gap-0 sm:max-w-sm">
-        <SheetHeader>
-          <SheetTitle>{selectedBoothId ?? 'Booth'}</SheetTitle>
-          <SheetDescription>Choose add-ons and preview their placement.</SheetDescription>
+      <SheetContent
+        side="right"
+        className="flex w-80 flex-col gap-0 border-l bg-background/95 shadow-2xl backdrop-blur-md sm:max-w-sm"
+      >
+        <SheetHeader className="space-y-2 px-4 pt-4 pb-3 text-left">
+          <div className="flex items-center gap-2">
+            <SheetTitle className="truncate text-base">{selectedBoothId ?? 'Booth'}</SheetTitle>
+            {room && (
+              <span className="ml-auto flex shrink-0 items-center gap-1">
+                <Badge variant="secondary" className="font-mono text-[10px]">
+                  {room.floorId}
+                </Badge>
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  {room.type}
+                </Badge>
+              </span>
+            )}
+          </div>
+          <SheetDescription>
+            Choose add-ons and preview their placement.
+            {room?.price !== undefined && (
+              <span className="mt-1 block font-medium text-foreground">
+                ${room.price.toFixed(0)} base · {selected.length} add-on
+                {selected.length === 1 ? '' : 's'} selected
+              </span>
+            )}
+          </SheetDescription>
         </SheetHeader>
         <Separator />
         <Tabs defaultValue="addons" className="flex min-h-0 flex-1 flex-col gap-0">
@@ -123,8 +146,11 @@ export function BoothDrawer() {
             </TabsList>
           </div>
           <TabsContent value="addons" className="min-h-0 flex-1">
-            <ScrollArea className="h-full p-4">
-              <FieldSet>
+            <ScrollArea className="h-full px-4 py-3">
+              <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Add-ons — {selected.length} selected
+              </p>
+              <FieldSet className="gap-1">
                 {BOOTH_ADD_ONS.map((addOn) => {
                   const checked = selectedBoothId ? selected.includes(addOn.id) : false;
                   return (
@@ -168,7 +194,10 @@ export function BoothDrawer() {
                 })}
               </FieldSet>
               {selected.includes('logo-banner') && selectedBoothId && (
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 space-y-2 rounded-xl border border-dashed bg-muted/40 p-3">
+                  <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                    Branding
+                  </p>
                   <Label htmlFor="booth-logo">Booth logo</Label>
                   <Input
                     id="booth-logo"
@@ -286,14 +315,15 @@ export function BoothDrawer() {
             </div>
           </TabsContent>
         </Tabs>
-        <SheetFooter>
+        <SheetFooter className="flex-col items-stretch gap-2 border-t bg-background p-4">
           {hasFailedAssetLoads() && (
-            <Button variant="outline" onClick={retryAssetLoads}>
+            <Button variant="outline" size="sm" onClick={retryAssetLoads}>
               Retry assets
             </Button>
           )}
           <Button
             type="button"
+            className="w-full"
             disabled={
               !selectedBoothId ||
               reservationStatus.state === 'pending' ||
@@ -305,7 +335,7 @@ export function BoothDrawer() {
             {reservationStatus.state === 'pending'
               ? 'Reserving…'
               : reservationStatus.state === 'success'
-                ? 'Reserved'
+                ? 'Reserved ✓'
                 : `Reserve — ${selected.length} add-on${selected.length === 1 ? '' : 's'}`}
           </Button>
           {reservationStatus.state === 'pending' && (
@@ -315,8 +345,19 @@ export function BoothDrawer() {
           )}
           {reservationStatus.state === 'success' && (
             <Alert>
-              <AlertDescription>
-                Reservation successful. Pending order ID: {reservationStatus.orderId}
+              <AlertDescription className="flex items-center gap-2">
+                <span className="truncate">
+                  Reserved. Order <span className="font-mono">{reservationStatus.orderId}</span>
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto shrink-0"
+                  onClick={() => void navigator.clipboard.writeText(reservationStatus.orderId)}
+                >
+                  Copy ID
+                </Button>
               </AlertDescription>
             </Alert>
           )}

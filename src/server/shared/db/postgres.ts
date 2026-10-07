@@ -1,18 +1,29 @@
-import postgres, { type Sql } from 'postgres';
+import postgres from 'postgres';
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import * as schema from './schema.ts';
+
+export type Database = PostgresJsDatabase<typeof schema>;
+
+export interface DatabaseConnection {
+  db: Database;
+  close: () => Promise<void>;
+}
 
 /**
- * Lazy Postgres client (`postgres` connects on first query, so importing this
- * never blocks boot when the DB is down). Returns null when unconfigured.
+ * Create a lazy PostgreSQL connection and its typed Drizzle ORM database.
+ * Returns null when unconfigured so the server can explicitly use demo adapters.
  */
-export function createSql(databaseUrl: string | undefined): Sql | null {
+export function createDatabase(databaseUrl: string | undefined): DatabaseConnection | null {
   if (!databaseUrl) {
     return null;
   }
-  return postgres(databaseUrl, {
+  const client = postgres(databaseUrl, {
     max: 10,
     idle_timeout: 20,
     connect_timeout: 5,
   });
+  return {
+    db: drizzle(client, { schema }),
+    close: () => client.end({ timeout: 5 }),
+  };
 }
-
-export type { Sql };

@@ -1,0 +1,91 @@
+{
+  "vehicle_count": 18,
+  "types": {
+    "Utility van": 2,
+    "Sedan": 5,
+    "Wagon": 2,
+    "SUV": 5,
+    "Pickup": 3,
+    "EV": 1
+  },
+  "wheel_contacts_checked": 72,
+  "contact_errors": [],
+  "maximum_vehicle_height_m": 2.28,
+  "entry_clearance_m": 2.4,
+  "retail_floors_retained": 4,
+  "bay_occupancy_unchanged": true,
+  "fleet": {
+    "P1-A01": [
+      "Utility van",
+      "Service ivory"
+    ],
+    "P1-A03": [
+      "Sedan",
+      "Burgundy"
+    ],
+    "P1-A04": [
+      "Wagon",
+      "Platinum silver"
+    ],
+    "P1-A06": [
+      "SUV",
+      "Forest green"
+    ],
+    "P1-A08": [
+      "SUV",
+      "Midnight blue"
+    ],
+    "P1-A09": [
+      "Sedan",
+      "Graphite"
+    ],
+    "P1-A11": [
+      "Pickup",
+      "Desert bronze"
+    ],
+    "P1-B01": [
+      "Wagon",
+      "Pearl white"
+    ],
+    "P1-B03": [
+      "EV",
+      "Platinum silver"
+    ],
+    "P1-B05": [
+      "SUV",
+      "Graphite"
+    ],
+    "P1-B06": [
+      "Pickup",
+      "Forest green"
+    ],
+    "P1-B08": [
+      "Utility van",
+      "Service ivory"
+    ],
+    "P1-B10": [
+      "SUV",
+      "Pearl white"
+    ],
+    "P1-C02": [
+      "Sedan",
+      "Platinum silver"
+    ],
+    "P1-C04": [
+      "SUV",
+      "Desert bronze"
+    ],
+    "P1-C05": [
+      "Pickup",
+      "Midnight blue"
+    ],
+    "P1-C07": [
+      "Sedan",
+      "Graphite"
+    ],
+    "P1-C11": [
+      "Sedan",
+      "Pearl white"
+    ]
+  }
+}

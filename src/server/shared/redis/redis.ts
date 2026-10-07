@@ -1,4 +1,7 @@
 import { Redis } from 'ioredis';
+import { getLogger } from '../logger/logger.ts';
+
+const log = getLogger('redis');
 
 /**
  * Lazy Redis client. `lazyConnect` keeps boot offline-safe; callers connect
@@ -13,8 +16,8 @@ export function createRedis(redisUrl: string | undefined): Redis | null {
     maxRetriesPerRequest: 1,
     enableReadyCheck: false,
   });
-  redis.on('error', () => {
-    // Swallowed: health endpoint surfaces status instead of crashing the process.
+  redis.on('error', (cause: Error) => {
+    log.warn({ err: cause }, 'Redis client emitted an error.');
   });
   return redis;
 }

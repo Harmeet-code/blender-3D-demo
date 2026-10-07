@@ -7,6 +7,8 @@ import { assetStressLayout } from '../../building/model/asset-stress-layout.ts';
 import { roomEntrance } from '../../building/model/room-assembly.ts';
 import { queryFloorRoute } from '../../building/model/navigation.ts';
 
+const localAvatarId = crypto.randomUUID();
+
 interface WorldState {
   currentFloorId: string;
   dollhouse: boolean;
@@ -86,7 +88,7 @@ export const useWorldStore = create<WorldState>()((set, get) => ({
   selectedBoothId: null,
   cart: {},
   localAvatar: {
-    id: 'local',
+    id: localAvatarId,
     position: [0, 1.2, 6],
     rotationY: 0,
     floorId: 'F1',

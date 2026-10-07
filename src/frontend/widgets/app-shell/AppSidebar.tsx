@@ -113,7 +113,7 @@ export function AppSidebar({ mode, onNavigate, onOpenPalette }: AppSidebarProps)
                     <LayersIcon />
                     <span>{floor.name}</span>
                   </SidebarMenuButton>
-                  <SidebarMenuBadge>
+                  <SidebarMenuBadge className="text-muted-foreground/70 tabular-nums">
                     {rooms.filter((room) => room.floorId === floor.id).length}
                   </SidebarMenuBadge>
                 </SidebarMenuItem>

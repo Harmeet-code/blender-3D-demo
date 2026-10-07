@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import Fastify from 'fastify';
-import { reserveBooth } from '../src/server/features/booths/service.ts';
+import { createBoothService } from '../src/server/features/booths/service.ts';
+import { createDemoBoothRepository } from '../src/server/features/booths/repository/demo.ts';
 import { saveLayout } from '../src/server/features/layouts/service.ts';
 import { parsePresenceFrame } from '../src/server/features/presence/service.ts';
 import { buildServer } from '../src/server/app.ts';
@@ -20,8 +21,13 @@ import { loadServerEnv } from '../src/server/shared/config/env.ts';
 import { registerBoothRoutes } from '../src/server/features/booths/routes.ts';
 
 describe('server Result errors (no DB)', () => {
+  const boothService = createBoothService(createDemoBoothRepository());
+
   test('reserve rejects unknown add-ons as VALIDATION err', async () => {
-    const result = await reserveBooth('e', { boothId: 'room-101', addOns: ['nope'] }, null);
+    const result = await boothService.reserveBooth('e', {
+      boothId: 'room-101',
+      addOns: ['nope'],
+    });
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error.code).toBe('VALIDATION');
@@ -30,7 +36,10 @@ describe('server Result errors (no DB)', () => {
   });
 
   test('reserve accepts known add-ons as ok', async () => {
-    const result = await reserveBooth('e', { boothId: 'room-101', addOns: ['chair'] }, null);
+    const result = await boothService.reserveBooth('e', {
+      boothId: 'room-101',
+      addOns: ['chair'],
+    });
     expect(result.isOk()).toBe(true);
   });
 
@@ -45,8 +54,10 @@ describe('server Result errors (no DB)', () => {
   });
 
   test('toHttpBody carries code + status', () => {
-    const body = toHttpBody(validationError('bad'));
+    const error = validationError('bad');
+    const body = toHttpBody(error);
     expect(body).toMatchObject({ code: 'VALIDATION', error: 'bad' });
+    expect(error).not.toBeInstanceOf(Error);
   });
 
   test('fromRepository funnels throws into typed INTERNAL with statement details', async () => {
@@ -160,14 +171,17 @@ describe('server Result errors (no DB)', () => {
 
   test('Redis eval failures return the typed 503 reservation error', async () => {
     const app = Fastify();
-    app.decorate('sql', null);
+    app.decorate('db', null);
     app.decorate('serverMode', 'test');
     app.decorate('redis', {
       eval: async () => {
         throw new Error('redis down');
       },
     } as never);
-    await app.register(registerBoothRoutes, { prefix: '/api/events' });
+    await app.register(registerBoothRoutes, {
+      prefix: '/api/events',
+      repository: createDemoBoothRepository(),
+    });
 
     const response = await app.inject({
       method: 'POST',
@@ -184,10 +198,13 @@ describe('server Result errors (no DB)', () => {
 
   test('production reservation without Redis returns typed 503', async () => {
     const app = Fastify();
-    app.decorate('sql', null);
+    app.decorate('db', null);
     app.decorate('redis', null);
     app.decorate('serverMode', 'production');
-    await app.register(registerBoothRoutes, { prefix: '/api/events' });
+    await app.register(registerBoothRoutes, {
+      prefix: '/api/events',
+      repository: createDemoBoothRepository(),
+    });
 
     const response = await app.inject({
       method: 'POST',

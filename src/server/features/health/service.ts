@@ -1,4 +1,5 @@
-import type { Sql } from '../../shared/db/postgres.ts';
+import { sql } from 'drizzle-orm';
+import type { Database } from '../../shared/db/postgres.ts';
 import type { Redis } from 'ioredis';
 import { fromRepository, type AppError, type Result } from '../../shared/result/errors.ts';
 import { validateResponse } from '../../shared/result/validate.ts';
@@ -16,12 +17,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-async function checkPostgres(sql: Sql | null): Promise<DepStatus> {
-  if (!sql) {
+async function checkPostgres(db: Database | null): Promise<DepStatus> {
+  if (!db) {
     return 'unconfigured';
   }
   const result = await fromRepository(
-    () => withTimeout(sql`select 1 as one`, 1000),
+    () => withTimeout(db.execute(sql`select 1 as one`), 1000),
     'Health check postgres',
   );
   return result.isOk() ? 'up' : 'down';
@@ -41,10 +42,10 @@ async function checkRedis(redis: Redis | null): Promise<DepStatus> {
 
 /** Liveness + dependency status, validated against the health DTO. Never errs. */
 export async function getHealth(
-  sql: Sql | null,
+  db: Database | null,
   redis: Redis | null,
 ): Promise<Result<HealthResponse, AppError>> {
-  const [postgres, redisStatus] = await Promise.all([checkPostgres(sql), checkRedis(redis)]);
+  const [postgres, redisStatus] = await Promise.all([checkPostgres(db), checkRedis(redis)]);
   return validateResponse(
     healthResponseSchema,
     { ok: true, uptime: process.uptime(), deps: { postgres, redis: redisStatus } },

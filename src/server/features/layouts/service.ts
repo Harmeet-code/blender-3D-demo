@@ -1,4 +1,4 @@
-import type { Sql } from '../../shared/db/postgres.ts';
+import type { Database } from '../../shared/db/postgres.ts';
 import {
   buildingLayoutSchema,
   type BuildingLayout,
@@ -13,9 +13,9 @@ import { fetchLayout, storeLayout } from './repository.ts';
 
 export async function getLayout(
   eventId: string,
-  sql: Sql | null,
+  db: Database | null,
 ): Promise<Result<BuildingLayout, AppError>> {
-  const loaded = await fromRepository(() => fetchLayout(eventId, sql), `Load layout ${eventId}`);
+  const loaded = await fromRepository(() => fetchLayout(eventId, db), `Load layout ${eventId}`);
   if (loaded.isErr()) {
     return err(loaded.error);
   }
@@ -25,14 +25,14 @@ export async function getLayout(
 export async function saveLayout(
   eventId: string,
   input: unknown,
-  sql: Sql | null,
+  db: Database | null,
 ): Promise<Result<{ saved: boolean }, AppError>> {
   const layout = parseRequest(buildingLayoutSchema, input, 'layout payload');
   if (layout.isErr()) {
     return err(layout.error);
   }
   const stored = await fromRepository(
-    () => storeLayout(eventId, layout.value, sql),
+    () => storeLayout(eventId, layout.value, db),
     `Save layout ${eventId}`,
   );
   if (stored.isErr()) {

@@ -1,0 +1,11 @@
+{
+  "retail_floors_retained": 4,
+  "parking_bays": 31,
+  "parked_vehicles": 18,
+  "tyres_checked": 72,
+  "wheel_contact_errors": [],
+  "motorcycles": 4,
+  "bicycles": 2,
+  "frame": 36,
+  "render_engine": "CYCLES"
+}

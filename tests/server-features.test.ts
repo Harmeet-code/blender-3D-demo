@@ -2,7 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import Fastify from 'fastify';
 import { buildServer } from '../src/server/app.ts';
 import { registerBoothRoutes } from '../src/server/features/booths/routes.ts';
-import type { Sql } from '../src/server/shared/db/postgres.ts';
+import type { BoothAddOnId } from '../src/frontend/entities/building/model/building-schema.ts';
+import type { BoothSummary, Reservation } from '../src/frontend/entities/booth/api/dto.ts';
+import type { BoothRepository } from '../src/server/features/booths/repository.ts';
 
 describe('server feature slices (demo fallback, no DB)', () => {
   test('GET layout returns the demo building', async () => {
@@ -26,6 +28,15 @@ describe('server feature slices (demo fallback, no DB)', () => {
 
   test('POST reserve validates add-ons and returns an order', async () => {
     const app = buildServer();
+    const booths = await app.inject({
+      method: 'GET',
+      url: '/api/events/convention-center-01/booths',
+    });
+    expect(booths.statusCode).toBe(200);
+    expect(booths.json<Array<{ id: string; status: string }>>()).toEqual([
+      { id: 'room-101', status: 'available' },
+    ]);
+
     const ok = await app.inject({
       method: 'POST',
       url: '/api/events/convention-center-01/booths/reserve',
@@ -106,42 +117,36 @@ describe('server feature slices (demo fallback, no DB)', () => {
     await app.close();
   });
 
-  test('POST reserve transaction inserts one pending order and conflicts on repeat', async () => {
-    let boothStatus = 'available';
-    const orders: Array<Record<string, unknown>> = [];
-    const transactionStatements: string[] = [];
-    let transactionCount = 0;
-    const tx = Object.assign(
-      (strings: TemplateStringsArray, ...values: unknown[]) => {
-        const statement = strings.join('?').trim();
-        transactionStatements.push(statement);
-        if (statement.startsWith('update rooms')) {
-          if (boothStatus !== 'available') {
-            return Promise.resolve([]);
-          }
-          boothStatus = 'reserved';
-          return Promise.resolve([{ id: 'room-101' }]);
-        }
-        if (statement.startsWith('insert into orders')) {
-          orders.push({ statement, values });
-          return Promise.resolve([]);
-        }
-        throw new Error(`Unexpected SQL: ${statement}`);
+  test('POST reserve persists one reservation and conflicts on repeat', async () => {
+    let boothStatus: BoothSummary['status'] = 'available';
+    const reservations: Reservation[] = [];
+    const repository: BoothRepository = {
+      async listForEvent() {
+        return [{ id: 'room-101', status: boothStatus }];
       },
-      { json: (value: unknown) => JSON.stringify(value) },
-    );
-    const sql = Object.assign(() => Promise.resolve([]), {
-      begin: async <T>(run: (transaction: typeof tx) => Promise<T>) => {
-        transactionCount++;
-        return run(tx);
+      async reserve(_eventId, boothId, addOns: readonly BoothAddOnId[]) {
+        if (boothStatus !== 'available') {
+          return null;
+        }
+        boothStatus = 'reserved';
+        const reservation = {
+          reserved: true,
+          boothId,
+          addOns: [...addOns],
+          orderId: 'order-1',
+        } satisfies Reservation;
+        reservations.push(reservation);
+        return reservation;
       },
-      json: (value: unknown) => JSON.stringify(value),
-    }) as unknown as Sql;
+    };
     const app = Fastify();
-    app.decorate('sql', sql);
+    app.decorate('db', null);
     app.decorate('redis', null);
     app.decorate('serverMode', 'test');
-    await app.register(registerBoothRoutes, { prefix: '/api/events' });
+    await app.register(registerBoothRoutes, {
+      prefix: '/api/events',
+      repository,
+    });
 
     const request = () =>
       app.inject({
@@ -152,19 +157,14 @@ describe('server feature slices (demo fallback, no DB)', () => {
     const first = await request();
     expect(first.statusCode).toBe(200);
     expect(first.json()).toMatchObject({ reserved: true, boothId: 'room-101' });
-    expect(boothStatus).toBe('reserved');
-    expect(orders).toHaveLength(1);
-    expect(orders[0]?.['statement']).toContain("'pending'");
-    expect(transactionCount).toBe(1);
-    expect(transactionStatements).toHaveLength(2);
-    expect(transactionStatements[1]).toStartWith('insert into orders');
+    expect((await repository.listForEvent('transaction-event'))[0]?.status).toBe('reserved');
+    expect(reservations).toHaveLength(1);
+    expect(reservations[0]).toMatchObject({ orderId: 'order-1', addOns: ['chair'] });
 
     const second = await request();
     expect(second.statusCode).toBe(409);
     expect(second.json().code).toBe('CONFLICT');
-    expect(orders).toHaveLength(1);
-    expect(transactionCount).toBe(2);
-    expect(transactionStatements).toHaveLength(3);
+    expect(reservations).toHaveLength(1);
     await app.close();
   });
 

@@ -1,0 +1,72 @@
+{
+  "luminary-galleria.glb": {
+    "bytes": 68695752,
+    "garage_vehicle_roots": 18,
+    "mesh_count": 6048
+  },
+  "parking-refined.glb": {
+    "bytes": 32554160,
+    "garage_vehicle_roots": 18,
+    "mesh_count": 2830
+  },
+  "vehicles/suv.glb": {
+    "bytes": 1363508,
+    "dimensions_xyz_m": [
+      2.66,
+      1.952,
+      5.14
+    ],
+    "floor_y_m": -0.001,
+    "meshes": 129
+  },
+  "vehicles/pickup.glb": {
+    "bytes": 1545584,
+    "dimensions_xyz_m": [
+      2.67,
+      1.9013,
+      5.74
+    ],
+    "floor_y_m": -0.001,
+    "meshes": 148
+  },
+  "vehicles/utility-van.glb": {
+    "bytes": 1480436,
+    "dimensions_xyz_m": [
+      2.65,
+      2.281,
+      5.24
+    ],
+    "floor_y_m": -0.001,
+    "meshes": 141
+  },
+  "vehicles/estate-car.glb": {
+    "bytes": 1332420,
+    "dimensions_xyz_m": [
+      2.55,
+      1.692,
+      5.08
+    ],
+    "floor_y_m": -0.001,
+    "meshes": 127
+  },
+  "vehicles/sedan.glb": {
+    "bytes": 1297536,
+    "dimensions_xyz_m": [
+      2.54,
+      1.5113,
+      4.94
+    ],
+    "floor_y_m": -0.001,
+    "meshes": 122
+  },
+  "vehicles/electric-car.glb": {
+    "bytes": 1300444,
+    "dimensions_xyz_m": [
+      2.56,
+      1.5513,
+      4.96
+    ],
+    "floor_y_m": -0.001,
+    "meshes": 119
+  }
+}

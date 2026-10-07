@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Stage, Layer, Line as KonvaLine, Circle } from 'react-konva';
-import { DownloadIcon } from 'lucide-react';
+import { DownloadIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,6 +34,7 @@ export function FloorPlanEditor() {
     [points, setPoints] = useState<Array<[number, number]>>([]);
   const [yaw, setYaw] = useState('0'),
     [newRoomId, setNewRoomId] = useState('booth-new');
+  const [zoom, setZoom] = useState(1);
   useEffect(() => setDraft(JSON.stringify(source, null, 2)), [source]);
   const parsed = useMemo(() => {
     try {
@@ -95,13 +96,14 @@ export function FloorPlanEditor() {
       image.onload = null;
     };
   }, [floor?.image]);
-  const coordinateScale = pixel
+  const baseScale = pixel
       ? imageSize
         ? Math.min(600 / imageSize[0], 360 / imageSize[1])
         : 1
       : 12,
-    width = 600,
-    height = 360;
+    coordinateScale = baseScale * zoom,
+    width = 600 * zoom,
+    height = 360 * zoom;
   const viewOrigin: [number, number] = pixel ? [0, 0] : [-25, -15];
   const commit = (next: BuildingLayout) => {
     const result = update(next);
@@ -162,7 +164,7 @@ export function FloorPlanEditor() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="sticky top-0 z-10 grid gap-3 rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur-md sm:grid-cols-3">
           <Label>
             Floor
             <Select
@@ -170,6 +172,7 @@ export function FloorPlanEditor() {
               onValueChange={(value) => {
                 setFloorId(value);
                 setPoints([]);
+                setZoom(1);
               }}
             >
               <SelectTrigger className="mt-2 w-full" aria-label="Editor floor">
@@ -448,20 +451,63 @@ export function FloorPlanEditor() {
           coordinates. Changing units preserves meter positions; changing calibration updates their
           scale. Entrances must lie on their room boundary.
         </p>
-        <div className="overflow-auto rounded border">
+        <div className="overflow-auto rounded-xl border">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card/95 px-3 py-2 backdrop-blur-md">
+            <span className="text-xs text-muted-foreground">
+              Canvas · {Math.round(zoom * 100)}%
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label="Zoom out"
+                disabled={zoom <= 0.5}
+                onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.25).toFixed(2))))}
+              >
+                <ZoomOutIcon />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                aria-label="Reset zoom"
+                onClick={() => setZoom(1)}
+              >
+                100%
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label="Zoom in"
+                disabled={zoom >= 2}
+                onClick={() => setZoom((value) => Math.min(2, Number((value + 0.25).toFixed(2))))}
+              >
+                <ZoomInIcon />
+              </Button>
+            </div>
+          </div>
           <div
             style={{
               width,
               height,
-              background: '#16212b',
-              backgroundImage: floor?.image.startsWith('data:image/')
-                ? `url("${floor.image}")`
-                : undefined,
+              backgroundColor: '#16212b',
+              backgroundImage: [
+                floor?.image.startsWith('data:image/') ? `url("${floor.image}")` : null,
+                'repeating-conic-gradient(#1a2733 0% 25%, #16212b 0% 50%)',
+              ]
+                .filter(Boolean)
+                .join(', '),
               backgroundSize:
                 imageSize && pixel
-                  ? `${imageSize[0] * coordinateScale}px ${imageSize[1] * coordinateScale}px`
-                  : 'auto',
-              backgroundRepeat: 'no-repeat',
+                  ? `${imageSize[0] * coordinateScale}px ${imageSize[1] * coordinateScale}px, 16px 16px`
+                  : 'auto, 16px 16px',
+              backgroundRepeat: floor?.image.startsWith('data:image/')
+                ? 'no-repeat, repeat'
+                : 'repeat',
+              backgroundPosition: '0 0, 0 0',
             }}
           >
             <Stage
@@ -597,7 +643,7 @@ export function FloorPlanEditor() {
             aria-label="Layout JSON"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            className="min-h-64 font-mono text-xs"
+            className="min-h-64 font-mono text-[11px] leading-relaxed"
           />
         </Label>
         <div className="flex flex-wrap gap-2">

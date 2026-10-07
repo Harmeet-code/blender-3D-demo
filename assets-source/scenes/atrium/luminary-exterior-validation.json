@@ -1,0 +1,19 @@
+{
+  "retail_floors": 4,
+  "parking_vehicles": 18,
+  "parking_bays": 31,
+  "canopy_projection_m": 18,
+  "name": "The Luminary Galleria & Promenade",
+  "exterior_collections": [
+    "Envelope",
+    "Canopy",
+    "Public realm",
+    "Landscape",
+    "Arrival roads",
+    "Exterior services",
+    "Lighting and cameras"
+  ],
+  "pylon_free_bays": 13,
+  "model_units": "metres",
+  "time_of_day": "twilight"
+}

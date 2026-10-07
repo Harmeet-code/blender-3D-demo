@@ -1,4 +1,6 @@
-import type { Sql } from '../../shared/db/postgres.ts';
+import { and, eq, inArray, notInArray } from 'drizzle-orm';
+import type { Database } from '../../shared/db/postgres.ts';
+import { events, floors, portals, rooms } from '../../shared/db/schema.ts';
 import {
   buildingLayoutSchema,
   demoLayout,
@@ -6,57 +8,56 @@ import {
 } from '../../../frontend/entities/building/model/building-schema.ts';
 
 /** Load an event layout. Falls back to the demo fixture when unconfigured. */
-export async function fetchLayout(eventId: string, sql: Sql | null): Promise<BuildingLayout> {
-  if (!sql) {
+export async function fetchLayout(eventId: string, db: Database | null): Promise<BuildingLayout> {
+  if (!db) {
     return demoLayout;
   }
-  const events = await sql`select id from events where id = ${eventId}`;
-  if (events.length === 0) {
+  const event = await db
+    .select({ id: events.id })
+    .from(events)
+    .where(eq(events.id, eventId))
+    .limit(1);
+  if (event.length === 0) {
     return demoLayout;
   }
-  const floors = await sql`
-    select id, name, height_offset as "heightOffset", image,
-      coordinate_system as "coordinateSystem", logistics_anchors as "logisticsAnchors" from floors
-    where event_id = ${eventId} order by sort_order`;
-  const rooms = await sql`
-    select id, floor_id as "floorId", type, label, price_cents as "priceCents", polygon,
-      entrance, booth_asset_ref as "boothAssetRef"
-    from rooms where floor_id in (select id from floors where event_id = ${eventId})`;
-  const portals = await sql`
-    select id, type, position, connects, entries from portals where event_id = ${eventId}`;
+  const floorRows = await db
+    .select()
+    .from(floors)
+    .where(eq(floors.eventId, eventId))
+    .orderBy(floors.sortOrder);
+  const floorIds = floorRows.map((floor) => floor.id);
+  const [roomRows, portalRows] = await Promise.all([
+    floorIds.length === 0
+      ? Promise.resolve([])
+      : db.select().from(rooms).where(inArray(rooms.floorId, floorIds)),
+    db.select().from(portals).where(eq(portals.eventId, eventId)),
+  ]);
   return buildingLayoutSchema.parse({
     buildingId: eventId,
-    floors: floors.map((f) => ({
-      ...f,
-      coordinateSystem: f.coordinateSystem ?? undefined,
-      logisticsAnchors: f.logisticsAnchors ?? undefined,
+    floors: floorRows.map((floor) => ({
+      id: floor.id,
+      name: floor.name,
+      heightOffset: floor.heightOffset,
+      image: floor.image,
+      coordinateSystem: floor.coordinateSystem ?? undefined,
+      logisticsAnchors: floor.logisticsAnchors ?? undefined,
     })),
-    rooms: rooms.map((r) => {
-      const row = r as unknown as {
-        id: string;
-        floorId: string;
-        type: string;
-        label: string | null;
-        priceCents: number;
-        polygon: unknown;
-        entrance?: unknown;
-        boothAssetRef?: unknown;
-      };
-      return {
-        id: row.id,
-        floorId: row.floorId,
-        type: row.type,
-        label: row.label ?? undefined,
-        price: row.priceCents / 100,
-        polygon: row.polygon,
-        entrance: row.entrance ?? undefined,
-        boothAssetRef: row.boothAssetRef ?? undefined,
-      };
-    }),
-    portals: portals.map((p) => ({
-      ...p,
-      position: p.position ?? undefined,
-      entries: p.entries ?? undefined,
+    rooms: roomRows.map((room) => ({
+      id: room.id,
+      floorId: room.floorId,
+      type: room.type,
+      label: room.label ?? undefined,
+      price: room.priceCents / 100,
+      polygon: room.polygon,
+      entrance: room.entrance ?? undefined,
+      boothAssetRef: room.boothAssetRef ?? undefined,
+    })),
+    portals: portalRows.map((portal) => ({
+      id: portal.id,
+      type: portal.type,
+      position: portal.position ?? undefined,
+      connects: portal.connects,
+      entries: portal.entries ?? undefined,
     })),
   });
 }
@@ -65,38 +66,123 @@ export async function fetchLayout(eventId: string, sql: Sql | null): Promise<Bui
 export async function storeLayout(
   eventId: string,
   layout: BuildingLayout,
-  sql: Sql | null,
+  db: Database | null,
 ): Promise<{ saved: boolean }> {
-  if (!sql) {
+  if (!db) {
     return { saved: true };
   }
-  await sql.begin(async (tx) => {
-    await tx`insert into events (id, name) values (${eventId}, ${eventId})
-      on conflict (id) do nothing`;
+  await db.transaction(async (tx) => {
+    await tx.insert(events).values({ id: eventId, name: eventId }).onConflictDoNothing();
+    const currentFloors = await tx
+      .select({ id: floors.id })
+      .from(floors)
+      .where(eq(floors.eventId, eventId));
+    const currentFloorIds = currentFloors.map((floor) => floor.id);
+    if (currentFloorIds.length > 0) {
+      const roomFloorScope = inArray(rooms.floorId, currentFloorIds);
+      const roomSyncScope =
+        layout.rooms.length === 0
+          ? roomFloorScope
+          : and(
+              roomFloorScope,
+              notInArray(
+                rooms.id,
+                layout.rooms.map((room) => room.id),
+              ),
+            );
+      await tx.delete(rooms).where(roomSyncScope);
+    }
+
+    const portalSyncScope =
+      layout.portals.length === 0
+        ? eq(portals.eventId, eventId)
+        : and(
+            eq(portals.eventId, eventId),
+            notInArray(
+              portals.id,
+              layout.portals.map((portal) => portal.id),
+            ),
+          );
+    await tx.delete(portals).where(portalSyncScope);
+
+    const submittedFloorIds = layout.floors.map((floor) => floor.id);
+    const staleFloorScope =
+      submittedFloorIds.length === 0
+        ? eq(floors.eventId, eventId)
+        : and(eq(floors.eventId, eventId), notInArray(floors.id, submittedFloorIds));
+    await tx.delete(floors).where(staleFloorScope);
+
     for (const [index, floor] of layout.floors.entries()) {
-      await tx`insert into floors (id, event_id, name, height_offset, image, sort_order, coordinate_system, logistics_anchors)
-        values (${floor.id}, ${eventId}, ${floor.name}, ${floor.heightOffset}, ${floor.image}, ${index}, ${tx.json(floor.coordinateSystem ?? null)}, ${tx.json(floor.logisticsAnchors ?? null)})
-        on conflict (id) do update set
-          name = excluded.name, height_offset = excluded.height_offset,
-          image = excluded.image, sort_order = excluded.sort_order,
-          coordinate_system = excluded.coordinate_system, logistics_anchors = excluded.logistics_anchors`;
+      await tx
+        .insert(floors)
+        .values({
+          id: floor.id,
+          eventId,
+          name: floor.name,
+          heightOffset: floor.heightOffset,
+          image: floor.image,
+          sortOrder: index,
+          coordinateSystem: floor.coordinateSystem ?? null,
+          logisticsAnchors: floor.logisticsAnchors ?? null,
+        })
+        .onConflictDoUpdate({
+          target: floors.id,
+          set: {
+            name: floor.name,
+            heightOffset: floor.heightOffset,
+            image: floor.image,
+            sortOrder: index,
+            coordinateSystem: floor.coordinateSystem ?? null,
+            logisticsAnchors: floor.logisticsAnchors ?? null,
+          },
+        });
     }
     for (const room of layout.rooms) {
-      await tx`insert into rooms (id, floor_id, type, label, price_cents, polygon, entrance, booth_asset_ref)
-        values (${room.id}, ${room.floorId}, ${room.type}, ${room.label ?? null},
-          ${Math.round((room.price ?? 0) * 100)}, ${tx.json(room.polygon)}, ${tx.json(room.entrance ?? null)}, ${tx.json(room.boothAssetRef ?? null)})
-        on conflict (id) do update set
-          floor_id = excluded.floor_id, type = excluded.type,
-          label = excluded.label, price_cents = excluded.price_cents, polygon = excluded.polygon,
-          entrance = excluded.entrance, booth_asset_ref = excluded.booth_asset_ref`;
+      await tx
+        .insert(rooms)
+        .values({
+          id: room.id,
+          floorId: room.floorId,
+          type: room.type,
+          label: room.label ?? null,
+          priceCents: Math.round((room.price ?? 0) * 100),
+          polygon: room.polygon,
+          entrance: room.entrance ?? null,
+          boothAssetRef: room.boothAssetRef ?? null,
+        })
+        .onConflictDoUpdate({
+          target: rooms.id,
+          set: {
+            floorId: room.floorId,
+            type: room.type,
+            label: room.label ?? null,
+            priceCents: Math.round((room.price ?? 0) * 100),
+            polygon: room.polygon,
+            entrance: room.entrance ?? null,
+            boothAssetRef: room.boothAssetRef ?? null,
+          },
+        });
     }
     for (const portal of layout.portals) {
-      await tx`insert into portals (id, event_id, type, position, connects, entries)
-        values (${portal.id}, ${eventId}, ${portal.type},
-          ${tx.json(portal.position ?? null)}, ${tx.json(portal.connects)}, ${tx.json(portal.entries ?? null)})
-        on conflict (id) do update set
-          type = excluded.type, position = excluded.position, connects = excluded.connects,
-          entries = excluded.entries`;
+      await tx
+        .insert(portals)
+        .values({
+          id: portal.id,
+          eventId,
+          type: portal.type,
+          position: portal.position ?? null,
+          connects: portal.connects,
+          entries: portal.entries ?? null,
+        })
+        .onConflictDoUpdate({
+          target: portals.id,
+          set: {
+            type: portal.type,
+            position: portal.position ?? null,
+            connects: portal.connects,
+            entries: portal.entries ?? null,
+          },
+        });
     }
   });
   return { saved: true };

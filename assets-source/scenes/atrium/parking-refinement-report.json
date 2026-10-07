@@ -1,0 +1,13 @@
+{
+  "objects": 7176,
+  "new_objects": 4848,
+  "bays": 31,
+  "parked_vehicles": 18,
+  "two_wheelers": 6,
+  "cameras": [
+    "P1 | Cinematic aisle",
+    "P1 | Lift lobby",
+    "P1 | EV detail",
+    "P1 | Curved arrival"
+  ]
+}

@@ -20,7 +20,7 @@ export function Hud() {
   const { floors } = useActiveLayout();
 
   return (
-    <div className="absolute top-3 left-3 flex max-w-[calc(100vw-1.5rem)] items-center gap-1 rounded-xl border bg-popover/90 p-1.5 text-popover-foreground shadow-lg backdrop-blur sm:gap-2">
+    <div className="absolute top-3 left-3 flex max-w-[calc(100vw-1.5rem)] items-center gap-1 rounded-xl border bg-background/80 p-1.5 text-popover-foreground shadow-lg ring-1 ring-white/10 backdrop-blur-md sm:gap-2">
       <Select value={currentFloorId} onValueChange={setCurrentFloor}>
         <SelectTrigger className="w-36 sm:hidden" aria-label="Active floor">
           <SelectValue placeholder="Choose a floor" />

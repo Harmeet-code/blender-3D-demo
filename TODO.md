@@ -19,6 +19,7 @@ date; park ideas in BACKLOG instead of deleting them. Review weekly.
 
 ## TODO > Next
 
+- [ ] Write `.opencode/instructions/opencode.jsonc` and `AGENTS.md` with repo-specific agent and contributor guidance; validate config and run `bun run verify` #developer-experience
 - [ ] Verify GitHub Actions CI on the first pushed branch #quality
 
 ## DONE

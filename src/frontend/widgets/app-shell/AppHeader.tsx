@@ -51,9 +51,9 @@ export function AppHeader({ mode, onNavigate, onOpenPalette }: AppHeaderProps) {
       <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4">
         <SidebarTrigger />
         <Separator orientation="vertical" className="h-5!" />
-        <Breadcrumb className="hidden min-w-0 sm:block">
-          <BreadcrumbList>
-            <BreadcrumbItem>
+        <Breadcrumb className="hidden min-w-0 flex-1 sm:block">
+          <BreadcrumbList className="min-w-0">
+            <BreadcrumbItem className="shrink-0">
               <BreadcrumbLink
                 asChild
                 onClick={() => {
@@ -66,27 +66,29 @@ export function AppHeader({ mode, onNavigate, onOpenPalette }: AppHeaderProps) {
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>
+            <BreadcrumbItem className="min-w-0">
+              <BreadcrumbPage className="truncate">
                 {mode === 'world' ? `3D World · ${floorName}` : 'Admin builder'}
               </BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
         <div className="ml-auto flex items-center gap-2">
-          <Badge variant="secondary" className="hidden md:inline-flex">
+          <Badge variant="outline" className="hidden text-muted-foreground md:inline-flex">
             {roomCount} booths
           </Badge>
           <Button
             type="button"
             variant="outline"
             size="icon-sm"
-            className="sm:w-auto sm:px-2.5"
+            className="justify-between sm:h-8 sm:w-64 sm:px-2.5"
             onClick={onOpenPalette}
             aria-label="Search booths and commands"
           >
-            <SearchIcon data-icon="inline-start" />
-            <span className="hidden text-muted-foreground sm:inline">Search booths…</span>
+            <span className="inline-flex items-center gap-2">
+              <SearchIcon data-icon="inline-start" />
+              <span className="hidden text-muted-foreground sm:inline">Search booths…</span>
+            </span>
             <KbdGroup className="hidden sm:flex">
               <Kbd>⌘</Kbd>
               <Kbd>K</Kbd>
