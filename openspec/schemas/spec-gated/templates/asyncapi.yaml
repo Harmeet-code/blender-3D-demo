@@ -1,0 +1,38 @@
+asyncapi: 3.0.0
+info:
+  title: TODO-change-async-contracts
+  version: 0.1.0
+  description: >-
+    Async interfaces introduced or altered by this change. Delete the example
+    channel below and describe only this change's channels. If the change has
+    no async interfaces, do not ship this file beyond the one-line skip note
+    in its place.
+servers:
+  production:
+    host: '{APP_HOST}'
+    protocol: wss
+    description: Live venue, presence, and telemetry traffic
+channels:
+  venue-events:
+    address: /api/venue/events/{eventId}
+    messages:
+      hold-expired:
+        payload:
+          type: object
+          required: [boothId, holdId, expiresAt]
+          properties:
+            boothId:
+              type: string
+              description: Stable booth (room) ID; survives republishes and renames
+            holdId:
+              type: string
+            expiresAt:
+              type: string
+              format: date-time
+operations:
+  publish-hold-expired:
+    action: send
+    channel:
+      $ref: '#/channels/venue-events'
+    messages:
+      - $ref: '#/channels/venue-events/messages/hold-expired'

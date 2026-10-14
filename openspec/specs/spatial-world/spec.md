@@ -77,3 +77,42 @@ WebSockets at 15-20 Hz with client-side lerp interpolation at 60 FPS.
 
 - **WHEN** a client sends a valid `AvatarState` to `/ws/avatars`
 - **THEN** the hub rebroadcasts it to peers without jitter-inducing drops.
+
+### Requirement: Canonical authored features and units
+
+New authoring documents SHOULD declare schemaVersion 2. Floors SHALL support image-free metric canvases and calibrated pixel sources. Source positions for walls, zones, POIs, instances, starts and portal entries SHALL normalize to world meters once. Wall thickness/height and opening dimensions SHALL remain metric during image replacement or coordinate re-expression. A wall opening offset SHALL measure its center from wall.start in meters, with clear span offset ± width/2.
+
+#### Scenario: Image calibration is incomplete
+
+- **WHEN** a new image is uploaded or replaces the current image
+- **THEN** calibration SHALL be marked required and physical placement SHALL wait for two-point, rectangle or explicit manual confirmation.
+- **AND** changing the origin alone SHALL NOT confirm scale.
+- **AND** admins MAY save the unfinished document as a draft.
+
+#### Scenario: Blank metric floor
+
+- **WHEN** an admin adds a blank floor
+- **THEN** it SHALL have no inherited image, model, obstacle or instance, a unique identity and a valid metric boundary.
+
+### Requirement: Separate draft storage and publication
+
+GET/PUT `/api/events/:eventId/layout/draft` SHALL store an unpublished document independently from GET/PUT `/api/events/:eventId/layout`. Drafts SHALL require structural schema validity but MAY contain required calibration and unfinished portal entries. Publication SHALL enforce shared client/server readiness. New v2/canonical-feature documents SHALL provide entries on every connected portal floor and safe starts/POIs/entries with physical clearance. Existing legacy-only documents SHALL retain their historical connector compatibility. Draft responses SHALL use no-store caching. Authentication/authorization is a separate requirement; unpublished does not mean access-controlled.
+
+#### Scenario: Draft does not replace visitors' venue
+
+- **WHEN** an admin saves an unfinished draft
+- **THEN** the visitor layout SHALL remain unchanged, and older published-query results SHALL NOT overwrite newer editor work.
+- **WHEN** a delayed draft load completes after editing or leaving the editor
+- **THEN** it SHALL NOT replace the active source.
+
+### Requirement: Shared wall collision and routing solids
+
+Rendered authored walls, Rapier collision and Recast rasterization SHALL use the same split wall solids, including sill and lintel heights. A doorway SHALL preserve clear navigation headroom; a low sill SHALL NOT be treated as a step the character cannot climb. Blocked zones SHALL preserve their actual concave polygon, not an enclosing box. Nonblocking zone overlays SHALL NOT add obstacles.
+
+### Requirement: Stable named destinations
+
+Visitor search SHALL support existing room IDs and scoped POI/avatar-start destinations. Destination selection SHALL preserve the avatar's actual origin; routing through portals SHALL own floor changes. Moving or removing a destination SHALL cancel stale pending/active routes, while a label-only edit SHALL not rebuild the navigation mesh. Arbitrary two-endpoint preview planning remains a subsequent UI feature.
+
+### Requirement: Reversible reference archive and safe cutover
+
+Reference snapshots SHALL record verified SHA-256 identities and visual references. Currently used sources/assets SHALL remain available until their replacements satisfy dimensions, material, socket, physical and appearance contracts. Runtime source/build and saved-layout DTOs SHALL reject archive asset paths. The archive is not a runtime asset catalog.

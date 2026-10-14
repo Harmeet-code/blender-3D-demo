@@ -57,6 +57,8 @@ playwright-report/
 
 # Uploads
 uploads/
+data/venue/
+.local/
 
 # Optional - If you don't want these in your repo
 # .env.local
@@ -107,3 +109,13 @@ storage/**/_thumbs/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Isolated cold-start dependency cache; measurement JSON remains reviewable.
+reports/performance/vite-process-cold-cache/
+
+# Large local reference snapshot; SHA manifest, reference sheet and README remain reviewable.
+archive/blender-ref/assets-source/
+archive/blender-ref/src/
+archive/blender-ref/public/
+archive/blender-ref/scripts/
+archive/legacy-2026-10-14/payload/

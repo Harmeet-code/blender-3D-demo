@@ -1,0 +1,30 @@
+{
+  "id": "booth-40x45",
+  "label": "40 \u00d7 45 ft booth",
+  "dimensionsFeet": [40, 45],
+  "dimensionsMetres": [12.192, 2.8, 13.716000000000001],
+  "measuredDimensionsMetres": [12.192000389099121, 2.799999952316284, 13.716000080108643],
+  "maximumDimensionErrorMetres": 3.8909912092321974e-7,
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "url": "/floor-assets/booths/booth-40x45.glb",
+  "preview": "/floor-assets/booths/booth-40x45.png",
+  "source": "assets-source\\blender\\booths\\40x45\\booth-40x45.blend",
+  "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+  "triangles": 4928,
+  "bytes": 289120,
+  "colliders": [
+    {
+      "halfExtents": [6.096, 1.4, 0.04],
+      "position": [0, 1.4, -6.8180000000000005]
+    },
+    {
+      "halfExtents": [0.04, 1.4, 6.8180000000000005],
+      "position": [-6.056, 1.4, 0.04]
+    },
+    {
+      "halfExtents": [0.04, 1.4, 6.8180000000000005],
+      "position": [6.056, 1.4, 0.04]
+    }
+  ]
+}

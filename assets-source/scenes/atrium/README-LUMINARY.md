@@ -6,13 +6,13 @@ The original `atrium.blend` remains the earlier mall source.
 
 ## Main files
 
-| File | Contents |
-| --- | --- |
-| `luminary-galleria.blend` | Complete editable scene, native materials, lighting, cameras and charging animation |
-| `luminary-galleria.glb` | Portable complete scene; geometric details and supported PBR materials |
-| `atrium-parking-refined.blend` | Garage and vehicle refinement checkpoint before the exterior addition |
-| `parking-refined.glb` | Updated P1 garage geometry with the varied vehicle fleet |
-| `vehicles/*.glb` | Six reusable individual vehicles, centred at the origin with tyres resting on Z = 0 |
+| File                           | Contents                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| `luminary-galleria.blend`      | Complete editable scene, native materials, lighting, cameras and charging animation |
+| `luminary-galleria.glb`        | Portable complete scene; geometric details and supported PBR materials              |
+| `atrium-parking-refined.blend` | Garage and vehicle refinement checkpoint before the exterior addition               |
+| `parking-refined.glb`          | Updated P1 garage geometry with the varied vehicle fleet                            |
+| `vehicles/*.glb`               | Six reusable individual vehicles, centred at the origin with tyres resting on Z = 0 |
 
 The `vehicles` directory contains `suv.glb`, `pickup.glb`, `utility-van.glb`,
 `estate-car.glb`, `sedan.glb` and `electric-car.glb`. These are custom, unbranded

@@ -1,0 +1,16 @@
+{
+  "/floor-assets/denver-floor-1.webp": {
+    "template": "/floor-assets/tiles/F1/{level}-{x}-{y}.webp",
+    "width": 11163,
+    "height": 6692,
+    "tileSize": 512,
+    "maxLevel": 5
+  },
+  "/floor-assets/denver-floor-2.webp": {
+    "template": "/floor-assets/tiles/F2/{level}-{x}-{y}.webp",
+    "width": 2040,
+    "height": 1090,
+    "tileSize": 512,
+    "maxLevel": 2
+  }
+}

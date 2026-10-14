@@ -1,0 +1,242 @@
+[
+  {
+    "id": "booth-10x10",
+    "label": "10 \u00d7 10 ft booth",
+    "dimensionsFeet": [10, 10],
+    "dimensionsMetres": [3.048, 2.8, 3.048],
+    "measuredDimensionsMetres": [3.0480000972747803, 2.799999952316284, 3.0480000972747803],
+    "maximumDimensionErrorMetres": 9.727478023080494e-8,
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "url": "/floor-assets/booths/booth-10x10.glb",
+    "preview": "/floor-assets/booths/booth-10x10.png",
+    "source": "assets-source\\blender\\booths\\10x10\\booth-10x10.blend",
+    "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+    "triangles": 4712,
+    "bytes": 264168,
+    "colliders": [
+      {
+        "halfExtents": [1.524, 1.4, 0.04],
+        "position": [0, 1.4, -1.484]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 1.484],
+        "position": [-1.484, 1.4, 0.04]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 1.484],
+        "position": [1.484, 1.4, 0.04]
+      }
+    ]
+  },
+  {
+    "id": "booth-28x10",
+    "label": "28 \u00d7 10 ft booth",
+    "dimensionsFeet": [28, 10],
+    "dimensionsMetres": [8.5344, 2.8, 3.048],
+    "measuredDimensionsMetres": [8.53439998626709, 2.799999952316284, 3.0480000972747803],
+    "maximumDimensionErrorMetres": 9.727478023080494e-8,
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "url": "/floor-assets/booths/booth-28x10.glb",
+    "preview": "/floor-assets/booths/booth-28x10.png",
+    "source": "assets-source\\blender\\booths\\28x10\\booth-28x10.blend",
+    "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+    "triangles": 4712,
+    "bytes": 264144,
+    "colliders": [
+      {
+        "halfExtents": [4.2672, 1.4, 0.04],
+        "position": [0, 1.4, -1.484]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 1.484],
+        "position": [-4.2272, 1.4, 0.04]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 1.484],
+        "position": [4.2272, 1.4, 0.04]
+      }
+    ]
+  },
+  {
+    "id": "booth-28x36",
+    "label": "28 \u00d7 36 ft booth",
+    "dimensionsFeet": [28, 36],
+    "dimensionsMetres": [8.5344, 2.8, 10.972800000000001],
+    "measuredDimensionsMetres": [8.53439998626709, 2.799999952316284, 10.972800254821777],
+    "maximumDimensionErrorMetres": 2.5482177612445867e-7,
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "url": "/floor-assets/booths/booth-28x36.glb",
+    "preview": "/floor-assets/booths/booth-28x36.png",
+    "source": "assets-source\\blender\\booths\\28x36\\booth-28x36.blend",
+    "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+    "triangles": 4856,
+    "bytes": 285492,
+    "colliders": [
+      {
+        "halfExtents": [4.2672, 1.4, 0.04],
+        "position": [0, 1.4, -5.446400000000001]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 5.446400000000001],
+        "position": [-4.2272, 1.4, 0.04]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 5.446400000000001],
+        "position": [4.2272, 1.4, 0.04]
+      }
+    ]
+  },
+  {
+    "id": "booth-28x54",
+    "label": "28 \u00d7 54 ft booth",
+    "dimensionsFeet": [28, 54],
+    "dimensionsMetres": [8.5344, 2.8, 16.4592],
+    "measuredDimensionsMetres": [8.53439998626709, 2.799999952316284, 16.459199905395508],
+    "maximumDimensionErrorMetres": 9.460449135190174e-8,
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "url": "/floor-assets/booths/booth-28x54.glb",
+    "preview": "/floor-assets/booths/booth-28x54.png",
+    "source": "assets-source\\blender\\booths\\28x54\\booth-28x54.blend",
+    "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+    "triangles": 4976,
+    "bytes": 292124,
+    "colliders": [
+      {
+        "halfExtents": [4.2672, 1.4, 0.04],
+        "position": [0, 1.4, -8.1896]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 8.1896],
+        "position": [-4.2272, 1.4, 0.04]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 8.1896],
+        "position": [4.2272, 1.4, 0.04]
+      }
+    ]
+  },
+  {
+    "id": "booth-27x50",
+    "label": "27 \u00d7 50 ft booth",
+    "dimensionsFeet": [27, 50],
+    "dimensionsMetres": [8.2296, 2.8, 15.24],
+    "measuredDimensionsMetres": [8.229599952697754, 2.799999952316284, 15.240000247955322],
+    "maximumDimensionErrorMetres": 2.479553220524622e-7,
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "url": "/floor-assets/booths/booth-27x50.glb",
+    "preview": "/floor-assets/booths/booth-27x50.png",
+    "source": "assets-source\\blender\\booths\\27x50\\booth-27x50.blend",
+    "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+    "triangles": 4952,
+    "bytes": 289860,
+    "colliders": [
+      {
+        "halfExtents": [4.1148, 1.4, 0.04],
+        "position": [0, 1.4, -7.58]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 7.58],
+        "position": [-4.0748, 1.4, 0.04]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 7.58],
+        "position": [4.0748, 1.4, 0.04]
+      }
+    ]
+  },
+  {
+    "id": "booth-20x20",
+    "label": "20 \u00d7 20 ft booth",
+    "dimensionsFeet": [20, 20],
+    "dimensionsMetres": [6.096, 2.8, 6.096],
+    "measuredDimensionsMetres": [6.0960001945495605, 2.799999952316284, 6.0960001945495605],
+    "maximumDimensionErrorMetres": 1.9454956046160987e-7,
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "url": "/floor-assets/booths/booth-20x20.glb",
+    "preview": "/floor-assets/booths/booth-20x20.png",
+    "source": "assets-source\\blender\\booths\\20x20\\booth-20x20.blend",
+    "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+    "triangles": 4760,
+    "bytes": 271824,
+    "colliders": [
+      {
+        "halfExtents": [3.048, 1.4, 0.04],
+        "position": [0, 1.4, -3.008]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 3.008],
+        "position": [-3.008, 1.4, 0.04]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 3.008],
+        "position": [3.008, 1.4, 0.04]
+      }
+    ]
+  },
+  {
+    "id": "booth-14x38",
+    "label": "14 \u00d7 38 ft booth",
+    "dimensionsFeet": [14, 38],
+    "dimensionsMetres": [4.2672, 2.8, 11.5824],
+    "measuredDimensionsMetres": [4.267199993133545, 2.799999952316284, 11.58240032196045],
+    "maximumDimensionErrorMetres": 3.219604494120176e-7,
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "url": "/floor-assets/booths/booth-14x38.glb",
+    "preview": "/floor-assets/booths/booth-14x38.png",
+    "source": "assets-source\\blender\\booths\\14x38\\booth-14x38.blend",
+    "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+    "triangles": 4880,
+    "bytes": 280772,
+    "colliders": [
+      {
+        "halfExtents": [2.1336, 1.4, 0.04],
+        "position": [0, 1.4, -5.7512]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 5.7512],
+        "position": [-2.0936, 1.4, 0.04]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 5.7512],
+        "position": [2.0936, 1.4, 0.04]
+      }
+    ]
+  },
+  {
+    "id": "booth-40x45",
+    "label": "40 \u00d7 45 ft booth",
+    "dimensionsFeet": [40, 45],
+    "dimensionsMetres": [12.192, 2.8, 13.716000000000001],
+    "measuredDimensionsMetres": [12.192000389099121, 2.799999952316284, 13.716000080108643],
+    "maximumDimensionErrorMetres": 3.8909912092321974e-7,
+    "anchor": "floor-contact",
+    "facing": "+Z",
+    "url": "/floor-assets/booths/booth-40x45.glb",
+    "preview": "/floor-assets/booths/booth-40x45.png",
+    "source": "assets-source\\blender\\booths\\40x45\\booth-40x45.blend",
+    "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+    "triangles": 4928,
+    "bytes": 289120,
+    "colliders": [
+      {
+        "halfExtents": [6.096, 1.4, 0.04],
+        "position": [0, 1.4, -6.8180000000000005]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 6.8180000000000005],
+        "position": [-6.056, 1.4, 0.04]
+      },
+      {
+        "halfExtents": [0.04, 1.4, 6.8180000000000005],
+        "position": [6.056, 1.4, 0.04]
+      }
+    ]
+  }
+]

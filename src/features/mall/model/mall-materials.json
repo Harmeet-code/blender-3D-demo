@@ -1,0 +1,1208 @@
+[
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_transmission": {
+        "transmissionFactor": 0.9599999785423279
+      },
+      "KHR_materials_ior": {
+        "ior": 1.4500000476837158
+      }
+    },
+    "name": "P1 / LUM low iron structural glass",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.8199999928474426, 0.9300000071525574, 0.949999988079071, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.07500000298023224
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM dark bronze reveals",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.06499999761581421, 0.03799999877810478, 0.017999999225139618, 1],
+      "metallicFactor": 0.7599999904632568,
+      "roughnessFactor": 0.2800000011920929
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM brushed stainless steel",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.4699999988079071, 0.5400000214576721, 0.5899999737739563, 1],
+      "metallicFactor": 0.8999999761581421,
+      "roughnessFactor": 0.25999999046325684
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM white architectural concrete",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.7200000286102295, 0.7200000286102295, 0.6499999761581421, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.5799999833106995
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM light granite band",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.4699999988079071, 0.47999998927116394, 0.46000000834465027, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.6499999761581421
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM graphite metal",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.012000000104308128, 0.01899999938905239, 0.026000000536441803, 1],
+      "metallicFactor": 0.5799999833106995,
+      "roughnessFactor": 0.3199999928474426
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM tactile ochre iron",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.7699999809265137, 0.47999998927116394, 0.03200000151991844, 1],
+      "metallicFactor": 0.3499999940395355,
+      "roughnessFactor": 0.5199999809265137
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM planting soil",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.026000000536441803, 0.019999999552965164, 0.013000000268220901, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.949999988079071
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM pale terrazzo seating",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.6600000262260437, 0.6299999952316284, 0.550000011920929, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.3400000035762787
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [1, 0.6499999761581421, 0.3100000023841858],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_emissive_strength": {
+        "emissiveStrength": 4
+      }
+    },
+    "name": "P1 / LUM warm recessed linear",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [1, 0.6499999761581421, 0.3100000023841858, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.2199999988079071
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM champagne anodized aluminium",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.5199999809265137, 0.3700000047683716, 0.1899999976158142, 1],
+      "metallicFactor": 0.8199999928474426,
+      "roughnessFactor": 0.30000001192092896
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM silver birch bark",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.5899999737739563, 0.5799999833106995, 0.5, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.8500000238418579
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM textured tree bark",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.11999999731779099, 0.08500000089406967, 0.05299999937415123, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.8399999737739563
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM red fire hardware",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.5, 0.02500000037252903, 0.008999999612569809, 1],
+      "metallicFactor": 0.4000000059604645,
+      "roughnessFactor": 0.28999999165534973
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.2199999988079071, 0.21250000596046448, 0.18000000715255737],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM ivory lettering",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.8799999952316284, 0.8500000238418579, 0.7200000286102295, 1],
+      "metallicFactor": 0.10000000149011612,
+      "roughnessFactor": 0.30000001192092896
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.2414999950528145, 0.16100000017881388, 0.07349999645352367],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM translucent onyx header",
+    "pbrMetallicRoughness": {
+      "metallicFactor": 0,
+      "roughnessFactor": 0.30000001192092896
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM lane marking",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.800000011920929, 0.8100000023841858, 0.7200000286102295, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.6499999761581421
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.06299999859929084, 0.8279999930858608, 0.9720000128746022],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM cyan LED display",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.03500000014901161, 0.46000000834465027, 0.5400000214576721, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.25999999046325684
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 satin polymer.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.012000000104308128, 0.017000000923871994, 0.020999999716877937, 1],
+      "metallicFactor": 0.11999999731779099,
+      "roughnessFactor": 0.41999998688697815
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.800000011920929,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 paint / Pearl white.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.7400000095367432, 0.7599999904632568, 0.7200000286102295, 1],
+      "metallicFactor": 0.6200000047683716
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 anthracite alloy.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.03700000047683716, 0.04600000008940697, 0.054999999701976776, 1],
+      "metallicFactor": 0.8500000238418579,
+      "roughnessFactor": 0.25999999046325684
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 satin diamond-cut alloy.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.49000000953674316, 0.5400000214576721, 0.5799999833106995, 1],
+      "metallicFactor": 0.9399999976158142,
+      "roughnessFactor": 0.23000000417232513
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 brake caliper.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.41999998688697815, 0.032999999821186066, 0.01600000075995922, 1],
+      "metallicFactor": 0.5,
+      "roughnessFactor": 0.30000001192092896
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.75,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_transmission": {
+        "transmissionFactor": 0.1599999964237213
+      }
+    },
+    "name": "P1 / V2 solar glass.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.02500000037252903, 0.04899999871850014, 0.06300000101327896, 1],
+      "metallicFactor": 0.20000000298023224,
+      "roughnessFactor": 0.12999999523162842
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 stitched charcoal upholstery.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.02500000037252903, 0.03099999949336052, 0.032999999821186066, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.7699999809265137
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 1,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 optical lens.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.15000000596046448, 0.23000000417232513, 0.28999999165534973, 1],
+      "metallicFactor": 0.5,
+      "roughnessFactor": 0.09000000357627869
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 registration enamel.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.7799999713897705, 0.8100000023841858, 0.7699999809265137, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.36000001430511475
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 tyre rubber.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.013000000268220901, 0.014999999664723873, 0.017999999225139618, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.800000011920929
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.045599998408556, 0.0007199999901652335, 0.001079999929368497],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 1,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 ruby tail lens.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.3799999952316284, 0.006000000052154064, 0.008999999612569809, 1],
+      "metallicFactor": 0.25,
+      "roughnessFactor": 0.1599999964237213
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.6239999864101407, 0.7040000066757202, 0.800000011920929],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 LED signature.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.7799999713897705, 0.8799999952316284, 1, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.20000000298023224
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 iron brake rotor.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.2199999988079071, 0.23999999463558197, 0.25, 1],
+      "metallicFactor": 0.8500000238418579,
+      "roughnessFactor": 0.41999998688697815
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM flamed granite 1",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.14900000393390656, 0.16899999976158142, 0.18000000715255737, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.7300000190734863
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM asphalt",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.041999999433755875, 0.052000001072883606, 0.06400000303983688, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.8100000023841858
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.800000011920929,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 paint / Platinum silver.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.4300000071525574, 0.5099999904632568, 0.5799999833106995, 1],
+      "metallicFactor": 0.6200000047683716
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM ceramic gradient frit",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.6800000071525574, 0.7400000095367432, 0.7099999785423279, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.5
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM polished canopy stainless",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.6800000071525574, 0.7300000190734863, 0.7699999809265137, 1],
+      "metallicFactor": 0.9399999976158142,
+      "roughnessFactor": 0.11999999731779099
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM flamed granite 0",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.14000000059604645, 0.1599999964237213, 0.17000000178813934, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.7300000190734863
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM flamed granite 2",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.15800000727176666, 0.17800000309944153, 0.1899999976158142, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.7300000190734863
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM flamed granite 3",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.16699999570846558, 0.18700000643730164, 0.20000000298023224, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.7300000190734863
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM foliage 0",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.07500000298023224, 0.1599999964237213, 0.03799999877810478, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.7300000190734863
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM foliage 1",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.15000000596046448, 0.23999999463558197, 0.06199999898672104, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.7300000190734863
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM ornamental grasses",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.25999999046325684, 0.28999999165534973, 0.10999999940395355, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.8299999833106995
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM foliage 2",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.28999999165534973, 0.07000000029802322, 0.02500000037252903, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.7300000190734863
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / LUM foliage 3",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.41999998688697815, 0.11999999731779099, 0.0430000014603138, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.7300000190734863
+    }
+  },
+  {
+    "doubleSided": true,
+    "name": "Ivory terrazzo edges",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.8600000143051147, 0.800000011920929, 0.6700000166893005, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.30000001192092896
+    }
+  },
+  {
+    "doubleSided": true,
+    "name": "Brushed champagne bronze",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.4300000071525574, 0.2800000011920929, 0.11999999731779099, 1],
+      "metallicFactor": 0.75,
+      "roughnessFactor": 0.27000001072883606
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [1, 0.5699999928474426, 0.20000000298023224],
+    "extensions": {
+      "KHR_materials_emissive_strength": {
+        "emissiveStrength": 6
+      }
+    },
+    "name": "2700K integrated lighting",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [1, 0.5699999928474426, 0.20000000298023224, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.30000001192092896
+    }
+  },
+  {
+    "doubleSided": true,
+    "name": "Sand boucle upholstery",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.7200000286102295, 0.6499999761581421, 0.5, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.800000011920929
+    }
+  },
+  {
+    "doubleSided": true,
+    "name": "Terracotta upholstery",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.46000000834465027, 0.18000000715255737, 0.0949999988079071, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.699999988079071
+    }
+  },
+  {
+    "doubleSided": true,
+    "name": "Olive foliage",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.10000000149011612, 0.20000000298023224, 0.06499999761581421, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.6499999761581421
+    }
+  },
+  {
+    "doubleSided": true,
+    "name": "Planter earth",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.03500000014901161, 0.02800000086426735, 0.017999999225139618, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.949999988079071
+    }
+  },
+  {
+    "doubleSided": true,
+    "name": "Smoked oak",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.2199999988079071, 0.0949999988079071, 0.03500000014901161, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.38999998569488525
+    }
+  },
+  {
+    "doubleSided": true,
+    "name": "Charcoal metal",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.03500000014901161, 0.04500000178813934, 0.052000001072883606, 1],
+      "metallicFactor": 0.6000000238418579,
+      "roughnessFactor": 0.30000001192092896
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_transmission": {
+        "transmissionFactor": 0.3199999928474426
+      }
+    },
+    "name": "Blue smoke architectural glass",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.1599999964237213, 0.30000001192092896, 0.3199999928474426, 1],
+      "metallicFactor": 0.2800000011920929,
+      "roughnessFactor": 0.18000000715255737
+    }
+  },
+  {
+    "alphaMode": "BLEND",
+    "doubleSided": true,
+    "name": "Clear architectural glazing",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [
+        0.5199999809265137, 0.699999988079071, 0.7200000286102295, 0.18000000715255737
+      ],
+      "metallicFactor": 0.10000000149011612,
+      "roughnessFactor": 0.11999999731779099
+    }
+  },
+  {
+    "doubleSided": true,
+    "name": "Warm honed limestone",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.6299999952316284, 0.5600000023841858, 0.4300000071525574, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.36000001430511475
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Board cast concrete",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.3100000023841858, 0.3199999928474426, 0.3100000023841858, 1],
+      "metallicFactor": 0
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Signal teal enamel",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.017999999225139618, 0.3799999952316284, 0.3700000047683716, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.3400000035762787
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Reflective white road paint",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.800000011920929, 0.8399999737739563, 0.8199999928474426, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.47999998927116394
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.3400000146031381, 0.37200000840425496, 0.4000000059604645],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Reflective sign lettering",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.8500000238418579, 0.9300000071525574, 1, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.30000001192092896
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Machined bright aluminium",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.699999988079071, 0.7699999809265137, 0.7900000214576721, 1],
+      "metallicFactor": 0.949999988079071,
+      "roughnessFactor": 0.1899999976158142
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [1, 0.02500000037252903, 0.00800000037997961],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_emissive_strength": {
+        "emissiveStrength": 4
+      }
+    },
+    "name": "P1 / Occupied red",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [1, 0.02500000037252903, 0.00800000037997961, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.25
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.014999999664723873, 1, 0.23999999463558197],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_emissive_strength": {
+        "emissiveStrength": 4
+      }
+    },
+    "name": "P1 / Available green",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.014999999664723873, 1, 0.23999999463558197, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.25
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Scuff resistant charcoal",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.03500000014901161, 0.04399999976158142, 0.052000001072883606, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.6399999856948853
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Galvanized steel",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.4300000071525574, 0.5, 0.5299999713897705, 1],
+      "metallicFactor": 0.8199999928474426
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Fire red enamel",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.5199999809265137, 0.023000000044703484, 0.013000000268220901, 1],
+      "metallicFactor": 0.25,
+      "roughnessFactor": 0.3199999928474426
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Powder coated black",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.01600000075995922, 0.02199999988079071, 0.02800000086426735, 1],
+      "metallicFactor": 0.20000000298023224,
+      "roughnessFactor": 0.3799999952316284
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.7300000190734863, 0.8600000143051147, 1],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_emissive_strength": {
+        "emissiveStrength": 5
+      }
+    },
+    "name": "P1 / Cool LED diffuser",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.7300000190734863, 0.8600000143051147, 1, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.25
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.800000011920929,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 paint / Service ivory.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.6899999976158142, 0.699999988079071, 0.6399999856948853, 1],
+      "metallicFactor": 0.6200000047683716
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.800000011920929,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 paint / Burgundy.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.23000000417232513, 0.020999999716877937, 0.03500000014901161, 1],
+      "metallicFactor": 0.6200000047683716
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.800000011920929,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 paint / Forest green.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.041999999433755875, 0.11999999731779099, 0.0820000022649765, 1],
+      "metallicFactor": 0.6200000047683716
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.800000011920929,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 paint / Graphite.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.054999999701976776, 0.06700000166893005, 0.0820000022649765, 1],
+      "metallicFactor": 0.6200000047683716
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Rubber",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.01600000075995922, 0.01899999938905239, 0.02199999988079071, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.8500000238418579
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Canary yellow",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.949999988079071, 0.6200000047683716, 0.017999999225139618, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.41999998688697815
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [1, 0.7699999809265137, 0.38999998569488525],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_emissive_strength": {
+        "emissiveStrength": 5
+      }
+    },
+    "name": "P1 / Lobby warm LED",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [1, 0.7699999809265137, 0.38999998569488525, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.25
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Concrete soffits",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.23999999463558197, 0.26499998569488525, 0.27000001072883606, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.800000011920929
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.009999999776482582, 0.8500000238418579, 1],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_emissive_strength": {
+        "emissiveStrength": 4
+      }
+    },
+    "name": "P1 / Charge active cyan",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.009999999776482582, 0.8500000238418579, 1, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.20000000298023224
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.800000011920929,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 paint / Desert bronze.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.23999999463558197, 0.14000000059604645, 0.07100000232458115, 1],
+      "metallicFactor": 0.6200000047683716
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.800000011920929,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / V2 paint / Midnight blue.001",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.017000000923871994, 0.07100000232458115, 0.1599999964237213, 1],
+      "metallicFactor": 0.6200000047683716
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.699999988079071,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Dark automotive glass",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.017999999225139618, 0.03400000184774399, 0.04399999976158142, 1],
+      "metallicFactor": 0.30000001192092896,
+      "roughnessFactor": 0.0949999988079071
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.009999999776482582, 0.8500000238418579, 1],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_emissive_strength": {
+        "emissiveStrength": 2
+      }
+    },
+    "name": "P1 / Charging port pulse only",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.009999999776482582, 0.8500000238418579, 1, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.20000000298023224
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / C11 security blink only",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [1, 0.02500000037252903, 0.00800000037997961, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.25
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      },
+      "KHR_materials_transmission": {
+        "transmissionFactor": 0.9300000071525574
+      }
+    },
+    "name": "P1 / Lobby glazing",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.5099999904632568, 0.6700000166893005, 0.6899999976158142, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.07999999821186066
+    }
+  },
+  {
+    "doubleSided": true,
+    "emissiveFactor": [0.005999999955296514, 0.05199999886751172, 0.17200000542402272],
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Wayfinding electric blue",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.014999999664723873, 0.12999999523162842, 0.4300000071525574, 1],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.4000000059604645
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatFactor": 0.25,
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Satin graphite epoxy",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.0949999988079071, 0.12999999523162842, 0.15000000596046448, 1],
+      "metallicFactor": 0
+    }
+  },
+  {
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_clearcoat": {
+        "clearcoatRoughnessFactor": 0.18000000715255737
+      }
+    },
+    "name": "P1 / Oxidized fasteners",
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.12999999523162842, 0.17000000178813934, 0.1899999976158142, 1],
+      "metallicFactor": 0.75,
+      "roughnessFactor": 0.3799999952316284
+    }
+  }
+]

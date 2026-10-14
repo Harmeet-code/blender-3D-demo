@@ -3,7 +3,16 @@
 export default {
   plugins: ['typescript', 'unicorn', 'oxc'],
 
-  ignorePatterns: ['.opencode/', 'dist/', 'build/', 'node_modules/', 'coverage/', '*.d.ts'],
+  ignorePatterns: [
+    '.opencode/',
+    'dist/',
+    'build/',
+    'node_modules/',
+    'coverage/',
+    'archive/',
+    '*.d.ts',
+    'public/mall-assets/draco/',
+  ],
 
   categories: {
     correctness: 'warn',

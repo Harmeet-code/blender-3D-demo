@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "url": "mall-assets/procedural-scene.4299c72a60228f3c526e.json.gz",
+  "compression": "gzip",
+  "sha256": "4299c72a60228f3c526e53ad9be29d8a2ba22721b458f527d87881b7c13bc93b",
+  "sourceSha256": "92bcbf50fea02f656e328314521940ff1799810d3ebe68dc14596ba0b5ad7a5f",
+  "objectCount": 11259,
+  "geometryCount": 1179,
+  "materialCount": 86,
+  "bytes": 56668170,
+  "gzipBytes": 16324929,
+  "geometryKinds": {
+    "buffer": 1148,
+    "box": 31
+  }
+}

@@ -20,6 +20,6 @@ Sources stay outside the frontend import graph. Blender distributions and tempor
 & '.cache/blender/blender-4.5.9-windows-x64/blender.exe' --background --factory-startup --python assets-source/blender/render-sheet.py
 ```
 
-Front, side, top, and hero views are in `src/frontend/assets/images/asset-previews`. Additional previews show the elevator doors open and square/wide banner placeholders. Website controls include a door-open preview and validated aspect-preserving logos; browser evidence is in `reports/assets`. The packed, editable overview scene is `asset-sheet.blend`.
+Front, side, top, and hero views are in `src/assets/images/asset-previews`. Additional previews show the elevator doors open and square/wide banner placeholders. Website controls include a door-open preview and validated aspect-preserving logos; browser evidence is in `reports/assets`. The packed, editable overview scene is `asset-sheet.blend`.
 
 Space: Blender X right / Z up / -Y front; GLB X right / Y up / +Z front. Units: meters, unit scale. Ground-contact roots sit at the feet plane; floor roots sit at the top plane. Portal roots sit at the lower entry plane, with thresholds allowed below it. Stairs and escalator have a 4 m rise and an 8 m full footprint including landings. Scalar PBR finishes share a small palette and need no texture downloads. Collision proxies are metadata, excluded from visible exports.

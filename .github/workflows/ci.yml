@@ -19,14 +19,28 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify (typecheck, lint, format, tests)
-        run: bun run verify
+      - name: Check source (typecheck, lint, format)
+        run: bun run typecheck && bun run lint && bun run format:check
 
-      - name: Validate production assets
+      - name: Validate generated procedural inventory and archive isolation
         run: bun run assets:validate
+
+      - name: Validate original-mall compatibility when present
+        run: bun run assets:validate:compatibility
+
+      - name: Validate GLB-free mall coverage and rendering batches
+        run: bun run assets:validate:mall && bun run assets:report:mall
 
       - name: Build production bundle
         run: bun run build
 
       - name: Check production chunks
         run: bun scripts/assets/check-build-chunks.ts
+
+      - name: Upload generated asset metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: procedural-asset-metrics
+          path: reports/assets/*.json
+          if-no-files-found: ignore

@@ -27,6 +27,7 @@ logs/
 
 # Documentation and tests
 docs/**
+archive/**
 test/**
 test-runner.js
 scripts/**

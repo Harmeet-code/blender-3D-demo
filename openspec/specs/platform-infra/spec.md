@@ -20,7 +20,7 @@ healthchecks, named volumes, and `.env`-driven credentials/ports, started with
 
 ### Requirement: Versioned database migrations
 
-The system SHALL track `src/server/db/migrations/*.sql` in `schema_migrations`
+The system SHALL track `src/server/infrastructure/database/migrations/*.sql` in `schema_migrations`
 and apply each file exactly once via `bun run db:migrate`.
 
 #### Scenario: Re-running migrate is a no-op

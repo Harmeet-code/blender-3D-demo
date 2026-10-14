@@ -2,8 +2,11 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { assetRevisionsPlugin } from './scripts/vite/asset-revisions.ts';
+import { archiveRuntimeGuard } from './scripts/assets/archive-runtime-guard.ts';
+import { mallBlueprintCache } from './scripts/vite/mall-blueprint-cache.ts';
 
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ command, mode, isPreview }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const apiBaseUrl = env['API_BASE_URL'] ?? '';
   const adminApiBase = apiBaseUrl ? `${apiBaseUrl}/api/events` : '/api/events';
@@ -12,8 +15,11 @@ export default defineConfig(({ command, mode }) => {
   return {
     // Builds are deployed under ExpoAdmin/wwwroot/floorplan/, so emitted asset URLs and
     // Vite's modulepreload hints have to carry that prefix. Dev stays at the root.
-    base: command === 'build' ? '/floorplan/' : '/',
+    base: command === 'build' || isPreview ? '/floorplan/' : '/',
     plugins: [
+      archiveRuntimeGuard(fileURLToPath(new URL('.', import.meta.url))),
+      assetRevisionsPlugin(),
+      mallBlueprintCache(),
       react(),
       tailwindcss(),
       {
@@ -33,10 +39,39 @@ export default defineConfig(({ command, mode }) => {
         },
       },
     ],
+    // Recast's worker dependencies use code splitting; IIFE worker output cannot support it.
+    worker: { format: 'es' },
+    // Lazy routes still need their vendor packages in the first optimizer pass.
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom/client',
+        'three',
+        '@react-three/fiber',
+        '@react-three/drei',
+        '@react-three/rapier',
+        'react-konva',
+        'konva',
+        'radix-ui',
+        'lucide-react',
+        '@tanstack/react-query',
+        'zustand',
+      ],
+    },
     server: {
       open: '/view/default-event',
       watch: {
-        ignored: ['**/storage/**', '**/data/**', '**/openspec/**'],
+        ignored: [
+          '**/storage/**',
+          '**/data/**',
+          '**/openspec/**',
+          '**/reports/**',
+          '**/test-results*/**',
+          '**/docs/**',
+          '**/assets-source/**',
+          '**/archive/**',
+          '**/.codegraph/**',
+        ],
       },
       proxy: {
         '/api': 'http://127.0.0.1:8000',
@@ -46,7 +81,13 @@ export default defineConfig(({ command, mode }) => {
         },
       },
     },
-    preview: {},
+    // Local production preview follows the same API/presence routing as the dev server.
+    preview: {
+      proxy: {
+        '/api': 'http://127.0.0.1:8000',
+        '/ws': { target: 'ws://127.0.0.1:8000', ws: true },
+      },
+    },
     build: {
       assetsInlineLimit: (path) => (path.endsWith('.glb') ? false : undefined),
       chunkSizeWarningLimit: 500,

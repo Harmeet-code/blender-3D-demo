@@ -5,9 +5,9 @@
  * Usage: bun run slice:new <kebab-name> [--server-only | --frontend-only]
  *
  * Creates:
- *   src/frontend/features/<kebab>/<Pascal>.tsx   (feature UI wired to entities)
- *   src/server/features/<kebab>/{routes,service,repository}.ts
- * Then: register routes in src/server/app.ts, run `bun run verify`.
+ *   src/features/<kebab>/components/<Pascal>.tsx
+ *   src/server/modules/<kebab>/{routes,service,repository}.ts
+ * Then: register routes in src/server/app/create-app.ts, run `bun run verify`.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -37,8 +37,8 @@ async function writeIfMissing(path: string, content: string): Promise<void> {
 
 if (flag !== '--server-only') {
   await writeIfMissing(
-    join(root, `src/frontend/features/${rawName}/${pascal}.tsx`),
-    `import { useWorldStore } from '../../entities/viewer/model/viewer-store.ts';
+    join(root, `src/features/${rawName}/components/${pascal}.tsx`),
+    `import { useWorldStore } from '@/features/viewer/model/viewer-store.ts';
 
 export function ${pascal}() {
   const selectedBoothId = useWorldStore((s) => s.selectedBoothId);
@@ -54,30 +54,33 @@ export function ${pascal}() {
 }
 
 if (flag !== '--frontend-only') {
-  const dir = join(root, `src/server/features/${rawName}`);
+  const dir = join(root, `src/server/modules/${rawName}`);
   await writeIfMissing(
     join(dir, 'repository.ts'),
-    `import type { Sql } from '../../shared/db/postgres.ts';
+    `import type { Database } from '../../infrastructure/database/postgres.ts';
 
-/** Persistence for the ${rawName} slice. Demo fallback when unconfigured. */
-export async function fetch${pascal}(sql: Sql | null): Promise<Record<string, unknown>[]> {
-  if (!sql) {
-    return [];
+/** Persistence for the ${rawName} module; add module-specific Drizzle queries here. */
+export async function fetch${pascal}(
+  db: Database | null,
+): Promise<Record<string, unknown>[]> {
+  if (!db) {
+    throw new Error('Database is not configured for ${rawName}.');
   }
-  const rows = await sql\`select 1\`;
-  return [...rows] as Record<string, unknown>[];
+  throw new Error('Implement the Drizzle query for ${rawName}.');
 }
 `,
   );
   await writeIfMissing(
     join(dir, 'service.ts'),
-    `import type { Sql } from '../../shared/db/postgres.ts';
+    `import type { Database } from '../../infrastructure/database/postgres.ts';
 import { fromRepository, type AppError, type Result } from '../../shared/result/errors.ts';
 import { fetch${pascal} } from './repository.ts';
 
 /** Domain logic for the ${rawName} slice. Returns Result, never throws. */
-export function get${pascal}(sql: Sql | null): Promise<Result<Record<string, unknown>[], AppError>> {
-  return fromRepository(() => fetch${pascal}(sql), '${rawName}');
+export function get${pascal}(
+  db: Database | null,
+): Promise<Result<Record<string, unknown>[], AppError>> {
+  return fromRepository(() => fetch${pascal}(db), '${rawName}');
 }
 `,
   );
@@ -91,11 +94,11 @@ import { get${pascal} } from './service.ts';
 export async function register${pascal}Routes(app: FastifyInstance): Promise<void> {
   app.get('/${rawName}', async (request, reply) => {
     void request;
-    return replyResult(reply, await get${pascal}(app.sql));
+    return replyResult(reply, await get${pascal}(app.db));
   });
 }
 `,
   );
 }
 
-console.log('\nNext: register routes in src/server/app.ts, then `bun run verify`.');
+console.log('\nNext: register routes in src/server/app/create-app.ts, then `bun run verify`.');

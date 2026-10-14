@@ -17,6 +17,38 @@ date; park ideas in BACKLOG instead of deleting them. Review weekly.
 - [ ] Select a storage/CDN target and serve GLB/HDRI from it instead of the bundle #infra
 - [ ] Bake AO lightmaps with `uv2` (blocked: no Blender on this host) #frontend
 
+## TODO > Demo parity (one-to-one port from `C:/Users/HarmeetSingh/Desktop/Projects/demo/src`)
+
+Port order: viewer sidebar first (visible value), then authoring forms, then
+keyboard shortcuts, then debug/polish. Non-goals at the bottom are declined
+with reasons, not deleted.
+
+- [ ] Verify BoothDrawer shows all demo sidebar fields (booth no/name/size/price/status/company/contact rows, Focus button); 
+- [ ] Port booth directory with status colors + click-to-focus into the sidebar Floors area; 
+- [ ] Add heat/availability toggle to the visitor sidebar;
+- [ ] Add hover tooltip (booth no, status, price) to booth picking; `bunx tsc --noEmit -p tsconfig.json` #frontend
+- [ ] Add START/REACHED endpoint markers to route preview;
+- [ ] Add camera preset buttons (iso/top/reset) + orbit lock to the world HUD;
+- [ ] Port auto-tour mode (cycle booths with highlight + focus, 1200ms);
+- [ ] Port night toggle + heat toggle into ViewOptions; `bunx tsc --noEmit -p tsconfig.json` #frontend
+- [ ] Port human-friendly unique-name dedupe (NameUtils) for booths/zones/POIs; 
+- [ ] Reach booth-form parity (height/rotation presets, YouTube link, gate, tags, contacts) in the editor; 
+- [ ] Port POI move/duplicate shortcut modes to PortalEditor; 
+- [ ] Port right-click/double-click to finish polygons in FloorPlanEditor; 
+- [ ] Port Shift-letter shortcut suite (Shift+S apply, R resize, M move, D duplicate, B rect, P polygon, T preset, I POI cycle, Z zone, X arm-remove) with input-focus guard; 
+- [ ] Port click-vs-drag disambiguation for scene selection;
+- [ ] Port coord-debug panel as dev-only (`?debug`) overlay + console AUDIT helpers; `bunx tsc --noEmit -p tsconfig.json` #frontend
+- [ ] Port finalize/save-all status semantics (Saving/Saved/Unsynced) into the studio; 
+- [ ] Port floor-switch guard (block when unsaved draft history exists); 
+- [ ] Add freeform booth drawing tools (rect/polygon/drag-place + ghost preview + resize handles) beside booth-preset; 
+- [ ] Add in-canvas POI stair-vs-entrance placement with ghost preview, rotation control, and connects editing;
+- [ ] Add zone point-undo (remove last drawn point without cancelling the shape);
+- [ ] Add floor-image remove + floor delete flows with confirm; 
+- [ ] Scope saved-step history per floor (AuthoringHistory parity); 
+- [ ] Add pending-remove preview (hide + "Apply to save") for booth/POI/zone deletes;
+- [-] Blazor HostBridge command channel (no Blazor host in this stack; share URLs + iframe embed cover it)
+- [-] Grid A* engine port (Recast stays the engine per migration plan; only interaction + visual language are ported)
+
 ## TODO > Next
 
 - [ ] Write `.opencode/instructions/opencode.jsonc` and `AGENTS.md` with repo-specific agent and contributor guidance; validate config and run `bun run verify` #developer-experience
@@ -51,3 +83,4 @@ date; park ideas in BACKLOG instead of deleting them. Review weekly.
 
 1. remove old and unwanted PNG and GLB files
 2. remove all unnecessary skills
+3. need to refine admin authoring UX forst then make new assets

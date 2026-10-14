@@ -65,7 +65,45 @@ artifacts:
 
 
       This is the foundation - specs, design, and tasks all build on this.
+
+
+      Event-driven changes (new or altered async flows: websocket topics,
+      commands, timers/expiry, presence, telemetry): the discovery artifact
+      comes next and MUST be completed before specs for M/L changes. An S
+      change writes the one-line discovery skip instead.
     requires: []
+  - id: discovery
+    generates: discovery.md
+    description: Event-storming discovery for event-driven changes
+    template: discovery.md
+    instruction: >
+      Run a focused event storm for the change BEFORE writing specs. This
+      artifact captures WHAT happens in the domain; specs turn it into
+      testable requirements and contracts/asyncapi.yaml turns it into
+      channels. Skip with one line (`No new async behavior in this change.`)
+      when the change is class S or touches no async flows (no websocket
+      topics, commands, timers/expiry, presence, or telemetry).
+
+
+      Fill the template in order - actors, commands, domain events (past
+      tense, with payload and producer), policies (WHEN/THEN, including
+      timers and expiry), read models with staleness tolerance, hotspots.
+      Every domain event named here MUST appear by name in a spec scenario
+      (`WHEN <event>`) and in the contracts channel map, or be explicitly
+      dropped with a reason.
+
+
+      Name the stable identity for each event payload up front (what ID
+      survives renames, republishes, and deletes - booth/room IDs,
+      destination IDs, event IDs). Unresolved identity questions go to
+      Hotspots, not into assumptions.
+
+
+      Keep it to one page for M, two for L. Discovery records facts; if you
+      are choosing transports, brokers, or retry strategies, you are writing
+      design.md - stop and move there.
+    requires:
+      - proposal
   - id: specs
     generates: specs/**/*.md
     description: Detailed specifications for the change
@@ -244,6 +282,30 @@ artifacts:
 
 
       Specs should be testable - each scenario is a potential test case.
+
+
+      Event-driven changes: write scenarios against discovery.md domain events
+      (`WHEN <event> THEN <reaction>`), one scenario per event per requirement
+      where the event matters. If the change creates, renames, or deletes
+      identities that bookings, signage, or analytics join on (booth/room IDs,
+      destination IDs, event IDs), add an explicit requirement covering
+      stability across renames and republishes, rename handling, and orphan
+      behavior - never leave identity as an assumption.
+
+
+      Quality attributes use Planguage, not scenarios: any requirement that
+      constrains a measurable attribute (latency, budgets, tolerances,
+      capacities) MUST state Scale, Meter, and MUST threshold
+      (e.g. `Scale: procedural geometry per asset | Meter: triangles in the
+      generated recipe | MUST: within catalog budget`). Unquantified adjectives
+      (fast, small, smooth) are not requirements.
+
+
+      Status machines and multi-condition logic use decision tables, not
+      N near-duplicate scenarios: one table whose columns are the conditions
+      and whose final column is the outcome (e.g. hold active/released/
+      expired/converted, invoice unpaid/paid/void). Every table row is a test
+      case and MUST be covered.
     requires:
       - proposal
   - id: design
@@ -311,8 +373,36 @@ artifacts:
 
 
       Good design docs explain the "why" behind technical decisions.
+
+
+      For every touched symbol or module, list its blast radius (callers and
+      dependents - use the code index, not memory). For async flows, decide
+      explicitly: delivery semantics (at-least-once vs effectively-once),
+      ordering guarantees, expiry and retry policy, payload schema versioning,
+      and what the read models do while stale. These decisions feed
+      contracts/asyncapi.yaml.
     requires:
       - proposal
+  - id: contracts
+    generates: contracts/asyncapi.yaml
+    description: AsyncAPI contract for the change's event interfaces
+    template: asyncapi.yaml
+    instruction: >
+      Capture the change's async interfaces as an AsyncAPI 3.x document BEFORE
+      tasks are written. Start from the template scaffold and describe ONLY
+      this change's channels, operations, and message payloads (with required
+      stable identity fields). Every domain event from discovery.md that this
+      change implements MUST have a channel here; every channel MUST trace to
+      a spec scenario.
+
+
+      Skip with one line (`No async interfaces in this change.`) when the
+      change touches no websocket topics, commands, timers/expiry, presence,
+      or telemetry. Version the document per change; breaking payload changes
+      MUST declare a migration for existing subscribers.
+    requires:
+      - specs
+      - design
   - id: review
     generates: review.md
     description: Pre-implementation reviewer gate over proposal, specs, and design
@@ -338,6 +428,9 @@ artifacts:
 
       - **Completeness**: Does every spec requirement have at least one scenario?
         Are the important edge and error cases named, not just the happy path?
+        Are quality attributes quantified (Scale/Meter/MUST, no bare adjectives)?
+        Do decision tables cover every condition combination with no
+        contradictory rows?
       - **Correctness**: Are requirements observably testable (SHALL/MUST, no
         implementation details baked in)? Do the deltas use the right operation
         (ADDED / MODIFIED / REMOVED / RENAMED) against the current main spec?
@@ -351,6 +444,11 @@ artifacts:
         green?
       - **Risk**: Security, performance, data integrity, breaking changes and
         migration - surface anything a reviewer would flag before code is written.
+      - **Contracts**: Every discovery domain event implemented by this change
+        has a channel in contracts/asyncapi.yaml tracing to a spec scenario;
+        payloads carry stable identity fields; breaking payload changes declare
+        subscriber migration. Skip only when contracts holds the one-line
+        no-async note.
 
 
       End with a `VERDICT:` line - one of `APPROVED`, `CHANGES-REQUESTED`
@@ -360,6 +458,7 @@ artifacts:
       artifacts.
     requires:
       - design
+      - contracts
   - id: adr
     generates: adr.md
     description: Optional architectural decision record for durable decisions
@@ -451,10 +550,25 @@ artifacts:
       Reference specs for what needs to be built, design for how to build it.
 
       Each task should be verifiable - you know when it's done.
+
+
+      Every task MUST cite its Requirement/Scenario IDs and end with an
+      explicit verification (`verify: <command plus expected outcome>`,
+      e.g. `verify: bun test tests/venue-draft.test.ts - all pass`).
+      Event-driven tasks MUST also cite the AsyncAPI channel/operation from
+      contracts/asyncapi.yaml. A task without a scenario citation or a
+      verification command is not ready for apply.
+
+
+      Close tasks.md with a Task Dependency Graph: group the task IDs into
+      numbered waves (same wave = no dependencies between them, safe to run
+      in parallel; waves run strictly in order). Every task ID MUST appear
+      in exactly one wave.
     requires:
       - specs
       - design
       - review
+      - contracts
 apply:
   requires:
     - tasks

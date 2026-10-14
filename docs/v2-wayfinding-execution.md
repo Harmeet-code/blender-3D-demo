@@ -1,0 +1,15 @@
+# V2 wayfinding implementation
+
+Implemented 13 October 2026. This records the wayfinding slice, not all V2/V3 scope.
+
+- Authored POIs have an optional explicit amenity category: exit, washroom, elevator, food, coffee, information, ATM. Generic old POIs retain compatibility; exit/information types classify automatically. The numeric floor feature editor can set categories. Elevator landing destinations are indexed from authored portal entries.
+- Find a place provides searchable amenity categories, icons, saved destinations and recent destinations. Successful route previews/walking commands remember named IDs; point/current-avatar coordinates are not persisted. Removed IDs are filtered out of display rather than routed to stale coordinates.
+- Step-free, recents (12) and saved (30) persist per encoded event/building identity on this browser. Storage errors fall back to session state; cross-tab storage changes synchronize. This is a local device preference, not authenticated cloud profile storage.
+- Directions offers nearest exit/coffee. Every categorized candidate is evaluated through actual Recast routes with the selected portal preference; unreachable/obstructed candidates are skipped. Selection minimizes returned route length, including floor transfer length. It does not minimize elevator queue time or certify emergency evacuation. Cancellation/replacement/layout changes discard stale work. Very large candidate sets may take longer; the existing navigation worker keeps this calculation off the main thread.
+- All avatar route entry points, including command palette, default to the persisted step-free setting. Explicit routing options still take precedence. Step-free restricts portals to elevators; it is not an accessibility compliance certificate.
+- Touch joystick feeds analog input into the existing fixed-step Rapier/clearance controller, with camera-relative motion, deadzone, bounded diagonal speed, acceleration/friction. Pointer capture, cancel, blur, hidden document and unmount release input. It appears on small viewports/coarse pointers while Walking is enabled. No extra render loop or physics owner was introduced.
+- Mini-map follows the avatar's current floor and shows boundary, walls, amenity pins, route and a blue position dot/heading cone. It uses existing throttled avatar snapshots and no perpetual pulse animation. HUD/planner/search overlays are bounded to the scene container and scroll on small screens.
+
+Validation: scoped Oxlint completed with zero errors (existing/nonblocking shadow warnings); TypeScript compilation identified only concurrent venue-client nullable-session errors outside this slice at the recorded check. Root performs final integration compilation/build. Broad automated tests were skipped at the user's request. Device performance and every physical touch device are not qualified by these compiler checks.
+
+For the chosen ones: nearest in pixels is usually not nearest by walkable route. A neighboring exit behind a long wall can lose to a farther exit in the same corridor; route-based candidate evaluation preserves that distinction without changing authored meter coordinates.

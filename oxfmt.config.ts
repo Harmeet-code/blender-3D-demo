@@ -2,6 +2,7 @@
 
 export default {
   ignorePatterns: [
+    'public/mall-assets/draco/**',
     'dist/**',
     'node_modules/**',
     'build/**',

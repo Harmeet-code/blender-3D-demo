@@ -1,0 +1,30 @@
+{
+  "id": "booth-10x10",
+  "label": "10 \u00d7 10 ft booth",
+  "dimensionsFeet": [10, 10],
+  "dimensionsMetres": [3.048, 2.8, 3.048],
+  "measuredDimensionsMetres": [3.0480000972747803, 2.799999952316284, 3.0480000972747803],
+  "maximumDimensionErrorMetres": 9.727478023080494e-8,
+  "anchor": "floor-contact",
+  "facing": "+Z",
+  "url": "/floor-assets/booths/booth-10x10.glb",
+  "preview": "/floor-assets/booths/booth-10x10.png",
+  "source": "assets-source\\blender\\booths\\10x10\\booth-10x10.blend",
+  "sourceParent": "assets-source\\blender\\booth-frame\\booth-frame.blend",
+  "triangles": 4712,
+  "bytes": 264168,
+  "colliders": [
+    {
+      "halfExtents": [1.524, 1.4, 0.04],
+      "position": [0, 1.4, -1.484]
+    },
+    {
+      "halfExtents": [0.04, 1.4, 1.484],
+      "position": [-1.484, 1.4, 0.04]
+    },
+    {
+      "halfExtents": [0.04, 1.4, 1.484],
+      "position": [1.484, 1.4, 0.04]
+    }
+  ]
+}

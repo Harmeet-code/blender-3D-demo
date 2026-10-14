@@ -1,0 +1,8 @@
+{
+  "metres_per_foot": 0.3048,
+  "original_scene_preserved": "Luminary | original four-floor mall",
+  "original_scene_objects": 11372,
+  "calibrated_scene": "Luminary | calibrated floor plans",
+  "booths": [],
+  "shells": ["luminary-f1-shell.glb", "luminary-f2-shell.glb"]
+}

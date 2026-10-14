@@ -1,0 +1,1387 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-12T09:26:56.773Z",
+  "strategy": "verified-copy-no-source-deletion",
+  "entries": [
+    {
+      "path": "assets-source/blender/__pycache__/remaining.cpython-311.pyc",
+      "bytes": 20916,
+      "sha256": "0b69f5c376b4d2735a2fe4e5effb3e527414a575a8fcae23fd0a23fc0aeafa18"
+    },
+    {
+      "path": "assets-source/blender/.gitignore",
+      "bytes": 13,
+      "sha256": "32dae3052f331ee34d628ef535709b301259a45df7c7522c4d35dcf49873f00b"
+    },
+    {
+      "path": "assets-source/blender/asset-sheet.blend",
+      "bytes": 1358733,
+      "sha256": "7701e67fd5afdc2e7dce7dbc3da1f9d1316ce00f05418a211e001840438d0dea"
+    },
+    {
+      "path": "assets-source/blender/banner-stand/banner-stand.blend",
+      "bytes": 463688,
+      "sha256": "faad8228478102b038ab28833b308f354437b9de4d6463ef87a778bc017cb086"
+    },
+    {
+      "path": "assets-source/blender/banner-stand/banner-stand.blend1",
+      "bytes": 463688,
+      "sha256": "da7156aa66ce81ac3c984e7e1454e42a18b0f020254037a6eb2d125c52dec041"
+    },
+    {
+      "path": "assets-source/blender/banner-stand/build.py",
+      "bytes": 216,
+      "sha256": "ddc5042b4dd65a98efebc370efe19e81fa6476ef888ef9612f27fcb0044c4617"
+    },
+    {
+      "path": "assets-source/blender/booth-ceiling/booth-ceiling.blend",
+      "bytes": 402824,
+      "sha256": "b1f1210fb5604a77bf3c471d6fc63772343c3ca119a3c4430f58a8fb72a12d7c"
+    },
+    {
+      "path": "assets-source/blender/booth-ceiling/build.py",
+      "bytes": 217,
+      "sha256": "dc838f2540683b0e37980ade9a424cce66922efb76f1be71304f651d65b12a71"
+    },
+    {
+      "path": "assets-source/blender/booth-frame/booth-frame.blend",
+      "bytes": 444469,
+      "sha256": "9f620ca63474249a174a3d87b01ed71f0d6d483125fc8ca99051c7694ded5389"
+    },
+    {
+      "path": "assets-source/blender/booth-frame/booth-frame.blend1",
+      "bytes": 443570,
+      "sha256": "f2391380f039218a16b51d582a6a022e27c9fb424ad583e4f6b25eb550c25eae"
+    },
+    {
+      "path": "assets-source/blender/booth-frame/build.py",
+      "bytes": 215,
+      "sha256": "4f2a7245aacc6103f7d02f5b2b5d429e45f8e2266daf426281c4dbcc0b876004"
+    },
+    {
+      "path": "assets-source/blender/booths/10x10/booth-10x10.blend",
+      "bytes": 961479,
+      "sha256": "f43d4877aae2d1dc2f4645f4dfc18058f2652ef8ccb9d5f68dd4f7c1d98d53b5"
+    },
+    {
+      "path": "assets-source/blender/booths/10x10/metadata.json",
+      "bytes": 911,
+      "sha256": "6bcb459aa393088908f8b74cbdc4dd06cfad218a62e4d2520b5cff5ca9845744"
+    },
+    {
+      "path": "assets-source/blender/booths/14x38/booth-14x38.blend",
+      "bytes": 1030317,
+      "sha256": "1f926b755d623a6994363c991bd9b7dc94f3bbc1ded8b5a230b98da75420e615"
+    },
+    {
+      "path": "assets-source/blender/booths/14x38/metadata.json",
+      "bytes": 918,
+      "sha256": "7129df8ac9f986bf241ba4f320599e1628ad050515f14d228b33302c5ecd0aec"
+    },
+    {
+      "path": "assets-source/blender/booths/20x20/booth-20x20.blend",
+      "bytes": 981147,
+      "sha256": "63384300039e0351a89fed46cd248b51fc69dfb4de30d24c4df4644569a54956"
+    },
+    {
+      "path": "assets-source/blender/booths/20x20/metadata.json",
+      "bytes": 912,
+      "sha256": "296f63ccbd7879b87a6c1c0175dc52164e2c2cd3c17bf97caedb88827607fda2"
+    },
+    {
+      "path": "assets-source/blender/booths/27x50/booth-27x50.blend",
+      "bytes": 1059819,
+      "sha256": "02492ca7064106ba4021fe3a6b3fc11e72c159405756d856cc67d9ba8c7a1988"
+    },
+    {
+      "path": "assets-source/blender/booths/27x50/metadata.json",
+      "bytes": 911,
+      "sha256": "290b3acbf623ea5a4654c5c302ddfffa468056eb8bc2d89809ed54de11d4ef3c"
+    },
+    {
+      "path": "assets-source/blender/booths/28x10/booth-28x10.blend",
+      "bytes": 961479,
+      "sha256": "133dc5a828c1cd45fde06b9a942091b40738ecfaae17c5a820bc5aed98cedbf6"
+    },
+    {
+      "path": "assets-source/blender/booths/28x10/metadata.json",
+      "bytes": 913,
+      "sha256": "bc6d4d06d754c240136fbcfa79da139d86249fd6708a56f04c7fe76b48baa40a"
+    },
+    {
+      "path": "assets-source/blender/booths/28x36/booth-28x36.blend",
+      "bytes": 1020483,
+      "sha256": "923c4ddda4860e6c24e6bc21a364f5d39f69c5ceeeb98e43c60eb8630016fe8b"
+    },
+    {
+      "path": "assets-source/blender/booths/28x36/metadata.json",
+      "bytes": 963,
+      "sha256": "228d80589d54b48204467a02a7105f5b710027edb78e72427104d3d9861ac31a"
+    },
+    {
+      "path": "assets-source/blender/booths/28x54/booth-28x54.blend",
+      "bytes": 1069653,
+      "sha256": "f140e3d793ed96c730bf08fd10e9883b55d10c7a27d19f0ca76d5f328c7805a7"
+    },
+    {
+      "path": "assets-source/blender/booths/28x54/metadata.json",
+      "bytes": 918,
+      "sha256": "45668a3f3ad3d130f68f9a9208855e7ff2456884176312e541591f95b1c7dfd0"
+    },
+    {
+      "path": "assets-source/blender/booths/40x45/booth-40x45.blend",
+      "bytes": 1049985,
+      "sha256": "b12a4ec21ddf86d5d6a27d28546c6d7f64634da97f9626bd629c06dc74b5c9e4"
+    },
+    {
+      "path": "assets-source/blender/booths/40x45/metadata.json",
+      "bytes": 965,
+      "sha256": "635fae8fa748204e3afcb7a894e714783644b3c173bddc731221e14f34821008"
+    },
+    {
+      "path": "assets-source/blender/booths/validation.json",
+      "bytes": 8443,
+      "sha256": "fceccb071fe5d52eec68599694f803475092d830ceb14252f8271f880aebb597"
+    },
+    {
+      "path": "assets-source/blender/build.py",
+      "bytes": 16168,
+      "sha256": "625ab7955d32b943cfaef4e3001a4d4e4ff762c9e5e850a397101c0959ac00ad"
+    },
+    {
+      "path": "assets-source/blender/calibrate.py",
+      "bytes": 1039,
+      "sha256": "5f24d317431b40fdfa0f57a6cdcf85a9330525f3c1413a30d42ff80101e09df5"
+    },
+    {
+      "path": "assets-source/blender/calibration.blend",
+      "bytes": 405883,
+      "sha256": "f44324e1332f3d3b80d5d0d55732b338c7af8aee34f9b752368809421271467b"
+    },
+    {
+      "path": "assets-source/blender/calibration.blend1",
+      "bytes": 403243,
+      "sha256": "2bd2bced737f08fe472c95693430698f6ffe005e6c91b6bdf6f9d44a40189749"
+    },
+    {
+      "path": "assets-source/blender/calibration.glb",
+      "bytes": 2140,
+      "sha256": "18a483bf44c51e2f208ac5ff51aec2331132766fe274cfd3098c9eb4dddb2ac6"
+    },
+    {
+      "path": "assets-source/blender/chair/build.py",
+      "bytes": 189,
+      "sha256": "9e43031addd53c003613096d8d5db27e2fc04125c142626d6f65d71383df4bb3"
+    },
+    {
+      "path": "assets-source/blender/chair/chair.blend",
+      "bytes": 430736,
+      "sha256": "e8e4e52519d00a155c653a9d57bddc258762ed39c57fedcd7a47899b0c691089"
+    },
+    {
+      "path": "assets-source/blender/display-case/build.opaque.py",
+      "bytes": 219,
+      "sha256": "2a68250ceb60149e2d62e17634949fdf3098b396a9b86dfc4c9e365fea3e637f"
+    },
+    {
+      "path": "assets-source/blender/display-case/build.py",
+      "bytes": 216,
+      "sha256": "3774b941534face3e8e8897d37d6872028329f6f26a5192d23af0d6d57a2a381"
+    },
+    {
+      "path": "assets-source/blender/display-case/display-case.blend",
+      "bytes": 496954,
+      "sha256": "c93162b44a441830184a0809a2f9cc411217a1b1e7c89cc93066e1ce11512873"
+    },
+    {
+      "path": "assets-source/blender/display-case/display-case.blend1",
+      "bytes": 496954,
+      "sha256": "ef767595b0172d169e651dfa7193701bc98bc8ffb3bfec1a875b0f545088852e"
+    },
+    {
+      "path": "assets-source/blender/display-case/display-case.opaque.blend",
+      "bytes": 496952,
+      "sha256": "89207a1beb92ba78bbbf5bd917db264877a55c990302097d86dc57e52af94117"
+    },
+    {
+      "path": "assets-source/blender/display-case/display-case.opaque.blend1",
+      "bytes": 496952,
+      "sha256": "05a7a989a098656fa38627c0d6edd65873e5039bc1bbe3810b8003e24847ee60"
+    },
+    {
+      "path": "assets-source/blender/elevator-entrance/build.low.py",
+      "bytes": 221,
+      "sha256": "29602742344caad9de60aaeb3d59a64e8a5795038cdae772e4e0f22aa808f6ad"
+    },
+    {
+      "path": "assets-source/blender/elevator-entrance/build.py",
+      "bytes": 221,
+      "sha256": "6c597d072013fc25eeb3aeb5a9a1e10fdf15b750e74962af964b0259845962a8"
+    },
+    {
+      "path": "assets-source/blender/elevator-entrance/elevator-entrance.blend",
+      "bytes": 535809,
+      "sha256": "18aaba701564553b73e05d5882975017759ec380575eaa524fe9faa0af53a370"
+    },
+    {
+      "path": "assets-source/blender/elevator-entrance/elevator-entrance.blend1",
+      "bytes": 535809,
+      "sha256": "527707cb4ad16c19c420742bc17ed584bcb51ee02638a478117d79c48c621375"
+    },
+    {
+      "path": "assets-source/blender/elevator-entrance/elevator-entrance.low.blend",
+      "bytes": 482157,
+      "sha256": "de7b53ce8a64b315eb024f4c0caf224b7b21cdac89547defe84bd0c48fd75dd4"
+    },
+    {
+      "path": "assets-source/blender/elevator-entrance/elevator-entrance.low.blend1",
+      "bytes": 482157,
+      "sha256": "bf1197bcb082bde0fb719159045f59a14ca4b6af3dbeff6e57b7dd6d400cf7e9"
+    },
+    {
+      "path": "assets-source/blender/escalator-entrance/build.low.py",
+      "bytes": 222,
+      "sha256": "559f94ca8a46d57d955d1c0d44384b3cd68256c397229098d8f63a98003d448c"
+    },
+    {
+      "path": "assets-source/blender/escalator-entrance/build.py",
+      "bytes": 222,
+      "sha256": "2cc895f9eb5b9bcc2123ed15c2b2afee5db3a8b68deff35f04b19d9ff14a0ffe"
+    },
+    {
+      "path": "assets-source/blender/escalator-entrance/escalator-entrance.blend",
+      "bytes": 805436,
+      "sha256": "b0518d76fe99abb9be6287c5df38dc2a121c74421fd366e5c38926aa577788f7"
+    },
+    {
+      "path": "assets-source/blender/escalator-entrance/escalator-entrance.blend1",
+      "bytes": 845940,
+      "sha256": "a50c7cd551be1f36e1c16dc1534fb701b4d27f62d36035af1b3e42f43172e77f"
+    },
+    {
+      "path": "assets-source/blender/escalator-entrance/escalator-entrance.low.blend",
+      "bytes": 529817,
+      "sha256": "4e19f54f46478eefa293ed450611a2772dcbef04078d08165432c226de182a51"
+    },
+    {
+      "path": "assets-source/blender/escalator-entrance/escalator-entrance.low.blend1",
+      "bytes": 556577,
+      "sha256": "1c8d2eb958f41016f1833a00a24d47855bcb3a1583f6c30caf92fcf2b8c1ec98"
+    },
+    {
+      "path": "assets-source/blender/floor-tile/build.py",
+      "bytes": 194,
+      "sha256": "d9d9bd3446a07159e91bfda19168a58d0674d3eebfd1b337bd8d7c3df30c10f5"
+    },
+    {
+      "path": "assets-source/blender/floor-tile/floor-tile.blend",
+      "bytes": 401923,
+      "sha256": "1dc34df7c0da306f79ae2d0ff58049c41fdffff5a96694122a3722ab88aeccca"
+    },
+    {
+      "path": "assets-source/blender/forklift/build.low.py",
+      "bytes": 212,
+      "sha256": "aba2e72e50e5226a90a7049e5459f75077ce075f9f7d61a4ec0131f1c1119df8"
+    },
+    {
+      "path": "assets-source/blender/forklift/build.py",
+      "bytes": 212,
+      "sha256": "5db38cb1fdd89fdca0f450f4bc588b45674f5443dfb8627581eee8254869a017"
+    },
+    {
+      "path": "assets-source/blender/forklift/forklift.blend",
+      "bytes": 637637,
+      "sha256": "6e8013845910242782edc8a08037c4339b2413ef7e4ea6bf1e6d175e284f5f86"
+    },
+    {
+      "path": "assets-source/blender/forklift/forklift.blend1",
+      "bytes": 637637,
+      "sha256": "b5d88028455b06487f84693565503f4826b09836653efb71583c8b6f2f534bd1"
+    },
+    {
+      "path": "assets-source/blender/forklift/forklift.low.blend",
+      "bytes": 537158,
+      "sha256": "236b4280b79a9edad696c9c2023475841af8e005871899fcf2896c819f5e45bb"
+    },
+    {
+      "path": "assets-source/blender/forklift/forklift.low.blend1",
+      "bytes": 537158,
+      "sha256": "2150109d29e77feb498f237642731df1a26c7bef71dd3da1e3d07ed3edbeb10b"
+    },
+    {
+      "path": "assets-source/blender/materials.blend",
+      "bytes": 604582,
+      "sha256": "7edd4e32c41e2a137b4063610e4e8d1223cdda5f33bf28595e82949ad3228d6c"
+    },
+    {
+      "path": "assets-source/blender/materials.blend1",
+      "bytes": 581334,
+      "sha256": "d50f298b7268b302a5e0427d09bc19ba99f0fae518c4932161f0273891b567cb"
+    },
+    {
+      "path": "assets-source/blender/pallet/build.py",
+      "bytes": 210,
+      "sha256": "e6bbf9f01f134d1aa24d32267d66e97a95a8420f89835280a5cd7a77fea45e11"
+    },
+    {
+      "path": "assets-source/blender/pallet/pallet.blend",
+      "bytes": 486865,
+      "sha256": "ffadaefc6b9bedd0d83711d2360562e9f0ebe4a9aeb30d4230938912b618d4d0"
+    },
+    {
+      "path": "assets-source/blender/pallet/pallet.blend1",
+      "bytes": 486865,
+      "sha256": "564c8040f82e2f7e5873ad9ff39df4e9d5894b0df9e97e5791cd437a324b8fb0"
+    },
+    {
+      "path": "assets-source/blender/README.md",
+      "bytes": 3269,
+      "sha256": "1a764d3d2315ff25a3afb373b92f74a87baaea87b819355b27eb34d9def3a93d"
+    },
+    {
+      "path": "assets-source/blender/refine-sized-booths.py",
+      "bytes": 9928,
+      "sha256": "2d61dda29de5c657a3a75aa2522b652bd62849528551975386404048520cc7b8"
+    },
+    {
+      "path": "assets-source/blender/remaining.py",
+      "bytes": 12508,
+      "sha256": "2dcd685e7d09a6ab9b66c635f7671c89713dbe6595632aac11f700615ec2d582"
+    },
+    {
+      "path": "assets-source/blender/render-sheet.py",
+      "bytes": 3235,
+      "sha256": "1c795599a8299a9863d3c3a7e217e686f8a42f56becc7f62d675aa0282ddf48b"
+    },
+    {
+      "path": "assets-source/blender/safe/build.py",
+      "bytes": 208,
+      "sha256": "435f24564f92daccef19137b384e7593891dc1d92eeeae5c35e52c45e2014363"
+    },
+    {
+      "path": "assets-source/blender/safe/safe.blend",
+      "bytes": 438010,
+      "sha256": "e4af51052a3f45ce95ec30cea304f17e6b0703eda7a55b3cf26b30aecd9da12b"
+    },
+    {
+      "path": "assets-source/blender/safe/safe.blend1",
+      "bytes": 438010,
+      "sha256": "394e3739731d43f28a406ddc3b177a1457574ae2a54c7ed2ac41290450abff4c"
+    },
+    {
+      "path": "assets-source/blender/stairs/build.low.py",
+      "bytes": 210,
+      "sha256": "6c6992db9e97d8aa1e31246c2d6abc5f9a9dbde474289b1452df05d949d40acb"
+    },
+    {
+      "path": "assets-source/blender/stairs/build.py",
+      "bytes": 210,
+      "sha256": "387621daa44b0c210c522f6e6a9cbdf5a4e23d8ad356f912db9894ebfa1fe121"
+    },
+    {
+      "path": "assets-source/blender/stairs/stairs.blend",
+      "bytes": 633572,
+      "sha256": "5f7ce771f0f52b711b4d5d1c4e6d355a272740c98fec05c5a06355aed88c6bd3"
+    },
+    {
+      "path": "assets-source/blender/stairs/stairs.blend1",
+      "bytes": 633572,
+      "sha256": "68771136f427b01fe7c9e9a68ce3b56154462c40b488b745485c8fc4931b426a"
+    },
+    {
+      "path": "assets-source/blender/stairs/stairs.low.blend",
+      "bytes": 491293,
+      "sha256": "cc96c9f7ad3266624779053ad8e037184cabde606a848f06d4c98f0cf13b47cf"
+    },
+    {
+      "path": "assets-source/blender/stairs/stairs.low.blend1",
+      "bytes": 491293,
+      "sha256": "4b657e492f6ed08a852611424c3c88b8acb92ad331f7be3158b611e2a97e6c95"
+    },
+    {
+      "path": "assets-source/blender/table/build.py",
+      "bytes": 189,
+      "sha256": "0d55194ca7d4bb3d2d322f383463d85a78d79ada5e29cefd46a4716aaa68a80e"
+    },
+    {
+      "path": "assets-source/blender/table/table.blend",
+      "bytes": 424209,
+      "sha256": "030b52b600e53c3c2b7a7d5f50e648602d573202b3600f5694bd09cc38825038"
+    },
+    {
+      "path": "assets-source/blender/verify-sources.py",
+      "bytes": 4473,
+      "sha256": "7d79aa8e6d846c574487929ebc54a0238b5dfd9d5d468a93a8e6dfb7e85ebe54"
+    },
+    {
+      "path": "assets-source/blender/wall-panel/build.py",
+      "bytes": 194,
+      "sha256": "edf9fd00cea09f469d02d46c17df7224309384337dc1fa3e8c7f86cbfc32dc4c"
+    },
+    {
+      "path": "assets-source/blender/wall-panel/wall-panel.blend",
+      "bytes": 403197,
+      "sha256": "6de6fa03266da956ce0aa325832e448643f108dcd383f26bc0cfe435c233a3d1"
+    },
+    {
+      "path": "assets-source/scenes/atrium/atrium-interior.png",
+      "bytes": 1081128,
+      "sha256": "6960219f3c897e8a674c197ec7927e09bc1cbe5f5c2b6eb94144bc2a493b2777"
+    },
+    {
+      "path": "assets-source/scenes/atrium/atrium-parking-refined.blend",
+      "bytes": 42477038,
+      "sha256": "729c90bbe6c6141316f913f6a2b79c9e315d494bef47498bb8425ff6b3efe939"
+    },
+    {
+      "path": "assets-source/scenes/atrium/atrium.blend",
+      "bytes": 13222369,
+      "sha256": "b599b002e6abe8ed640032b6f67bef783183d06f8cc9ddefd0a8699392b04459"
+    },
+    {
+      "path": "assets-source/scenes/atrium/atrium.blend1",
+      "bytes": 11757664,
+      "sha256": "141f6b7b45062623aa45ebec8aeef65607d7ed3ff3740de32d179b0dee65e509"
+    },
+    {
+      "path": "assets-source/scenes/atrium/backups/luminary-galleria-before-floorplans.blend",
+      "bytes": 79390828,
+      "sha256": "92bcbf50fea02f656e328314521940ff1799810d3ebe68dc14596ba0b5ad7a5f"
+    },
+    {
+      "path": "assets-source/scenes/atrium/build_atrium.py",
+      "bytes": 16378,
+      "sha256": "5a3cced941be8518dec1ec17a8d9725e7e457334cec74819d2452313440312a9"
+    },
+    {
+      "path": "assets-source/scenes/atrium/correct_normals.py",
+      "bytes": 308,
+      "sha256": "780b74f4542c7bf63be538e4f58ffd9b2800b0ff1bbf1884944c12a43939beca"
+    },
+    {
+      "path": "assets-source/scenes/atrium/export_original_mall.py",
+      "bytes": 4852,
+      "sha256": "ac8eb6a2dcd854318b4a773336ee5a08bc0f1184c9e0147a9f40035bc4a4aa47"
+    },
+    {
+      "path": "assets-source/scenes/atrium/export-validation.json",
+      "bytes": 1091,
+      "sha256": "4ee72258fde35673c5cae20833783594de813f5408045f4991cc9d18ee01b814"
+    },
+    {
+      "path": "assets-source/scenes/atrium/finalize_parking.py",
+      "bytes": 2961,
+      "sha256": "17cfa20fddecee9a1eb8147f712f4d983fb7048ccc3b53c4b41a5f49fed7361c"
+    },
+    {
+      "path": "assets-source/scenes/atrium/finish_atrium.py",
+      "bytes": 6056,
+      "sha256": "cf6b30f908e68aab0142e20e9c425090e533614f30b2749d0c873dba8cf9a8f3"
+    },
+    {
+      "path": "assets-source/scenes/atrium/finish_luminary.py",
+      "bytes": 5846,
+      "sha256": "924704c67d68bd86b2010a4090c977a63fe9a162f02333b1144d7764050c8e10"
+    },
+    {
+      "path": "assets-source/scenes/atrium/fit_luminary_floorplans.py",
+      "bytes": 10450,
+      "sha256": "c2e322cf993e64a668e9f0f5555c4f815be8a2d7454116f8c9eb677602c16234"
+    },
+    {
+      "path": "assets-source/scenes/atrium/floorplan-fit-validation.json",
+      "bytes": 275,
+      "sha256": "817de29d6b6da328fbbec1b9e39d835ef74ab471c8b1d9c5ae2a1cf7f18d1930"
+    },
+    {
+      "path": "assets-source/scenes/atrium/luminary-canopy.png",
+      "bytes": 2970681,
+      "sha256": "0c9ca3fd96c85159dd7503bd5c243075bf5aa877e951aa041647e66a84fc9b1c"
+    },
+    {
+      "path": "assets-source/scenes/atrium/luminary-exterior-validation.json",
+      "bytes": 403,
+      "sha256": "5188bc1961f2e77fa6477f14cbc6ea8cc11c103873226a0297c58b20776ac60b"
+    },
+    {
+      "path": "assets-source/scenes/atrium/luminary-exterior.png",
+      "bytes": 3136606,
+      "sha256": "1bfda5082cec853d378120f54edaa37acc4751265eaffac9127e98b19c3658a3"
+    },
+    {
+      "path": "assets-source/scenes/atrium/luminary-final-validation.json",
+      "bytes": 276,
+      "sha256": "e406d9cc69084085b735ec75ed8cd78a0b010166a6c674deede355395be7f1ab"
+    },
+    {
+      "path": "assets-source/scenes/atrium/luminary-floor-2-calibrated.png",
+      "bytes": 1372113,
+      "sha256": "5cdfbe5576dca90ea983774ff2721754e98c825f8ade388347247a762b81914c"
+    },
+    {
+      "path": "assets-source/scenes/atrium/luminary-galleria.blend",
+      "bytes": 80704527,
+      "sha256": "1049cb5b2dcf3762c21e5c4860a8f57e40353e53cb1824067d9cbbc1439bfe81"
+    },
+    {
+      "path": "assets-source/scenes/atrium/luminary-galleria.glb",
+      "bytes": 68695752,
+      "sha256": "e965a4922a6ce72ea741a3d08507dddc5ca28c2178c9d672c987472a6cc0b3db"
+    },
+    {
+      "path": "assets-source/scenes/atrium/luminary-promenade.png",
+      "bytes": 3451629,
+      "sha256": "74ee1c47ac8c4f2a8ce79b6e3f62a6d3c0c636480468a37c947b1c8c0b848d72"
+    },
+    {
+      "path": "assets-source/scenes/atrium/luminary-sw13-calibrated.png",
+      "bytes": 1001003,
+      "sha256": "6fbaecd00ea02a9f86876b995818cd8f954207f34589d4a4c63213654500b222"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-pickup.png",
+      "bytes": 2119406,
+      "sha256": "977e6d78e36c1c577b1667139e45db89dcdd20db9c0864d60c48acb1c6954af5"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-refined-ev.png",
+      "bytes": 2262878,
+      "sha256": "5e602bd5cdad8b4a60c2bd6982f55a876ec988d2e695f5ca1b4d4ea9197ea8e4"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-refined-hero.png",
+      "bytes": 2277035,
+      "sha256": "b0a0514357361e883fa233904a604c8736883c574a6e532657512a075c374824"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-refined-lobby.png",
+      "bytes": 2024765,
+      "sha256": "f288f472bf36485db6ccff11c2cbfa8fe3e4343a74e85418465bd2e215eb590a"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-refined-ramp.png",
+      "bytes": 1960495,
+      "sha256": "dcded127f160bdc6adf54fda1421d56b51b9030f62dab65a13db172f1882eaa4"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-refined.glb",
+      "bytes": 32554160,
+      "sha256": "bb60357443f2f962b275eb6a23f6ccffbaae0b3c40336feea193cb2222d1d2d4"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-refinement-report.json",
+      "bytes": 204,
+      "sha256": "125a56f39a706d021f632a5179cf34bb26a7fd1eebb300104610b65df439213b"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-suv.png",
+      "bytes": 2431308,
+      "sha256": "1cee2027fce359ab5264b2be72c2ba95f598197df381df82c3518f9c73fee449"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-utility.png",
+      "bytes": 2270008,
+      "sha256": "c2d46120d5392336557cb065272f05b7f8aaa34b0b24a492a3d4cb525b4035de"
+    },
+    {
+      "path": "assets-source/scenes/atrium/parking-validation.json",
+      "bytes": 215,
+      "sha256": "676c1b19b6414d71548cc5f815cf7390c5c6b36f64ad298ac64e804221585d1c"
+    },
+    {
+      "path": "assets-source/scenes/atrium/polish_atrium.py",
+      "bytes": 1721,
+      "sha256": "19c16e3ed01d3969cc8b392cb61e428148af6ffa7427fe23e55e88afda562577"
+    },
+    {
+      "path": "assets-source/scenes/atrium/README-LUMINARY.md",
+      "bytes": 4113,
+      "sha256": "65923179f5dc604d049ca7695ce25bff26c0c32dbb63fcb2837ae0324d788803"
+    },
+    {
+      "path": "assets-source/scenes/atrium/refine_luminary_exterior.py",
+      "bytes": 23582,
+      "sha256": "b51f204d8d373312293d675fc75fd9831b076e4076f4bc897fe21e05ad6973cb"
+    },
+    {
+      "path": "assets-source/scenes/atrium/refine_parking.py",
+      "bytes": 41227,
+      "sha256": "a19ff727ed1e903f8c62fbb3a89ae37697f8872dfd36594d5e163e8ccdd2d375"
+    },
+    {
+      "path": "assets-source/scenes/atrium/refine_vehicles.py",
+      "bytes": 24747,
+      "sha256": "fbe73cd3930b17ae1a9d299a9ad5e8ab1feebe424bb964115139861957cd1cbd"
+    },
+    {
+      "path": "assets-source/scenes/atrium/render_interior.py",
+      "bytes": 782,
+      "sha256": "317531daa25576c739ab9c4314902b2400745c82570111b7bff96e1f74f2b58d"
+    },
+    {
+      "path": "assets-source/scenes/atrium/render_local.py",
+      "bytes": 1512,
+      "sha256": "a3ec6c12756e4d57d185d241586ee54b0016cbc53c7e68c611f282e91f6315b1"
+    },
+    {
+      "path": "assets-source/scenes/atrium/render_parking_views.py",
+      "bytes": 903,
+      "sha256": "d666d0bf629861765e7047aeac26e60043c7f972f5adb5e47589b5affeae0e4b"
+    },
+    {
+      "path": "assets-source/scenes/atrium/render_polished.py",
+      "bytes": 939,
+      "sha256": "6089c3df8e7b99f567abac550ff2557831b2e1c79118f4ccbf584779470a516e"
+    },
+    {
+      "path": "assets-source/scenes/atrium/vehicle-refinement-validation.json",
+      "bytes": 1080,
+      "sha256": "831f1a456c3bf8c9f9a71c513dd832975ed8bd06457dd004a888a15874736adf"
+    },
+    {
+      "path": "assets-source/scenes/atrium/vehicles/electric-car.glb",
+      "bytes": 1300444,
+      "sha256": "20daa299c7278a93c37760303b9a49ffe4963f46bbc5da24f59700ce594f2f0f"
+    },
+    {
+      "path": "assets-source/scenes/atrium/vehicles/estate-car.glb",
+      "bytes": 1332420,
+      "sha256": "4b369917938f086fb1ee9de5f04eab33bf27d321b21b79ce123afba4a379f8a5"
+    },
+    {
+      "path": "assets-source/scenes/atrium/vehicles/pickup.glb",
+      "bytes": 1545584,
+      "sha256": "8b53e907e0367e321180fc6ec059eab840e92db88ce60c2c66d3118b6f081d80"
+    },
+    {
+      "path": "assets-source/scenes/atrium/vehicles/sedan.glb",
+      "bytes": 1297536,
+      "sha256": "8a4523cf0e9353f2f4417831ee1a7da381be19b5edf98807dc07d2fce2364386"
+    },
+    {
+      "path": "assets-source/scenes/atrium/vehicles/suv.glb",
+      "bytes": 1363508,
+      "sha256": "e0985548d0215f25db477f3b0db6b5adad6372f754a0866064cb100a7f947264"
+    },
+    {
+      "path": "assets-source/scenes/atrium/vehicles/utility-van.glb",
+      "bytes": 1480436,
+      "sha256": "a004189d594d5e3834830aa0ec287977c795346adfb270dbd863e68639ba61f9"
+    },
+    {
+      "path": "assets-source/scenes/atrium/verify_luminary_assets.py",
+      "bytes": 3043,
+      "sha256": "15b991031bb2b82c8af3783329befb04fd06774c7b18916eea9c15b6be94dd1d"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-10x10.glb",
+      "bytes": 264168,
+      "sha256": "3cc2b502f492473ebee7d22e2d0b42b813f40800fe64b1bd5bf8ff060eff470c"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-10x10.png",
+      "bytes": 924701,
+      "sha256": "4494bfc61cc1e4d0de2d18d0aab84c11e4a6fb2a425ac105f5a584d4e0645e12"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-14x38.glb",
+      "bytes": 280772,
+      "sha256": "19cc1410065072f4bc388483a3f2eb23c0ee7b1c284a575d2b51b847ede981c6"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-14x38.png",
+      "bytes": 853162,
+      "sha256": "bb8ddaaaac50576d58666521cd95cba845ee00d19686449f6fd35c033d801876"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-20x20.glb",
+      "bytes": 271824,
+      "sha256": "6e33ee8a1e6ccbb76b60b6b8ecc4fcc35322b6cd97beaface04b626b6e05f974"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-20x20.png",
+      "bytes": 882964,
+      "sha256": "f550458d3af667eb89026968fcaa6f8f0b484f0cb873ca5a127dc19da6586a0c"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-27x50.glb",
+      "bytes": 289860,
+      "sha256": "f980f51444b067417b42e2f5831c841705269f97589c1187163554df239ac486"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-27x50.png",
+      "bytes": 844997,
+      "sha256": "50ee0e0669c394d24f61d650c79f02ae2c42513b28f35879b9062f457d394cbe"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-28x10.glb",
+      "bytes": 264144,
+      "sha256": "6119559a77b36af07aa3acf33f89ab87d210f2f92534081a1678627d9de76708"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-28x10.png",
+      "bytes": 869504,
+      "sha256": "83b1ed7bc2879a9c2125e3dfdb96905989d569ead097ac62c5d03c9a7b870737"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-28x36.glb",
+      "bytes": 285492,
+      "sha256": "54573d3b9429aac9dcdca7f8d9679653afc6c2bb17934f663aa30318fd0f6f4f"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-28x36.png",
+      "bytes": 854256,
+      "sha256": "14d81edf1d0d099fc7a303fb9645f415600460996858949fe900314be3a07983"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-28x54.glb",
+      "bytes": 292124,
+      "sha256": "fdaec73c72a2bd74c18db380becbf8cdf13881546358f11e1414bb239d2c65e7"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-28x54.png",
+      "bytes": 842686,
+      "sha256": "0b5640cc1b51b0a6131299d69404f4a91eccf073625a3b839d1b8799941eb9aa"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-40x45.glb",
+      "bytes": 289120,
+      "sha256": "d1f6c51d874e393d69bb060ad8d45f89c0dab7229a620e53ad79423c494e86c5"
+    },
+    {
+      "path": "public/floor-assets/booths/booth-40x45.png",
+      "bytes": 845162,
+      "sha256": "469791f4f3d74ffe0c632d412af43c87ae663c53e5f35cdc0be1b6fb1b42b94c"
+    },
+    {
+      "path": "public/mall-assets/luminary-original.glb",
+      "bytes": 17845376,
+      "sha256": "f660f7d77ebe997fc7588d173447d271f3713d3c5e65a5806dc18e565f0932d9"
+    },
+    {
+      "path": "public/mall-assets/luminary-original.json",
+      "bytes": 25042,
+      "sha256": "5804832e0382de1ebaef1420336bb3196b1989c39382c874119e0df69fb5e28c"
+    },
+    {
+      "path": "scripts/assets/check-mcp.py",
+      "bytes": 1392,
+      "sha256": "3bbd64a7f6841c3947f27c4a5151cf23a15b1d0e51be66b7d73c608be99e4b5e"
+    },
+    {
+      "path": "scripts/assets/prepare-luminary-plan.py",
+      "bytes": 4501,
+      "sha256": "cc82a536ede9002549e6f3bbad72dcbd82cde2bdffc23069602d2d1b9a742d04"
+    },
+    {
+      "path": "scripts/assets/start-blender-bridge.py",
+      "bytes": 1029,
+      "sha256": "38ced08b3064a6191f267dd5ed7a71f5c7e2fee72a44260e373b0aeb8e3aa0c6"
+    },
+    {
+      "path": "src/assets/images/asset-previews/banner-stand.front.png",
+      "bytes": 76219,
+      "sha256": "510468389703310687d4061ca92066ad179a7f1ae5ceddd67e49ded7af096ae6"
+    },
+    {
+      "path": "src/assets/images/asset-previews/banner-stand.hero.png",
+      "bytes": 72759,
+      "sha256": "8d220230689c6bc9c8f501f5b7a2ef668c5d3199e5a5ec3c26f43da478910b26"
+    },
+    {
+      "path": "src/assets/images/asset-previews/banner-stand.logo-square.front.png",
+      "bytes": 75495,
+      "sha256": "2136ff3349d05bf01eee951a035fb62e8bb4e89dffa4c59730e50a15bfbc0a2f"
+    },
+    {
+      "path": "src/assets/images/asset-previews/banner-stand.logo-wide.front.png",
+      "bytes": 75186,
+      "sha256": "064be4939bb71177380b4a464fe94b7f5fa652ebdfb6a79632dd5bdeecc9b03c"
+    },
+    {
+      "path": "src/assets/images/asset-previews/banner-stand.side.png",
+      "bytes": 54726,
+      "sha256": "26d90f094d00d8b7360d5bc6aae18719f49187bc354c3ce73ac417968a7e2f71"
+    },
+    {
+      "path": "src/assets/images/asset-previews/banner-stand.top.png",
+      "bytes": 41924,
+      "sha256": "073b63f17a38cf90d7e9004427feaaa5650430be562cb61f113daf490bc559ee"
+    },
+    {
+      "path": "src/assets/images/asset-previews/booth-ceiling.front.png",
+      "bytes": 48418,
+      "sha256": "d6eb1bba8c5b002bac15f8d8800e48d8b82c0c311ae0e2298fe062c429bec943"
+    },
+    {
+      "path": "src/assets/images/asset-previews/booth-ceiling.hero.png",
+      "bytes": 70606,
+      "sha256": "bd0ca90c80ee668a53fca78e3512f15cb0089be62e56c7cae3a628cf2d4a1f62"
+    },
+    {
+      "path": "src/assets/images/asset-previews/booth-ceiling.side.png",
+      "bytes": 48525,
+      "sha256": "047abf94d91ab9a7d4ab472b7bb60bcd982e4ca46c351b5bb45479153983f0ba"
+    },
+    {
+      "path": "src/assets/images/asset-previews/booth-ceiling.top.png",
+      "bytes": 95881,
+      "sha256": "a894df592112c10aca3a34563aff57592684078a8d5cde472ff9fc35719d5968"
+    },
+    {
+      "path": "src/assets/images/asset-previews/booth-frame.front.png",
+      "bytes": 78332,
+      "sha256": "831e580066ce23407fd189ccd8a963480c7e7c76b41abc38345a4dadb493795d"
+    },
+    {
+      "path": "src/assets/images/asset-previews/booth-frame.hero.png",
+      "bytes": 112597,
+      "sha256": "6bcd938810d797729bb89b335ed25f7ea17fdd57a720844237bae423cf00841b"
+    },
+    {
+      "path": "src/assets/images/asset-previews/booth-frame.side.png",
+      "bytes": 83618,
+      "sha256": "bee81209b76ec32d02b3d33da9c7cc6802200487a97c74c18fcc3c78fbaa5298"
+    },
+    {
+      "path": "src/assets/images/asset-previews/booth-frame.top.png",
+      "bytes": 63980,
+      "sha256": "87472c1e6e5da8bf76c1f7b8992794ab0fd94c34bd889cbbd53b2d5d09cbee48"
+    },
+    {
+      "path": "src/assets/images/asset-previews/chair.front.png",
+      "bytes": 83861,
+      "sha256": "8212d7c04f54bbd5cc957289c77c6baaa23a90dde3ce2130027f294773e2e0c9"
+    },
+    {
+      "path": "src/assets/images/asset-previews/chair.hero.png",
+      "bytes": 99877,
+      "sha256": "1979067845ef8ac575bec76140c44fbc14e15b90fa8dcb74877d9b4650fc647f"
+    },
+    {
+      "path": "src/assets/images/asset-previews/chair.side.png",
+      "bytes": 71927,
+      "sha256": "fee39a5ee97608520f88d4cba6b7533656d1e21b193fd0134381938d3ccb32a7"
+    },
+    {
+      "path": "src/assets/images/asset-previews/chair.top.png",
+      "bytes": 69463,
+      "sha256": "d39d5a569a8b2eed9e4a1a9025e835f2a73ada87aef1fcc5082e8f7d77ce35a4"
+    },
+    {
+      "path": "src/assets/images/asset-previews/display-case.front.png",
+      "bytes": 117121,
+      "sha256": "d2e040c99a658992310600db13297f2ab6b21c696b626841f65e01f1ba1864b9"
+    },
+    {
+      "path": "src/assets/images/asset-previews/display-case.hero.png",
+      "bytes": 136607,
+      "sha256": "8f85e24cda03323c5efdbb263ad3d2938f1d21a47e82405a9fd84d99a2979afd"
+    },
+    {
+      "path": "src/assets/images/asset-previews/display-case.opaque.front.png",
+      "bytes": 95797,
+      "sha256": "fe6021a8592ba0a8e799f69d20e68044447589b1b8dd002e5915c043c340a509"
+    },
+    {
+      "path": "src/assets/images/asset-previews/display-case.opaque.hero.png",
+      "bytes": 112508,
+      "sha256": "c083aa7c890abe9290735094c7fa8ea8e6d64907e2b670bf5104ae9c716615db"
+    },
+    {
+      "path": "src/assets/images/asset-previews/display-case.opaque.side.png",
+      "bytes": 74201,
+      "sha256": "b1a215505ed62ceebd7eab78c8c6973e780aff81482a8d062459bdc0c8886370"
+    },
+    {
+      "path": "src/assets/images/asset-previews/display-case.opaque.top.png",
+      "bytes": 63732,
+      "sha256": "585d9f9a96cc7c79393426257ea2835c01143cb7c1938ec883b9f82f153d97a6"
+    },
+    {
+      "path": "src/assets/images/asset-previews/display-case.side.png",
+      "bytes": 89174,
+      "sha256": "4153acfc9ad37bf1cf6e2fb2987ad9946323f45022071b03f4d20ed8fa4e8ba7"
+    },
+    {
+      "path": "src/assets/images/asset-previews/display-case.top.png",
+      "bytes": 69809,
+      "sha256": "83b0ccd1e3d7a074b894c3cddbf3e8c2842f51253b52fff9f1c91b5b4de783ba"
+    },
+    {
+      "path": "src/assets/images/asset-previews/elevator-entrance.door-open.hero.png",
+      "bytes": 79444,
+      "sha256": "00b9808b8c8ba7f476de11ffdc32e2e8662fd4cab02410d60bf141108f4827b2"
+    },
+    {
+      "path": "src/assets/images/asset-previews/elevator-entrance.front.png",
+      "bytes": 90906,
+      "sha256": "b5041004b905426680bfd665dd262915b54757ec7cfe0968ca2fd159cc2dbae7"
+    },
+    {
+      "path": "src/assets/images/asset-previews/elevator-entrance.hero.png",
+      "bytes": 88891,
+      "sha256": "115c4478538e6f8e33e4b08935b222e82d9c8a1d0acd969914516a53352760df"
+    },
+    {
+      "path": "src/assets/images/asset-previews/elevator-entrance.low.front.png",
+      "bytes": 88724,
+      "sha256": "7a10549e2238ad8ce7c790f928b3336022c76cc611125d121943703d99a7ba44"
+    },
+    {
+      "path": "src/assets/images/asset-previews/elevator-entrance.low.hero.png",
+      "bytes": 83231,
+      "sha256": "a8429f94b8b7e932c6da73115dce586b5912beca7a6383f6ff704ea234c84c04"
+    },
+    {
+      "path": "src/assets/images/asset-previews/elevator-entrance.low.side.png",
+      "bytes": 58949,
+      "sha256": "c22274af7c5b6687bf20802c8bb186ac2c5eddf623ec980308c25e9a50397e12"
+    },
+    {
+      "path": "src/assets/images/asset-previews/elevator-entrance.low.top.png",
+      "bytes": 41454,
+      "sha256": "a358f9e69e10362e682ad44c9356fff6bb0445c4b0726ef200e367e921aec0bf"
+    },
+    {
+      "path": "src/assets/images/asset-previews/elevator-entrance.side.png",
+      "bytes": 59169,
+      "sha256": "a3aceb3177871378a9b13aff945c63fcd132831f1b19fa46ab4582c93f4bbf7e"
+    },
+    {
+      "path": "src/assets/images/asset-previews/elevator-entrance.top.png",
+      "bytes": 41556,
+      "sha256": "fc7c5a30b817cced3da8c0a86cf80fd5675a98489f01e7cda62ba49930ddfea6"
+    },
+    {
+      "path": "src/assets/images/asset-previews/escalator-entrance.front.png",
+      "bytes": 67571,
+      "sha256": "986b677548f0d8b720e1104ebf80500583d42490cad9b77e45c69711f89c79bb"
+    },
+    {
+      "path": "src/assets/images/asset-previews/escalator-entrance.hero.png",
+      "bytes": 89849,
+      "sha256": "f764909b163997caf66f147d2553a29e8fafadcfdc50ffec0e8b75d0b2beb28d"
+    },
+    {
+      "path": "src/assets/images/asset-previews/escalator-entrance.low.front.png",
+      "bytes": 58559,
+      "sha256": "5f0bf8870148f08c28cddbdee9b2ee04a81c457eb2df7f47dd2731a31adcb7e2"
+    },
+    {
+      "path": "src/assets/images/asset-previews/escalator-entrance.low.hero.png",
+      "bytes": 84425,
+      "sha256": "f033ca599c951a5cf2a5aa32b88a01bb2451470c5f6d3826029e68d06aacc0b9"
+    },
+    {
+      "path": "src/assets/images/asset-previews/escalator-entrance.low.side.png",
+      "bytes": 75174,
+      "sha256": "0fdd2d11bfe4cafd81512ccc1cd0fdc0661410b6efb908c0ebcd1062a126c347"
+    },
+    {
+      "path": "src/assets/images/asset-previews/escalator-entrance.low.top.png",
+      "bytes": 66119,
+      "sha256": "8d7d7e9301b5b3a5b7662ec62cc382d13ae8cc3ccde1303e938fe561c79f99f7"
+    },
+    {
+      "path": "src/assets/images/asset-previews/escalator-entrance.side.png",
+      "bytes": 75583,
+      "sha256": "0fae883898fa2f4918b18b83bb5f3484482799161d2b12b777e86b63ba7cf3aa"
+    },
+    {
+      "path": "src/assets/images/asset-previews/escalator-entrance.top.png",
+      "bytes": 78402,
+      "sha256": "906459868a2e166cbadc49e3d5039597350330813b5cd2182e98bebc746aa4c2"
+    },
+    {
+      "path": "src/assets/images/asset-previews/floor-tile.front.png",
+      "bytes": 53755,
+      "sha256": "0023eff48cbc7565b309dad972f4162ea7730f957b12dd1e21a62500ee42e5cf"
+    },
+    {
+      "path": "src/assets/images/asset-previews/floor-tile.hero.png",
+      "bytes": 79474,
+      "sha256": "36f66fc3062a29dba5aab03ad591a6b399fac0c9a1f2d23185ac5a94478fcf6e"
+    },
+    {
+      "path": "src/assets/images/asset-previews/floor-tile.side.png",
+      "bytes": 53552,
+      "sha256": "5533e969601d388a9a5b3eb6210d49317c128382b12a6cf56734ed0299f80578"
+    },
+    {
+      "path": "src/assets/images/asset-previews/floor-tile.top.png",
+      "bytes": 103893,
+      "sha256": "89666fc2b0e8052128b0b745e862d651acd281129d3ca5ddce139f7d963992a8"
+    },
+    {
+      "path": "src/assets/images/asset-previews/forklift.front.png",
+      "bytes": 70003,
+      "sha256": "a1e04f764b169c0ddd1bc765272f00468d7496e140a08fa48b8025e3eca5e125"
+    },
+    {
+      "path": "src/assets/images/asset-previews/forklift.hero.png",
+      "bytes": 97086,
+      "sha256": "e01eba4f3551e83444d4605aabc4c5211a8976266837b0625439678d7fcb0102"
+    },
+    {
+      "path": "src/assets/images/asset-previews/forklift.low.front.png",
+      "bytes": 67340,
+      "sha256": "d07b68da6b97cc14c02c27b0ee337113c18fe5db54d2390f25706c1bf44b8eb1"
+    },
+    {
+      "path": "src/assets/images/asset-previews/forklift.low.hero.png",
+      "bytes": 93750,
+      "sha256": "deb7e03f32b604aded7af025031852fedfedd233babce11e03d3cf7daf10e8d8"
+    },
+    {
+      "path": "src/assets/images/asset-previews/forklift.low.side.png",
+      "bytes": 75310,
+      "sha256": "2b9f964c24f92623eb51f8671d9399065600769f4f6f685c4b509cae95e9f3a5"
+    },
+    {
+      "path": "src/assets/images/asset-previews/forklift.low.top.png",
+      "bytes": 68953,
+      "sha256": "a2dc56906ad7804f1deea6f6c377a9da05cd41667e0f138d5755cd4419f2b598"
+    },
+    {
+      "path": "src/assets/images/asset-previews/forklift.side.png",
+      "bytes": 79605,
+      "sha256": "cc190dd8b4e0c0ab1c8fbf572e0b3340db4353cd7a92bf696a2b4c8b0d4e2e72"
+    },
+    {
+      "path": "src/assets/images/asset-previews/forklift.top.png",
+      "bytes": 69259,
+      "sha256": "eb85bc646a0199c7951d2ed388f0264678929136ffeb3f70410456b068070d46"
+    },
+    {
+      "path": "src/assets/images/asset-previews/pallet.front.png",
+      "bytes": 52921,
+      "sha256": "649df6270c7f17f11db80de3ff79c00a5242f20e9dbb09ee6ec7585802de3dea"
+    },
+    {
+      "path": "src/assets/images/asset-previews/pallet.hero.png",
+      "bytes": 77954,
+      "sha256": "25b46ccf83e15640ea298a2e8edcc2ea4389f5443a058daf2e3de9e6994cd064"
+    },
+    {
+      "path": "src/assets/images/asset-previews/pallet.side.png",
+      "bytes": 55515,
+      "sha256": "8254f5ce1a74ecec6ca61ad27240ba68a933a38023da74b35ae74ef4024c47bd"
+    },
+    {
+      "path": "src/assets/images/asset-previews/pallet.top.png",
+      "bytes": 84141,
+      "sha256": "78f60962dcdf99624642b8f30b5e9a8896dd3d53a90f6c4bd4609cc8c70a807b"
+    },
+    {
+      "path": "src/assets/images/asset-previews/safe.front.png",
+      "bytes": 94203,
+      "sha256": "ae60115119ca7e257975cf6402ada912d3e993d21cbebe13a9eb9779239ab5e4"
+    },
+    {
+      "path": "src/assets/images/asset-previews/safe.hero.png",
+      "bytes": 112819,
+      "sha256": "0377ee6efabcac20972a8c8602e582c5bb80708edf5e339e5dbcfd15d03e751a"
+    },
+    {
+      "path": "src/assets/images/asset-previews/safe.side.png",
+      "bytes": 91551,
+      "sha256": "e1ee2673d5fda5ae6eff2f8b399f984e6cf662462a9f2e09548e2019f9eafdd9"
+    },
+    {
+      "path": "src/assets/images/asset-previews/safe.top.png",
+      "bytes": 74432,
+      "sha256": "f593e72ade1fc98f6589597be7b0ff4ea567cc9f75c59f71493e26572a12ebcb"
+    },
+    {
+      "path": "src/assets/images/asset-previews/stairs.front.png",
+      "bytes": 60926,
+      "sha256": "2f863f2900de18b4644bb67b22279d7981672453bb78686ffd285ddd2578a6ff"
+    },
+    {
+      "path": "src/assets/images/asset-previews/stairs.hero.png",
+      "bytes": 87828,
+      "sha256": "c6556139b4c1edf2fd860050aaabdb20beb10a6d5779bda7ce52c47181053e70"
+    },
+    {
+      "path": "src/assets/images/asset-previews/stairs.low.front.png",
+      "bytes": 57594,
+      "sha256": "a2ee194717174b1b5c72f8171e77fde96cd869fb88728fb2ee05a68cce5fffa2"
+    },
+    {
+      "path": "src/assets/images/asset-previews/stairs.low.hero.png",
+      "bytes": 80217,
+      "sha256": "e9c7cd495265865c0f598ca65876f371a31918d0c550e7d8e5dc68155235bdc3"
+    },
+    {
+      "path": "src/assets/images/asset-previews/stairs.low.side.png",
+      "bytes": 70961,
+      "sha256": "afa55308eb85f183093519010d7161bc02ba3e0491fdef96ebc71c8f2b202f61"
+    },
+    {
+      "path": "src/assets/images/asset-previews/stairs.low.top.png",
+      "bytes": 64933,
+      "sha256": "4946050723cf8e9a82d29564fa7858ee3670e04f0d4cbaf804fb2ae4c6bc4a52"
+    },
+    {
+      "path": "src/assets/images/asset-previews/stairs.side.png",
+      "bytes": 73470,
+      "sha256": "9b860293964554e8ced0012371a3a8a06940efa83af8304afc296cd1057bba03"
+    },
+    {
+      "path": "src/assets/images/asset-previews/stairs.top.png",
+      "bytes": 67612,
+      "sha256": "cde367f05d736aea38bf3c40605818784c9f18a53e51a12be6df17fdca787c31"
+    },
+    {
+      "path": "src/assets/images/asset-previews/table.front.png",
+      "bytes": 65199,
+      "sha256": "ae818474837a95a2c2e725aa7c8d6a84210a513a3328ecf0dda6e65366badc40"
+    },
+    {
+      "path": "src/assets/images/asset-previews/table.hero.png",
+      "bytes": 88157,
+      "sha256": "07f44e584d92611010ed1d63b15bde4873470fe4a71147e900af1679c0a58ec9"
+    },
+    {
+      "path": "src/assets/images/asset-previews/table.side.png",
+      "bytes": 63146,
+      "sha256": "eb6a27cf80731c39215ed4015c1cc4b6bf0305d1df4a491c9d114dba93d6af83"
+    },
+    {
+      "path": "src/assets/images/asset-previews/table.top.png",
+      "bytes": 71564,
+      "sha256": "ff2e366162a5ac696c63bdda1b36aae702239fab69de0f687cea6f7401926e57"
+    },
+    {
+      "path": "src/assets/images/asset-previews/wall-panel.front.png",
+      "bytes": 75974,
+      "sha256": "57d9e79e564608d6b19bdd5c07e3ed9389ce6c2f6b7d589dd17e4ea9ca1fa086"
+    },
+    {
+      "path": "src/assets/images/asset-previews/wall-panel.hero.png",
+      "bytes": 68577,
+      "sha256": "cd9d4b66d0788684867d780d53598f205a5f802e2d7a88f4811209d143fb28be"
+    },
+    {
+      "path": "src/assets/images/asset-previews/wall-panel.side.png",
+      "bytes": 55141,
+      "sha256": "dfa8c20fe18a280ff4491c2651d36ebe89953bf0d68405017805f6158ff72d73"
+    },
+    {
+      "path": "src/assets/images/asset-previews/wall-panel.top.png",
+      "bytes": 36774,
+      "sha256": "97620c2a255de766f153be16021b4a1d7efdd1efe922ca546d158fa16891999c"
+    },
+    {
+      "path": "src/assets/metadata/banner-stand.v1.json",
+      "bytes": 1493,
+      "sha256": "541a24688c068cfbc789c60ef1f72ef0c0c8d04033403d9f9d331e89041bcfca"
+    },
+    {
+      "path": "src/assets/metadata/booth-ceiling.v1.json",
+      "bytes": 995,
+      "sha256": "7f96151b6fadb8afbc6a3910c2095a29bd6d9eb973be59aa1f53160bbdb957f5"
+    },
+    {
+      "path": "src/assets/metadata/booth-frame.v1.json",
+      "bytes": 1813,
+      "sha256": "3df18eb2269824a7882ac065a2ec831c5f899c23ad8dfdd417b8fbb62818511c"
+    },
+    {
+      "path": "src/assets/metadata/booth-sizes.v1.json",
+      "bytes": 7902,
+      "sha256": "d18dcadffe2b86e643b0bb6567adac871da56191f47d967ddc408388633110e8"
+    },
+    {
+      "path": "src/assets/metadata/catalog.v1.json",
+      "bytes": 22240,
+      "sha256": "8e3c986d5250f3374ccb3e5c5548ebd0bb8a14753b5bd1c51bee39ae5efc4de1"
+    },
+    {
+      "path": "src/assets/metadata/chair.v1.json",
+      "bytes": 1141,
+      "sha256": "53ec37823e2c2b8f6fefbb061f15348fece8b2035aac1d7ff9d483c404cfded4"
+    },
+    {
+      "path": "src/assets/metadata/display-case.v1.json",
+      "bytes": 1727,
+      "sha256": "c5529345a8d22de9e9cdc48b6c4024b41e2cca6b406160d36c62486caad5a69b"
+    },
+    {
+      "path": "src/assets/metadata/display-case.v1.opaque.json",
+      "bytes": 1165,
+      "sha256": "225badeeb4073930fef0c4e61912ca20d657ef433fcfb765b6b46667a2ce6775"
+    },
+    {
+      "path": "src/assets/metadata/elevator-entrance.v1.json",
+      "bytes": 2118,
+      "sha256": "37c20e2ca1de811667b028f90e844038582da76c5704f0e9008eb9db086e9c84"
+    },
+    {
+      "path": "src/assets/metadata/elevator-entrance.v1.low.json",
+      "bytes": 1499,
+      "sha256": "a04b727250a7073d87a6152107cf8ff5a30f8f0f0adc65ad7174d7d6fa19efb1"
+    },
+    {
+      "path": "src/assets/metadata/escalator-entrance.v1.json",
+      "bytes": 2198,
+      "sha256": "7ce6614a64db9a2c817df2a8a923a2fafef91c4f73cde99b7bbcde527ce3a423"
+    },
+    {
+      "path": "src/assets/metadata/escalator-entrance.v1.low.json",
+      "bytes": 1578,
+      "sha256": "4884d330551a2189bd01be75d7a96ee5b7e5da6539f5e8a47bdf60a2a4d5d206"
+    },
+    {
+      "path": "src/assets/metadata/floor-tile.v1.json",
+      "bytes": 1038,
+      "sha256": "a92ecf4850fc7840f9d660c05ce8a77c2cdfbc8fe5cbf91fa2589a7672e7f101"
+    },
+    {
+      "path": "src/assets/metadata/floor-tiles.v1.json",
+      "bytes": 378,
+      "sha256": "5c2190194dd439fe544f77bb52dd30c8d6abc7440101ad11bf049eb75963f749"
+    },
+    {
+      "path": "src/assets/metadata/forklift.v1.json",
+      "bytes": 1752,
+      "sha256": "dbe7696c9747e3ec0ee4f4edf1ff6df573ab3810a4f07f0dba938b6775a5200b"
+    },
+    {
+      "path": "src/assets/metadata/forklift.v1.low.json",
+      "bytes": 1173,
+      "sha256": "a904e4da5dbc4ee9015fd56b7ac836e395374f8b3cc298878a55db2e195bb637"
+    },
+    {
+      "path": "src/assets/metadata/pallet.v1.json",
+      "bytes": 963,
+      "sha256": "8d8def0f1f35df57b73ec4f7a28716e8245a376da51e42776472592853abca17"
+    },
+    {
+      "path": "src/assets/metadata/safe.v1.json",
+      "bytes": 1067,
+      "sha256": "59fafdaea702fc4405ae7734def3d9bf0b01d0b48da53f0519ea50637085bd8f"
+    },
+    {
+      "path": "src/assets/metadata/stairs.v1.json",
+      "bytes": 2026,
+      "sha256": "ba763673c0c2c383c08a66cfeda2b9ea9b5244f757a007a2339bbccf4954d986"
+    },
+    {
+      "path": "src/assets/metadata/stairs.v1.low.json",
+      "bytes": 1492,
+      "sha256": "10d3eda9a1ecb1737dd1e59ad3e2c94308bfd4b600e07e2a9f71e1e8341a263d"
+    },
+    {
+      "path": "src/assets/metadata/table.v1.json",
+      "bytes": 1204,
+      "sha256": "6c76c6265b2ddd3c15b8454c112e8fb585146f361b75d9eaa08732bb35ec7680"
+    },
+    {
+      "path": "src/assets/metadata/wall-panel.v1.json",
+      "bytes": 1106,
+      "sha256": "02eaffccd183964e7def8b46bc3b1bfb6fb6a5aa9c688c56836807e0aea9997f"
+    },
+    {
+      "path": "src/assets/models/.gitkeep",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "src/assets/models/banner-stand.v1.glb",
+      "bytes": 12472,
+      "sha256": "6b848795f12f868e7947f41fa4721d7fed81e80c9fd384c1ef9fa8aa0ec1cbda"
+    },
+    {
+      "path": "src/assets/models/booth-ceiling.v1.glb",
+      "bytes": 2188,
+      "sha256": "066a4510cb110a0e18f0d62b1bf55096d8b384378a0711dd67d2df22e85b37bb"
+    },
+    {
+      "path": "src/assets/models/booth-frame.v1.glb",
+      "bytes": 6904,
+      "sha256": "9d032aa975d689308bcaa3f6feb7721ef04e98d985f9d36f09fce1500ea40b00"
+    },
+    {
+      "path": "src/assets/models/chair.v1.glb",
+      "bytes": 14688,
+      "sha256": "4e687dd762a35aa336238c9b7ab4d9af43e5633ea791abe4676470f86d7452dc"
+    },
+    {
+      "path": "src/assets/models/display-case.v1.glb",
+      "bytes": 24900,
+      "sha256": "b7ea10fbe9b3c07e2b1e06a2ef0ef08f5d93bb4bd9178147a152f4af9e3e1704"
+    },
+    {
+      "path": "src/assets/models/display-case.v1.opaque.glb",
+      "bytes": 24868,
+      "sha256": "ef18b0d1bed4de2e5c7d87d9dc6cc5ee5943ca0f5bf51932542051081b5456fb"
+    },
+    {
+      "path": "src/assets/models/elevator-entrance.v1.glb",
+      "bytes": 37084,
+      "sha256": "9e5f38fab8e8c4c990c990ab2142b9c76d4cc51848d16a15effb94cd062beabc"
+    },
+    {
+      "path": "src/assets/models/elevator-entrance.v1.low.glb",
+      "bytes": 11724,
+      "sha256": "637653ff3ff5f83c54a8ceda64416a5d14d8c2b11130ad9ca0080a532552d479"
+    },
+    {
+      "path": "src/assets/models/escalator-entrance.v1.glb",
+      "bytes": 106940,
+      "sha256": "4d3482ddbcf33e740dbfddbffa0394a533255781ddc837fd2d85054e598c72b1"
+    },
+    {
+      "path": "src/assets/models/escalator-entrance.v1.low.glb",
+      "bytes": 26432,
+      "sha256": "d700cbbbf3e84a9c1becb3564553cc66752d8f7b23d6219bc7222028725cb36b"
+    },
+    {
+      "path": "src/assets/models/floor-tile.v1.glb",
+      "bytes": 2076,
+      "sha256": "0ec987f85ac0107fcf0e0c4f896183a2852eb2f77f5d69bd47d8434245d85693"
+    },
+    {
+      "path": "src/assets/models/forklift.v1.glb",
+      "bytes": 86792,
+      "sha256": "8e2e037a0847c6710853b6c1bc175e82bba81c8eac85490f98e46fc64dc98479"
+    },
+    {
+      "path": "src/assets/models/forklift.v1.low.glb",
+      "bytes": 28432,
+      "sha256": "bf60fa47a529f129944700d46569f9c1155467afc4eb939cc3269474876ba2bc"
+    },
+    {
+      "path": "src/assets/models/pallet.v1.glb",
+      "bytes": 26380,
+      "sha256": "977ca5a556e21de521924f66bc07f098c1e7daea20c7fdc27a4aa6ff57e429d9"
+    },
+    {
+      "path": "src/assets/models/safe.v1.glb",
+      "bytes": 23588,
+      "sha256": "2429213fe3a162ff7fa10f9af9c6e2af3f3254698e0c6f7b70e64e4e21203065"
+    },
+    {
+      "path": "src/assets/models/stairs.v1.glb",
+      "bytes": 60716,
+      "sha256": "cd4b344fec376cce06b540b1c07642d85a56652fbb14f16221021dfd293d3767"
+    },
+    {
+      "path": "src/assets/models/stairs.v1.low.glb",
+      "bytes": 20468,
+      "sha256": "a9c794af46e45eb5a5efbc3639a13ba2cf5696fd9c9ad6af38fa5ea65c051d27"
+    },
+    {
+      "path": "src/assets/models/table.v1.glb",
+      "bytes": 10920,
+      "sha256": "e9b438d3e27bd2d53398f9d1d2e68d9d104e4d5a48ac0464aac63fdaf0dfd954"
+    },
+    {
+      "path": "src/assets/models/wall-panel.v1.glb",
+      "bytes": 4572,
+      "sha256": "6f795406a16afdcd550bc2199fc01068431b6658220a2c9de1f350358a55fd79"
+    }
+  ]
+}

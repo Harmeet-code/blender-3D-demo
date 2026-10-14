@@ -9,6 +9,7 @@ coverage/
 openspec/
 .codegraph/
 storage/
+archive/
 data/
 *.log
 .env

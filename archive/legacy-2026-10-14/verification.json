@@ -1,0 +1,21 @@
+{
+  "status": "archived",
+  "archivedFiles": 174,
+  "bytes": 153065584,
+  "verifiedProtectedFiles": 485,
+  "verifiedExistingImports": 1040,
+  "preexistingMissingImports": [
+    {
+      "source": "vite.config.ts",
+      "target": "scripts/vite/asset-revisions.ts"
+    },
+    {
+      "source": "vite.config.ts",
+      "target": "scripts/assets/archive-runtime-guard.ts"
+    },
+    {
+      "source": "vite.config.ts",
+      "target": "scripts/vite/mall-blueprint-cache.ts"
+    }
+  ]
+}

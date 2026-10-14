@@ -1,0 +1,92 @@
+{
+  "buildingId": "luminary-galleria",
+  "floors": [
+    {
+      "id": "F1",
+      "name": "Floor 1 · complete Denver plan",
+      "heightOffset": 0,
+      "image": "/floor-assets/denver-floor-1.webp",
+      "coordinateSystem": {
+        "units": "pixels",
+        "metersPerPixel": 0.12979440307617188,
+        "origin": [2048, 1227.5],
+        "basis": [0.12979440307617188, 0, 0, 0.1298193482688391]
+      },
+      "authoring": {
+        "boundary": [
+          [0, -2.2737367544323206e-13],
+          [4096, -2.2737367544323206e-13],
+          [4096, 2455],
+          [0, 2455]
+        ],
+        "obstacles": [],
+        "spawn": [473.33512496640697, 2179.1243275552897],
+        "instances": [],
+        "underlayOpacity": 0.82,
+        "imageSize": [4096, 2455],
+        "originalImage": "/floor-assets/denver-original.jpg",
+        "shellUrl": "/floor-assets/luminary-f1-shell.glb",
+        "tiles": {
+          "template": "/floor-assets/tiles/F1/{level}-{x}-{y}.webp",
+          "width": 11163,
+          "height": 6692,
+          "tileSize": 512,
+          "maxLevel": 5
+        }
+      }
+    },
+    {
+      "id": "F2",
+      "name": "Floor 2 · Arena authoring layout",
+      "heightOffset": 4.4,
+      "image": "/floor-assets/denver-floor-2.webp",
+      "coordinateSystem": {
+        "units": "pixels",
+        "metersPerPixel": 0.047625,
+        "origin": [-2748.5, 2646]
+      },
+      "authoring": {
+        "boundary": [
+          [0, 0],
+          [2040, 0],
+          [2040, 1090],
+          [0, 1090]
+        ],
+        "obstacles": [],
+        "spawn": [40, 730],
+        "instances": [],
+        "underlayOpacity": 0.82,
+        "imageSize": [2040, 1090],
+        "originalImage": "/floor-assets/denver-original.jpg",
+        "shellUrl": "/floor-assets/luminary-f2-shell.glb",
+        "tiles": {
+          "template": "/floor-assets/tiles/F2/{level}-{x}-{y}.webp",
+          "width": 2040,
+          "height": 1090,
+          "tileSize": 512,
+          "maxLevel": 2
+        }
+      }
+    }
+  ],
+  "rooms": [],
+  "portals": [
+    {
+      "id": "luminary-lift",
+      "type": "elevator",
+      "connects": ["F1", "F2"],
+      "entries": [
+        {
+          "floorId": "F1",
+          "position": [3071.1744154797098, 524.604004781829],
+          "yawRadians": 0
+        },
+        {
+          "floorId": "F2",
+          "position": [40, 730],
+          "yawRadians": 0
+        }
+      ]
+    }
+  ]
+}
