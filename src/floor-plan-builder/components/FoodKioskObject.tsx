@@ -61,6 +61,35 @@ function useMenuTexture(menu: string) {
   return texture;
 }
 
+function useQueueLabel() {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 96;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return null;
+    }
+    context.clearRect(0, 0, 512, 96);
+    context.strokeStyle = '#2563EB';
+    context.lineWidth = 6;
+    context.setLineDash([18, 12]);
+    context.strokeRect(6, 6, 500, 84);
+    context.setLineDash([]);
+    context.fillStyle = '#2563EB';
+    context.font = '700 34px Arial, sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('QUEUE CLEAR ZONE', 256, 50, 470);
+    const value = new CanvasTexture(canvas);
+    value.colorSpace = SRGBColorSpace;
+    value.anisotropy = 4;
+    return value;
+  }, []);
+  useEffect(() => () => texture?.dispose(), [texture]);
+  return texture;
+}
+
 function useForkBadge() {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
@@ -129,6 +158,7 @@ export function FoodKioskObject({
   const awning = useAwningTexture();
   const menu = useMenuTexture(object.kioskMenu);
   const fork = useForkBadge();
+  const queueLabel = useQueueLabel();
   const opacity = ghost ? 0.45 : 1;
   const hw = w / 2;
   const hd = d / 2;
@@ -326,6 +356,21 @@ export function FoodKioskObject({
           <meshBasicMaterial map={fork} toneMapped={false} transparent />
         </mesh>
       )}
+      {!ghost && queueLabel && (
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.015, hd + object.kioskQueueDepth / 2]}
+        >
+          <planeGeometry args={[Math.min(w - 0.2, 2.6), 0.5]} />
+          <meshBasicMaterial
+            map={queueLabel}
+            toneMapped={false}
+            transparent
+            opacity={0.9}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
       {topDown && (
         <>
           <Line
@@ -356,6 +401,17 @@ export function FoodKioskObject({
             lineWidth={1.5}
             dashed
           />
+          {Array.from({ length: 7 }, (_, i) => (
+            <Line
+              key={`hatch-${i}`}
+              points={[
+                [-hw + ((i + 0.5) * w) / 7, 0.1, hd - 0.15],
+                [-hw + ((i + 0.5) * w) / 7, 0.1, hd + 0.85],
+              ]}
+              color={i % 2 ? '#2563EB' : '#F8F9FA'}
+              lineWidth={2}
+            />
+          ))}
           <mesh position={[entry[0], 0.05, entry[1]]} rotation={[-Math.PI / 2, 0, 0]}>
             <coneGeometry args={[0.2, 0.6, 3]} />
             <meshBasicMaterial color="#2563EB" toneMapped={false} />
