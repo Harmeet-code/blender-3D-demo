@@ -119,3 +119,18 @@ archive/blender-ref/src/
 archive/blender-ref/public/
 archive/blender-ref/scripts/
 archive/legacy-2026-10-14/payload/
+
+# Keep the reviewed floor-plan specifications; other Kiro state stays local.
+!.kiro/
+.kiro/*
+!.kiro/specs/
+.kiro/specs/*
+!.kiro/specs/admin-floor-plan-builder/
+.kiro/specs/admin-floor-plan-builder/*
+!.kiro/specs/admin-floor-plan-builder/*.md
+!.kiro/specs/admin-floor-plan-builder/snapshots/
+.kiro/specs/admin-floor-plan-builder/snapshots/*
+!.kiro/specs/admin-floor-plan-builder/snapshots/kiro-before-rewrite/
+!.kiro/specs/admin-floor-plan-builder/snapshots/condensed-before-restoration/
+.kiro/specs/admin-floor-plan-builder/snapshots/*/*
+!.kiro/specs/admin-floor-plan-builder/snapshots/*/*.md

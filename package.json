@@ -6,6 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:floor-plan": "vite --config src/floor-plan-builder/vite.config.ts --host 127.0.0.1",
+    "build:floor-plan": "tsc -p src/floor-plan-builder/tsconfig.json && vite build --config src/floor-plan-builder/vite.config.ts",
+    "preview:floor-plan": "vite preview --config src/floor-plan-builder/vite.config.ts --host 127.0.0.1",
     "dev:frontend": "vite",
     "dev:server": "bun --watch src/server/app/server.ts",
     "dev:all": "concurrently -n web,server -c blue,green \"bun run dev:frontend\" \"bun run dev:server\"",
