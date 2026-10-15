@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
+import type { BufferGeometry } from 'three';
 import {
   CanvasTexture,
   CatmullRomCurve3,
   DoubleSide,
+  ExtrudeGeometry,
+  Shape,
   SRGBColorSpace,
   Vector3,
   type Group,
@@ -83,6 +86,25 @@ export function InformationObject({
   });
 
   const badge = useInfoBadge();
+  const rack = useMemo(() => {
+    const profile = new Shape();
+    profile.moveTo(-0.175, 0);
+    profile.lineTo(0.175, 0);
+    profile.lineTo(0.175, 0.12);
+    profile.lineTo(0.05, 0.12);
+    profile.lineTo(0.05, 0.24);
+    profile.lineTo(-0.07, 0.24);
+    profile.lineTo(-0.07, 0.36);
+    profile.lineTo(-0.175, 0.36);
+    profile.closePath();
+    const geometry: BufferGeometry = new ExtrudeGeometry(profile, {
+      depth: 0.25,
+      bevelEnabled: false,
+    });
+    geometry.translate(0, 0, -0.125);
+    return geometry;
+  }, []);
+  useEffect(() => () => rack.dispose(), [rack]);
   const lampCurve = useMemo(
     () =>
       new CatmullRomCurve3([
@@ -214,25 +236,18 @@ export function InformationObject({
         </mesh>
       )}
       <group position={[standingX, INFO_COUNTER_HEIGHT + 0.02, counterZ - 0.1]}>
-        {[0, 1, 2].map((tier) => (
-          <mesh
-            key={tier}
-            position={[0, 0.08 + tier * 0.12, -tier * 0.06]}
-            rotation={[-0.25, 0, 0]}
-          >
-            <boxGeometry args={[0.35, 0.12, 0.02]} />
-            <meshPhysicalMaterial
-              color="#F8F9FA"
-              roughness={0.1}
-              transmission={ghost ? 0 : 0.9}
-              thickness={0.01}
-              transparent
-              opacity={ghost ? 0.45 : 0.6}
-              depthWrite={false}
-              side={DoubleSide}
-            />
-          </mesh>
-        ))}
+        <mesh geometry={rack} castShadow>
+          <meshPhysicalMaterial
+            color="#F8F9FA"
+            roughness={0.1}
+            transmission={ghost ? 0 : 0.9}
+            thickness={0.01}
+            transparent
+            opacity={ghost ? 0.45 : 0.6}
+            depthWrite={false}
+            side={DoubleSide}
+          />
+        </mesh>
         {near &&
           ['#EF4444', '#F59E0B', '#06B6D4'].map((paper, index) => (
             <mesh
@@ -363,10 +378,16 @@ export function InformationObject({
             </mesh>
           ))}
           {badge && (
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, signY + 0.21, 0]}>
-              <circleGeometry args={[0.38, 20]} />
-              <meshBasicMaterial color="#06B6D4" toneMapped={false} transparent opacity={0.9} />
-            </mesh>
+            <>
+              <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, signY + 0.21, 0]}>
+                <circleGeometry args={[0.38, 20]} />
+                <meshBasicMaterial color="#06B6D4" toneMapped={false} transparent opacity={0.9} />
+              </mesh>
+              <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, signY + 0.22, 0]}>
+                <planeGeometry args={[0.55, 0.55]} />
+                <meshBasicMaterial map={badge} toneMapped={false} transparent />
+              </mesh>
+            </>
           )}
           <mesh position={[customer[0], 0.05, customer[1]]} rotation={[-Math.PI / 2, 0, 0]}>
             <coneGeometry args={[0.12, 0.3, 3]} />

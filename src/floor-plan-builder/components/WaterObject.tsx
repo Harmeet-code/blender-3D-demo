@@ -80,10 +80,11 @@ function useBottleCount() {
     context.fillStyle = '#0A0F0A';
     context.fillRect(0, 0, 256, 64);
     context.fillStyle = '#22FF88';
-    context.font = '600 26px monospace';
+    context.font = '600 24px monospace';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText('SAVED: 12,480', 128, 32, 240);
+    context.fillText('SAVED: 12,480', 128, 18, 240);
+    context.fillText('BOTTLES', 128, 46, 240);
     const value = new CanvasTexture(canvas);
     value.colorSpace = SRGBColorSpace;
     return value;
@@ -187,11 +188,21 @@ export function WaterObject({
         <boxGeometry args={[0.05, 0.03, 0.01]} />
         <meshBasicMaterial color="#FF4444" toneMapped={false} />
       </mesh>
-      <mesh position={[-0.1, WATER_BASIN_HEIGHT - 0.075, 0.22]} castShadow receiveShadow>
+      <mesh
+        position={[-0.1, WATER_BASIN_HEIGHT - 0.075, 0.22]}
+        scale={[0.89, 1, 1]}
+        castShadow
+        receiveShadow
+      >
         <cylinderGeometry args={[0.225, 0.19, 0.15, 20]} />
         <meshStandardMaterial color="#C0C4C8" {...steel} transparent={ghost} opacity={opacity} />
       </mesh>
-      <mesh position={[0.25, WATER_ACCESSIBLE_HEIGHT - 0.075, 0.22]} castShadow receiveShadow>
+      <mesh
+        position={[0.25, WATER_ACCESSIBLE_HEIGHT - 0.075, 0.22]}
+        scale={[0.89, 1, 1]}
+        castShadow
+        receiveShadow
+      >
         <cylinderGeometry args={[0.225, 0.19, 0.15, 20]} />
         <meshStandardMaterial color="#C0C4C8" {...steel} transparent={ghost} opacity={opacity} />
       </mesh>

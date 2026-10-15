@@ -242,6 +242,22 @@ export function FirstAidObject({
             <meshBasicMaterial map={cross} toneMapped={false} transparent />
           </mesh>
         )}
+        {!ghost && near && (
+          <group name="MedBox" position={[0.35, 0.85, -0.55]}>
+            <mesh castShadow>
+              <boxGeometry args={[0.25, 0.18, 0.12]} />
+              <meshStandardMaterial color="#F8F9FA" roughness={0.6} />
+            </mesh>
+            <mesh position={[0, 0, 0.062]}>
+              <boxGeometry args={[0.14, 0.045, 0.005]} />
+              <meshStandardMaterial color="#EF4444" roughness={0.5} />
+            </mesh>
+            <mesh position={[0, 0, 0.062]}>
+              <boxGeometry args={[0.045, 0.14, 0.005]} />
+              <meshStandardMaterial color="#EF4444" roughness={0.5} />
+            </mesh>
+          </group>
+        )}
       </group>
       <mesh position={[w / 4, h + 0.075, d / 4]}>
         <cylinderGeometry args={[0.08, 0.1, 0.15, 12]} />

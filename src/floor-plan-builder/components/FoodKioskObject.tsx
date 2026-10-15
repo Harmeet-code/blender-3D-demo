@@ -50,7 +50,8 @@ function useMenuTexture(menu: string) {
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.font = '600 40px Arial, sans-serif';
-    context.fillText(menu.slice(0, 64), 560, 96, 820);
+    const line = menu.length > 64 ? `${menu.slice(0, 63)}…` : menu;
+    context.fillText(line, 560, 96, 820);
     const value = new CanvasTexture(canvas);
     value.colorSpace = SRGBColorSpace;
     value.anisotropy = 4;
@@ -253,6 +254,25 @@ export function FoodKioskObject({
           <boxGeometry args={[0.5, 0.4, 0.4]} />
           <meshStandardMaterial color="#C0C4C8" {...steel} transparent={ghost} opacity={opacity} />
         </mesh>
+        {near && (
+          <>
+            {[-0.12, 0.12].map((x) => (
+              <mesh key={`dial-${x}`} position={[x, 0.32, 0.205]} rotation={[Math.PI / 2, 0, 0]}>
+                <cylinderGeometry args={[0.035, 0.035, 0.012, 12]} />
+                <meshStandardMaterial
+                  color="#F8F9FA"
+                  roughness={0.3}
+                  transparent={ghost}
+                  opacity={opacity}
+                />
+              </mesh>
+            ))}
+            <mesh position={[0, 0.32, 0.212]}>
+              <boxGeometry args={[0.005, 0.025, 0.005]} />
+              <meshBasicMaterial color="#EF4444" toneMapped={false} />
+            </mesh>
+          </>
+        )}
         {near &&
           [-0.1, 0.1].map((x) => (
             <mesh key={x} position={[x, 0.05, 0.22]}>
