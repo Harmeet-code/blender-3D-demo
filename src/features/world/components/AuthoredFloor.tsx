@@ -15,6 +15,7 @@ import {
 } from 'three';
 import { useThree } from '@react-three/fiber';
 import { sourceToMetres } from '@/features/building/model/floor-coordinates.ts';
+import { fitFloorImage } from '@/features/building/model/floor-image-fit.ts';
 import { RigidBody, CuboidCollider, ConvexHullCollider } from '@react-three/rapier';
 import type { Floor } from '@/features/building/model/building-schema.ts';
 import { useLayoutStore } from '@/features/building/model/layout-store.ts';
@@ -31,6 +32,7 @@ import {
 import mapPyramids from '@/assets/metadata/floor-tiles.v1.json';
 import type { TilePyramid } from '@/features/building/model/floor-tiles.ts';
 import { TiledUnderlay } from './TiledUnderlay.tsx';
+import { ProceduralObject } from '@/floor-plan-builder/components/ProceduralObject.tsx';
 import { frameRuntime } from '../model/frame-runtime.ts';
 import { AuthoredFeatures } from './AuthoredFeatures.tsx';
 import {
@@ -126,21 +128,30 @@ function AuthoredInstanceView({
   const physical = authoredInstancePhysical(item);
   return (
     <>
-      <group position={[item.position[0], 0, item.position[1]]} rotation-y={item.yawRadians}>
-        {item.assetId ? (
-          <AssetInstance
-            id={item.assetId}
-            scale={physical.scale}
-            placementId={`authored:${floorId}:${item.id}`}
-          />
-        ) : (
-          item.url && (
-            <group scale={item.scale}>
-              <Glb url={item.url} center dimensions={item.dimensions} />
-            </group>
-          )
-        )}
-      </group>
+      {physical.managedObject ? (
+        <ProceduralObject
+          object={physical.managedObject}
+          color={physical.managedObject.color}
+          selected={false}
+          ghost={false}
+        />
+      ) : (
+        <group position={[item.position[0], 0, item.position[1]]} rotation-y={item.yawRadians}>
+          {item.assetId ? (
+            <AssetInstance
+              id={item.assetId}
+              scale={physical.scale}
+              placementId={`authored:${floorId}:${item.id}`}
+            />
+          ) : (
+            item.url && (
+              <group scale={item.scale}>
+                <Glb url={item.url} center dimensions={item.dimensions} />
+              </group>
+            )
+          )}
+        </group>
+      )}
       {!dollhouse && item.collidable && (
         <RigidBody type="fixed" colliders={false}>
           {physical.boxes.map((box, i) =>
@@ -198,24 +209,41 @@ function Underlay({ floor }: { floor: Floor }) {
   const imageSize = source?.authoring?.imageSize;
   const calibration = source?.coordinateSystem;
   const geometry = useMemo(() => {
-    if (!imageSize || calibration?.units !== 'pixels') {
+    if (!imageSize) {
       return null;
     }
-    const [w, h] = imageSize;
-    const points: [number, number][] = [
-      [0, 0],
-      [w, 0],
-      [w, h],
-      [0, h],
-    ];
+    let points: [number, number][];
+    if (calibration?.units === 'pixels') {
+      const [w, h] = imageSize;
+      const pixelPoints: [number, number][] = [
+        [0, 0],
+        [w, 0],
+        [w, h],
+        [0, h],
+      ];
+      points = pixelPoints.map((point) => sourceToMetres(point, calibration));
+    } else {
+      const fit = fitFloorImage(
+        source?.authoring?.boundary ?? floor.authoring?.boundary ?? [],
+        imageSize,
+      );
+      if (!fit) {
+        return null;
+      }
+      const halfWidth = fit.width / 2;
+      const halfDepth = fit.depth / 2;
+      points = [
+        [fit.center[0] - halfWidth, fit.center[1] - halfDepth],
+        [fit.center[0] + halfWidth, fit.center[1] - halfDepth],
+        [fit.center[0] + halfWidth, fit.center[1] + halfDepth],
+        [fit.center[0] - halfWidth, fit.center[1] + halfDepth],
+      ];
+    }
     const g = new BufferGeometry();
     g.setAttribute(
       'position',
       new Float32BufferAttribute(
-        points.flatMap((p) => {
-          const [x, z] = sourceToMetres(p, calibration);
-          return [x, 0.006, z];
-        }),
+        points.flatMap(([x, z]) => [x, 0.006, z]),
         3,
       ),
     );
@@ -223,7 +251,7 @@ function Underlay({ floor }: { floor: Floor }) {
     g.setIndex([0, 2, 1, 0, 3, 2]);
     g.computeVertexNormals();
     return g;
-  }, [imageSize, calibration]);
+  }, [imageSize, calibration, floor.authoring?.boundary, source?.authoring?.boundary]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
   return geometry ? (
     <group>

@@ -5,7 +5,6 @@ import { useWorldStore } from '@/features/viewer/model/viewer-store.ts';
 import { useLayoutStore } from '@/features/building/model/layout-store.ts';
 import { useAssetDiagnostics } from './AssetDiagnostics.tsx';
 import { FixedStepClock, frameRuntime } from '../model/frame-runtime.ts';
-import { QualityGovernor, useGraphicsQuality } from '../model/graphics-quality.ts';
 import { drainUploads, cancelUploads } from '../model/upload-admission.ts';
 import { manualLocomotion } from '@/features/viewer/model/manual-locomotion.ts';
 
@@ -17,8 +16,6 @@ export function FrameCoordinator() {
   const physicsUntil = useRef(performance.now() + 300);
   const resumed = useRef(true);
   const contextLost = useRef(false);
-  const governor = useRef(new QualityGovernor());
-  const previousFrame = useRef(0);
   useEffect(() => {
     const wake = () => {
       if (!document.hidden) {
@@ -109,22 +106,6 @@ export function FrameCoordinator() {
     }
     drainUploads();
     const state = useWorldStore.getState();
-    const now = performance.now();
-    const consecutive = previousFrame.current > 0 && now - previousFrame.current < 2000;
-    previousFrame.current = now;
-    if (
-      consecutive &&
-      frameRuntime.active() &&
-      useGraphicsQuality.getState().mode === 'auto' &&
-      !state.diagnosticsEnabled
-    ) {
-      governor.current.tier = useGraphicsQuality.getState().tier;
-      const tier = governor.current.observe(delta * 1000);
-      if (tier !== useGraphicsQuality.getState().tier) {
-        useGraphicsQuality.setState({ tier });
-        gl.shadowMap.needsUpdate = true;
-      }
-    }
     let dynamic = false;
     world.forEachActiveRigidBody((body) => {
       if (body.isDynamic() && !body.isSleeping()) {

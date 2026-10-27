@@ -18,7 +18,6 @@ import type { Logo } from '@/features/assets/model/branding.ts';
 import { BrandingSurface } from '@/features/assets/components/BrandingSurface.tsx';
 import { frameRuntime } from '@/features/world/model/frame-runtime.ts';
 import { useReducedMotion } from '@/features/world/hooks/use-reduced-motion.ts';
-import { useGraphicsQuality } from '@/features/world/model/graphics-quality.ts';
 export function AssetPlaceholder({
   statusId,
   metadata,
@@ -71,11 +70,9 @@ export function AssetLoad({
   children: (url: string, metadata: AssetMetadata) => ReactNode;
   fallback?: ReactNode | ((phase: 'loading' | 'error' | 'rollback') => ReactNode);
 }) {
-  const lowQuality = useWorldStore((s) => s.lowQuality);
-  const tier = useGraphicsQuality((s) => s.tier);
   const geometryFallback = useWorldStore((s) => s.geometryFallback);
   const revision = useAssetStatus((s) => s.revision);
-  const resolved = resolveAsset(id, version, lowQuality || tier === 'efficient');
+  const resolved = resolveAsset(id, version, false);
   const customFallback = (phase: 'loading' | 'error' | 'rollback') =>
     typeof fallback === 'function' ? fallback(phase) : fallback;
   if (resolved.isErr() || geometryFallback) {

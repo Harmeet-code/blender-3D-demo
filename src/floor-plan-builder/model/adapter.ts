@@ -16,37 +16,17 @@ import {
   type PlanObject,
 } from './types.ts';
 import { rectangle } from './inventory.ts';
-import { footprint, toLocal, gateEdge } from './geometry.ts';
+import { footprint, toLocal, gateEdge, objectPoints } from './geometry.ts';
 import { referencePoint, referenceYaw } from './coordinates.ts';
 import { boothEdges } from './booth.ts';
 import { circulationEntry, circulationLinkError } from './circulation.ts';
-
-export const RECIPE_PREFIX = 'fpb:v1:';
-export function encodeRecipe(object: PlanObject): string {
-  const data = objectSchema.parse(object);
-  const value = RECIPE_PREFIX + encodeURIComponent(JSON.stringify(data));
-  if (value.length > 65536) {
-    throw new Error(`${object.name}: metadata exceeds the supported size.`);
-  }
-  return value;
-}
-export function decodeRecipe(value: string): PlanObject | null {
-  if (!value.startsWith('fpb:')) {
-    return null;
-  }
-  if (!value.startsWith(RECIPE_PREFIX) || value.length > 65536) {
-    throw new Error(
-      'Unsupported or oversized procedural recipe. Keep the source document for recovery.',
-    );
-  }
-  try {
-    return objectSchema.parse(JSON.parse(decodeURIComponent(value.slice(RECIPE_PREFIX.length))));
-  } catch {
-    throw new Error(
-      'Damaged procedural recipe metadata. Import was stopped to preserve the original document.',
-    );
-  }
-}
+import { infoCustomerNode } from './information.ts';
+import { kioskQueueEntryLocal } from './kiosk.ts';
+import { waterApproachNode } from './water.ts';
+import { firstAidEntryLocal } from './firstaid.ts';
+import { exitSinkLocal } from './exit.ts';
+export { decodeRecipe, decodeManagedObject, encodeRecipe, RECIPE_PREFIX } from './recipe-codec.ts';
+import { decodeManagedObject, decodeRecipe, encodeRecipe } from './recipe-codec.ts';
 export function blankFloor(name = 'Ground floor', heightOffset = 0): PlanFloor {
   return {
     referenceCoordinates: { units: 'meters' },
@@ -146,21 +126,11 @@ export function decodeLayout(input: unknown): PlanDocument {
       ),
     };
     for (const instance of source.authoring?.instances ?? []) {
-      const metadata = instance.assetId ? decodeRecipe(instance.assetId) : null;
-      floor.objects.push(
-        metadata
-          ? {
-              ...metadata,
-              id: instance.id,
-              position: convert(instance.position),
-              yawRadians: instance.yawRadians,
-              scale: instance.scale,
-              dimensions: instance.dimensions,
-              collidable: instance.collidable,
-              managed: true,
-            }
-          : legacyObject(instance, floor),
-      );
+      const metadata = decodeManagedObject(instance.assetId, {
+        ...instance,
+        position: convert(instance.position),
+      });
+      floor.objects.push(metadata ?? legacyObject(instance, floor));
     }
     for (const room of baseline.rooms.filter(
       (item) => item.floorId === source.id && item.type === 'booth',
@@ -299,6 +269,24 @@ export function portalLanding(object: PlanObject): [number, number] {
   }
   if (object.legacyPortalLanding) {
     return object.position;
+  }
+  const service =
+    object.recipe === 'information'
+      ? infoCustomerNode(object)
+      : object.recipe === 'food-kiosk'
+        ? kioskQueueEntryLocal(object)
+        : object.recipe === 'water'
+          ? waterApproachNode()
+          : object.recipe === 'first-aid'
+            ? firstAidEntryLocal(object)
+            : object.recipe === 'exit'
+              ? exitSinkLocal()
+              : null;
+  if (service) {
+    // Interaction markers sit close to hardware. Route destinations need whole-avatar clearance.
+    return objectPoints(object, [
+      [service[0], Math.max(service[1], object.dimensions[2] / 2 + 0.55)],
+    ])[0]!;
   }
   const entrance = gateEntrance(object);
   return [

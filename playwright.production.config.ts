@@ -8,9 +8,10 @@ export default defineConfig({
   timeout: 60_000,
   use: { baseURL: 'http://127.0.0.1:5174', trace: 'retain-on-failure' },
   webServer: {
-    command: 'bun run preview --port 5174 --host 127.0.0.1 --base /floorplan/',
+    command: 'bun start --production',
+    env: { FRONTEND_PORT: '5174' },
     url: 'http://127.0.0.1:5174/floorplan/',
-    reuseExistingServer: true,
-    timeout: 60_000,
+    reuseExistingServer: false,
+    timeout: 180_000,
   },
 });

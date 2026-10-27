@@ -1,5 +1,31 @@
 # blender-3D-demo
 
+## Run the app
+
+```powershell
+bun install
+bun start
+```
+
+One launcher starts the frontend on http://127.0.0.1:5175/ and backend on
+http://127.0.0.1:8000/, with hot reload in development.
+
+```powershell
+bun start --production
+```
+
+Production builds both services, then serves the compiled frontend at
+http://127.0.0.1:5175/floorplan/ and the compiled backend on port 8000,
+without watchers or Vite's preview server. Set `NODE_ENV=production` to select
+the same mode without the flag. `bun run build` builds both without starting them.
+
+Keep the terminal open; Ctrl+C stops the services this launcher started.
+Stop development before starting production: production refuses occupied ports
+rather than reusing development services. Database and Redis connections remain
+optional and use the existing environment configuration; the launcher does not
+start Docker or run migrations. These servers bind to loopback; deploy behind
+your HTTPS reverse proxy for external access. Preserve local data directories.
+
 ## Frontend structure
 
 The browser app is rooted at `src/`:

@@ -16,7 +16,6 @@ import { tileBounds, type TilePyramid } from '@/features/building/model/floor-ti
 import { sourceToMetres } from '@/features/building/model/floor-coordinates.ts';
 import { retainTile } from '../model/tile-cache.ts';
 import { frameRuntime } from '../model/frame-runtime.ts';
-import { useGraphicsQuality } from '../model/graphics-quality.ts';
 import { mediaUrl } from '@/features/layout-editor/api/media-client.ts';
 import { scheduleUpload } from '../model/upload-admission.ts';
 type Patch = { level: number; x: number; y: number };
@@ -216,7 +215,7 @@ export function TiledUnderlay({
         }
       }
     }
-    const limit = useGraphicsQuality.getState().tier === 'efficient' ? 12 : 32;
+    const limit = 32;
     const next = visible
       .sort((a, b) => a.distance - b.distance)
       .slice(0, limit)

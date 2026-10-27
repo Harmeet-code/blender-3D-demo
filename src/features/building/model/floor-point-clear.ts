@@ -5,6 +5,7 @@ import { authoredWallBoxes } from './authored-walls.ts';
 import { authoredInstancePhysical } from './authored-instance-physical.ts';
 import { boothPhysical, boxFootprint, type PhysicalBox } from './booth-physical.ts';
 import { wallHeightFor, wallSpans } from './wall-spans.ts';
+import { managedBoothInstanceIds } from './managed-plan-object.ts';
 import {
   boundsOverlap,
   prepareArea,
@@ -37,8 +38,9 @@ function floorClearance(layout: NormalizedLayout, floorId: string): FloorClearan
     return null;
   }
   const boxes = (authored.walls ?? []).flatMap(authoredWallBoxes);
+  const managedBooths = floor ? managedBoothInstanceIds(floor) : new Set<string>();
   for (const room of layout.rooms) {
-    if (room.floorId !== floorId) {
+    if (room.floorId !== floorId || managedBooths.has(room.id)) {
       continue;
     }
     if (room.type === 'booth') {

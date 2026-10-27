@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { useStore } from 'zustand';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { uploadMedia } from '@/features/layout-editor/api/media-client.ts';
+import { uploadBuilderMedia } from '@/features/layout-editor/api/media-client.ts';
 import {
   Dialog,
   DialogContent,
@@ -13,10 +16,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { polygonBounds } from '@/utils/geometry/polygon.ts';
-import { activeFloor, resizeObject, unfinished, type StudioStore } from '../model/store.ts';
+import { activeFloor, unfinished, type StudioStore } from '../model/store.ts';
+import { resizeObjectSafely, rampResizeLimits } from '../model/geometry.ts';
 import {
   isBooth,
   isConnector,
+  isShellStructure,
   objectSchema,
   polygonSchema,
   type PlanFloor,
@@ -56,6 +61,8 @@ function NumberInput({
     <Field label={label}>
       <Input
         aria-label={label}
+        title="Enter to apply · Escape to discard"
+        aria-keyshortcuts="Enter Escape"
         disabled={disabled}
         type="number"
         step={step}
@@ -195,13 +202,44 @@ function Vertices({
 }
 function ObjectFields({ store, object }: { store: StudioStore; object: PlanObject }) {
   const landing = object.targetLanding ?? [5, 5];
-  const state = store(),
-    patch = state.patchObject;
+  const shellDesign = isBooth(object) || isShellStructure(object);
+  // The object form only reacts to the fields it edits, not to the pointer preview.
+  const state = useStore(
+    store,
+    useShallow((value) => ({
+      document: value.document,
+      floorId: value.floorId,
+      pendingObject: value.pendingObject,
+      pendingObjects: value.pendingObjects,
+      pendingZone: value.pendingZone,
+      pendingZones: value.pendingZones,
+      pendingFloor: value.pendingFloor,
+      pendingRemoval: value.pendingRemoval,
+      drawing: value.drawing,
+      apply: value.apply,
+      cancel: value.cancel,
+      patchObject: value.patchObject,
+      patchZone: value.patchZone,
+      focus: value.focus,
+      toggleLock: value.toggleLock,
+      linkConnector: value.linkConnector,
+      unlinkConnector: value.unlinkConnector,
+      setFloor: value.setFloor,
+      setTool: value.setTool,
+      remove: value.remove,
+    })),
+  );
+  const patch = state.patchObject;
   const validation = objectSchema.safeParse(object);
+  const safeConnectorPreset = ['stairs', 'elevator', 'escalator'].includes(object.recipe);
+  const isRamp = object.recipe === 'ramp';
+  const rampLimits = isRamp ? rampResizeLimits(object) : null;
+  const wallLike = /wall|barrier|fence/i.test(object.recipe);
+  const dimensionLabels = wallLike ? ['Length (m)', 'Height (m)', 'Thickness (m)'] : ['Width (m)', 'Height (m)', 'Depth (m)'];
   const dimension = (axis: number, value: number) => {
     const dimensions = [...object.dimensions] as [number, number, number];
     dimensions[axis] = value;
-    patch(resizeObject(object, ...dimensions));
+    patch(resizeObjectSafely(object, ...dimensions));
   };
   return (
     <div className="fp-form">
@@ -217,6 +255,24 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
       <Button size="sm" variant="outline" onClick={state.focus}>
         Focus object
       </Button>
+      <Button
+        size="sm"
+        variant={object.locked ? 'secondary' : 'outline'}
+        aria-label={object.locked ? 'Unlock object' : 'Lock object'}
+        aria-pressed={object.locked}
+        disabled={!object.managed}
+        title={object.managed ? undefined : 'Imported references cannot be locked in this editor'}
+        onClick={() => state.toggleLock({ kind: 'object', id: object.id })}
+      >
+        {object.locked ? 'Unlock object' : 'Lock object'}
+      </Button>
+      {object.locked && (
+        <p className="fp-muted">Locked objects stay out of marquee selection and bulk edits.</p>
+      )}
+      {!object.managed && (
+        <p className="fp-muted">Imported reference objects cannot be locked in this editor.</p>
+      )}
+      <fieldset disabled={object.locked} className="contents" aria-label="Object properties">
       <Field label="Name">
         <Input
           aria-label="Object name"
@@ -256,32 +312,38 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
         />
       </div>
       <div className="fp-three">
-        {['Width (m)', 'Height (m)', 'Depth (m)'].map((label, axis) => (
+        {dimensionLabels.map((label, axis) => (
           <NumberInput
             key={label}
             label={label}
             value={object.dimensions[axis]!}
             disabled={
-              axis === 2 &&
-              Boolean(object.circulationDesign?.autoSize) &&
-              object.circulationDesign?.role !== 'upper' &&
-              object.recipe !== 'elevator'
+              (safeConnectorPreset && axis === 1) ||
+              (isRamp && axis === 1) ||
+              (axis === 2 &&
+                Boolean(object.circulationDesign?.autoSize) &&
+                object.circulationDesign?.role !== 'upper' &&
+                object.recipe !== 'elevator')
             }
             min={
-              object.boothDesign
-                ? (axis === 1 ? 2.2 : object.recipe === 'booth' ? 2 : 0.1) / object.scale[axis]!
-                : 0.1
+              rampLimits
+                ? rampLimits[axis === 0 ? 'width' : 'depth'][0]
+                : object.boothDesign
+                  ? (axis === 1 ? 2.2 : object.recipe === 'booth' ? 2 : 0.1) / object.scale[axis]!
+                  : 0.1
             }
             max={
-              object.boothDesign
-                ? (axis === 1
-                    ? object.recipe === 'booth'
-                      ? 4.5
-                      : 6
-                    : object.recipe === 'booth'
-                      ? 12
-                      : 1000) / object.scale[axis]!
-                : 1000
+              rampLimits
+                ? rampLimits[axis === 0 ? 'width' : 'depth'][1]
+                : object.boothDesign
+                  ? (axis === 1
+                      ? object.recipe === 'booth'
+                        ? 4.5
+                        : 6
+                      : object.recipe === 'booth'
+                        ? 12
+                        : 1000) / object.scale[axis]!
+                  : 1000
             }
             onChange={(value) => dimension(axis, value)}
           />
@@ -307,13 +369,16 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
           ))}
         </div>
       )}
-      {!object.circulationDesign && (
+      {safeConnectorPreset && <p className="fp-muted">Connector footprints use safe width/depth presets; height follows the floor rise.</p>}
+      {isRamp && <p className="fp-muted">Ramps keep an accessible slope: {rampLimits?.width[0]}–{rampLimits?.width[1]} m clear width and a 1:12–1:20 run. The rise follows the floor it connects.</p>}
+      {!object.circulationDesign && !isConnector(object.recipe) && (
         <div className="fp-three">
           {['Scale X', 'Scale Y', 'Scale Z'].map((label, axis) => (
             <NumberInput
               key={label}
               label={label}
               value={object.scale[axis]!}
+              disabled={axis === 1 && ['information', 'water'].includes(object.recipe)}
               min={0.01}
               onChange={(value) => {
                 const scale = [...object.scale] as [number, number, number];
@@ -594,9 +659,11 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
           />
         </>
       )}
+      {shellDesign && (
+        <BoothFields object={object} patch={patch} shellStructure={isShellStructure(object)} />
+      )}
       {isBooth(object) && (
         <>
-          <BoothFields object={object} patch={patch} />
           <Vertices
             key={`${object.id}:vertices`}
             value={object.polygon}
@@ -737,6 +804,155 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
           Egress door open (−90° swing, 0.6 s)
         </label>
       )}
+      {object.recipe === 'bench' && (
+        <Field label="Bench variant">
+          <select
+            aria-label="Bench variant"
+            value={object.benchVariant}
+            onChange={(event) => {
+              const benchVariant = event.target.value as PlanObject['benchVariant'];
+              patch({
+                benchVariant,
+                dimensions: [
+                  object.dimensions[0],
+                  benchVariant === 'backed' ? 0.85 : 0.45,
+                  object.dimensions[2],
+                ],
+              });
+            }}
+          >
+            <option value="backed">Backed</option>
+            <option value="backless">Backless</option>
+          </select>
+        </Field>
+      )}
+      {object.recipe === 'table' && (
+        <>
+          <Field label="Table variant">
+            <select
+              aria-label="Table variant"
+              value={object.tableVariant}
+              onChange={(event) => {
+                const tableVariant = event.target.value as PlanObject['tableVariant'];
+                patch({
+                  tableVariant,
+                  dimensions: [
+                    object.dimensions[0],
+                    tableVariant === 'cocktail-standing' ? 1.1 : 0.75,
+                    object.dimensions[2],
+                  ],
+                });
+              }}
+            >
+              <option value="cocktail-standing">Cocktail standing</option>
+              <option value="standard-dining">Standard dining</option>
+              <option value="cloth-draped">Cloth draped</option>
+            </select>
+          </Field>
+          <Field label="Top shape">
+            <select
+              aria-label="Top shape"
+              value={object.tableTop}
+              onChange={(event) =>
+                patch({ tableTop: event.target.value as PlanObject['tableTop'] })
+              }
+            >
+              <option value="round">Round</option>
+              <option value="rectangular">Rectangular</option>
+            </select>
+          </Field>
+          <Field label="Attached chairs">
+            <select
+              aria-label="Attached chairs"
+              value={object.tableChairs}
+              onChange={(event) =>
+                patch({ tableChairs: event.target.value as PlanObject['tableChairs'] })
+              }
+            >
+              <option value="none">None</option>
+              <option value="2-chairs">2 chairs</option>
+              <option value="4-chairs">4 chairs</option>
+            </select>
+          </Field>
+        </>
+      )}
+      {object.recipe === 'barrier' && (
+        <>
+          <Field label="Belt color">
+            <select
+              aria-label="Belt color"
+              value={object.barrierBelt}
+              onChange={(event) =>
+                patch({ barrierBelt: event.target.value as PlanObject['barrierBelt'] })
+              }
+            >
+              <option value="cyan">Wayfinding cyan</option>
+              <option value="blue">Accent blue</option>
+              <option value="red">Warning red</option>
+            </select>
+          </Field>
+          <NumberInput
+            label="Belt sag (m)"
+            value={object.barrierSag}
+            min={0.01}
+            max={0.08}
+            step={0.01}
+            onChange={(barrierSag) => patch({ barrierSag })}
+          />
+        </>
+      )}
+      {object.recipe === 'planter' && (
+        <>
+          <Field label="Foliage variant">
+            <select
+              aria-label="Foliage variant"
+              value={object.planterVariant}
+              onChange={(event) =>
+                patch({ planterVariant: event.target.value as PlanObject['planterVariant'] })
+              }
+            >
+              <option value="tall-tree">Tall tree</option>
+              <option value="hedge-box">Hedge box</option>
+              <option value="flower-shrub">Flower shrub</option>
+            </select>
+          </Field>
+          <NumberInput
+            label="Foliage seed"
+            value={object.planterSeed}
+            min={1}
+            max={9999}
+            step={1}
+            onChange={(planterSeed) => patch({ planterSeed })}
+          />
+        </>
+      )}
+      {object.recipe === 'bin' && (
+        <>
+          <Field label="Waste stream">
+            <select
+              aria-label="Waste stream"
+              value={object.binStream}
+              onChange={(event) =>
+                patch({ binStream: event.target.value as PlanObject['binStream'] })
+              }
+            >
+              <option value="general-waste">General waste</option>
+              <option value="recycling">Recycling</option>
+              <option value="organics">Organics</option>
+            </select>
+          </Field>
+          <Field label="Body finish">
+            <select
+              aria-label="Body finish"
+              value={object.binBody}
+              onChange={(event) => patch({ binBody: event.target.value as PlanObject['binBody'] })}
+            >
+              <option value="dark">Neutral dark</option>
+              <option value="steel">Stainless</option>
+            </select>
+          </Field>
+        </>
+      )}
       {isCirculation(object.recipe) && <CirculationFields object={object} patch={patch} />}
       {isConnector(object.recipe) && (
         <>
@@ -856,12 +1072,35 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
           Discard
         </Button>
       </div>
+      </fieldset>
     </div>
   );
 }
 export function FloorProperties({ store }: { store: StudioStore }) {
-  const state = store(),
-    applied = activeFloor(state),
+  const state = useStore(
+    store,
+    useShallow((value) => ({
+      document: value.document,
+      floorId: value.floorId,
+      pendingFloor: value.pendingFloor,
+      pendingObject: value.pendingObject,
+      pendingObjects: value.pendingObjects,
+      pendingZone: value.pendingZone,
+      pendingZones: value.pendingZones,
+      pendingRemoval: value.pendingRemoval,
+      drawing: value.drawing,
+      revision: value.revision,
+      imageSizes: value.imageSizes,
+      patchFloor: value.patchFloor,
+      apply: value.apply,
+      cancel: value.cancel,
+      notify: value.notify,
+      updateFloor: value.updateFloor,
+      reorderFloor: value.reorderFloor,
+      setTool: value.setTool,
+    })),
+  );
+  const applied = activeFloor(state),
     floor = state.pendingFloor ?? applied;
   const bounds = polygonBounds(floor.boundary),
     originalBounds = polygonBounds(applied.boundary);
@@ -964,7 +1203,7 @@ export function FloorProperties({ store }: { store: StudioStore }) {
             const floorId = applied.source.id,
               { revision } = state;
             setUploading(true);
-            void uploadMedia(file)
+            void uploadBuilderMedia(file)
               .then((uploaded) => {
                 const latest = store.getState(),
                   current = activeFloor(latest);
@@ -1151,8 +1390,40 @@ export function FloorProperties({ store }: { store: StudioStore }) {
   );
 }
 export function Inspector({ store }: { store: StudioStore }) {
-  const state = store(),
-    floor = activeFloor(state),
+  const state = useStore(
+    store,
+    useShallow((value) => ({
+      document: value.document,
+      floorId: value.floorId,
+      selection: value.selection,
+      pendingObject: value.pendingObject,
+      pendingObjects: value.pendingObjects,
+      pendingZone: value.pendingZone,
+      pendingZones: value.pendingZones,
+      pendingFloor: value.pendingFloor,
+      pendingRemoval: value.pendingRemoval,
+      drawing: value.drawing,
+      revision: value.revision,
+      imageSizes: value.imageSizes,
+      apply: value.apply,
+      cancel: value.cancel,
+      notify: value.notify,
+      patchFloor: value.patchFloor,
+      patchObject: value.patchObject,
+      patchZone: value.patchZone,
+      updateFloor: value.updateFloor,
+      reorderFloor: value.reorderFloor,
+      linkConnector: value.linkConnector,
+      unlinkConnector: value.unlinkConnector,
+      setFloor: value.setFloor,
+      setTool: value.setTool,
+      remove: value.remove,
+      focus: value.focus,
+      toggleLock: value.toggleLock,
+      beginDuplicate: value.beginDuplicate,
+    })),
+  );
+  const floor = activeFloor(state),
     { selection } = state;
   if (state.pendingRemoval) {
     return (
@@ -1177,6 +1448,17 @@ export function Inspector({ store }: { store: StudioStore }) {
   if (zone) {
     return (
       <div className="fp-form">
+        <Button
+          size="sm"
+          variant={zone.locked ? 'secondary' : 'outline'}
+          aria-label={zone.locked ? 'Unlock zone' : 'Lock zone'}
+          aria-pressed={zone.locked === true}
+          onClick={() => state.toggleLock({ kind: 'zone', id: zone.id })}
+        >
+          {zone.locked ? 'Unlock zone' : 'Lock zone'}
+        </Button>
+        {zone.locked && <p className="fp-muted">Locked zones stay out of marquee selection and bulk edits.</p>}
+        <fieldset disabled={zone.locked === true} className="contents" aria-label="Zone properties">
         <Field label="Zone name">
           <Input
             aria-label="Zone name"
@@ -1212,13 +1494,14 @@ export function Inspector({ store }: { store: StudioStore }) {
           <Button variant="outline" onClick={() => state.setTool('move')}>
             Move zone
           </Button>
-          <Button variant="outline" onClick={() => state.setTool('duplicate')}>
+          <Button variant="outline" onClick={() => { if (!state.beginDuplicate()) toast.error(store.getState().message); }}>
             Duplicate zone
           </Button>
           <Button variant="outline" onClick={() => state.remove()}>
             Remove zone
           </Button>
         </div>
+        </fieldset>
       </div>
     );
   }

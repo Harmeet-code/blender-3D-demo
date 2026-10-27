@@ -5,5 +5,11 @@
     "source.fixAll": "explicit"
   },
   "typescript.tsdk": "node_modules/typescript/lib",
-  "files.eol": "\n"
+  "files.eol": "\n",
+  "[typescript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  }
 }

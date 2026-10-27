@@ -17,19 +17,15 @@ import {
 } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { useWorldStore } from '@/features/viewer/model/viewer-store.ts';
-import { useGraphicsQuality, type GraphicsMode } from '@/features/world/model/graphics-quality.ts';
 
 /** Display toggles that don't deserve permanent toolbar space. */
 export function ViewOptions() {
-  const graphics = useGraphicsQuality();
   const showLabels = useWorldStore((s) => s.showLabels),
     toggleLabels = useWorldStore((s) => s.toggleLabels);
   const dollhouse = useWorldStore((s) => s.dollhouse);
   const toggleDollhouse = useWorldStore((s) => s.toggleDollhouse);
   const proof = useWorldStore((s) => s.assetProof);
   const toggleProof = useWorldStore((s) => s.toggleAssetProof);
-  const lowQuality = useWorldStore((s) => s.lowQuality);
-  const toggleQuality = useWorldStore((s) => s.toggleQuality);
   const stress = useWorldStore((s) => s.stressPreview);
   const toggleStress = useWorldStore((s) => s.toggleStressPreview);
   const geometryFallback = useWorldStore((s) => s.geometryFallback);
@@ -40,7 +36,7 @@ export function ViewOptions() {
   const toggleDoors = useWorldStore((s) => s.togglePreviewDoors);
   const diagnostics = useWorldStore((s) => s.diagnosticsEnabled),
     toggleDiagnostics = useWorldStore((s) => s.toggleDiagnostics);
-  const activeCount = [dollhouse, proof, lowQuality].filter(Boolean).length;
+  const activeCount = [dollhouse, proof].filter(Boolean).length;
 
   return (
     <Popover>
@@ -57,23 +53,15 @@ export function ViewOptions() {
           <PopoverDescription>How the venue is rendered.</PopoverDescription>
         </PopoverHeader>
         <FieldGroup>
-          <label className="grid gap-2 text-sm">
-            Graphics
-            <select
-              aria-label="Graphics quality"
-              className="rounded-md border bg-background p-2"
-              value={graphics.mode}
-              onChange={(e) => graphics.setMode(e.target.value as GraphicsMode)}
-            >
-              <option value="auto">Automatic ({graphics.tier})</option>
-              <option value="efficient">Efficient</option>
-              <option value="balanced">Balanced</option>
-              <option value="maximum">Maximum</option>
-            </select>
-            <span className="text-xs text-muted-foreground">
-              Detailed models and lighting in every tier.
-            </span>
-          </label>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldTitle>Graphics quality</FieldTitle>
+              <FieldDescription>
+                High detail and lighting stay enabled while you explore.
+              </FieldDescription>
+            </FieldContent>
+            <span className="text-sm font-medium">High</span>
+          </Field>
           <Field orientation="horizontal">
             <FieldContent>
               <FieldTitle>Booth labels</FieldTitle>
@@ -144,13 +132,6 @@ export function ViewOptions() {
               <FieldDescription>Asset-proof layout.</FieldDescription>
             </FieldContent>
             <Switch checked={proof} onCheckedChange={toggleProof} aria-label="Asset preview" />
-          </Field>
-          <Field orientation="horizontal">
-            <FieldContent>
-              <FieldTitle>Low quality</FieldTitle>
-              <FieldDescription>Fewer shadows, lower resolution.</FieldDescription>
-            </FieldContent>
-            <Switch checked={lowQuality} onCheckedChange={toggleQuality} aria-label="Low quality" />
           </Field>
         </FieldGroup>
       </PopoverContent>

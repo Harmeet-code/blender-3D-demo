@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Html, Line } from '@react-three/drei';
+import { Line } from '@react-three/drei';
 import { Vector3, type Group } from 'three';
 import type { PlanObject } from '../model/types.ts';
+import { RouteLabel } from '../wayfinding/rendering/Beacon.tsx';
 
 const DEG = Math.PI / 180;
 
@@ -25,12 +26,14 @@ export function AvatarObject({
   ghost = false,
   topDown = false,
   showPin = false,
+  forceDetail = false,
 }: {
   object: PlanObject;
   color: string;
   ghost?: boolean;
   topDown?: boolean;
   showPin?: boolean;
+  forceDetail?: boolean;
 }) {
   void color;
   const skin = object.avatarSkin;
@@ -47,7 +50,7 @@ export function AvatarObject({
   const lock: [number, number, number] = [1 / sx, 1 / sy, 1 / sz];
 
   useFrame(({ camera }, delta) => {
-    if (root.current) {
+    if (root.current && !forceDetail) {
       root.current.getWorldPosition(world);
       const distance = camera.position.distanceTo(world);
       if (near && distance > 16) {
@@ -56,7 +59,7 @@ export function AvatarObject({
         setNear(true);
       }
     }
-    if (object.avatarAnimated && !ghost && upper.current) {
+    if (object.avatarAnimated && !ghost && !forceDetail && upper.current) {
       const reduced =
         typeof window !== 'undefined' &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -74,7 +77,7 @@ export function AvatarObject({
   const skinMat = { color: skin, roughness: 0.6, metalness: 0 };
   const clothMat = { color: clothing, roughness: 0.8, metalness: 0 };
 
-  if (!near && !topDown) {
+  if (!near && !topDown && !forceDetail) {
     return (
       <group ref={root} name="AvatarFar">
         <group scale={lock}>
@@ -111,7 +114,7 @@ export function AvatarObject({
   return (
     <group ref={root} name="StandingAvatar">
       <group scale={lock}>
-        <group ref={upper} position={[0, -pose.sit, 0]}>
+        <group name="WalkTorso" ref={upper} position={[0, -pose.sit, 0]}>
           <mesh position={[0, 1.12, 0]} castShadow>
             <cylinderGeometry args={[0.18, 0.14, 0.72, 14]} />
             <meshStandardMaterial {...clothMat} transparent={ghost} opacity={opacity} />
@@ -137,7 +140,12 @@ export function AvatarObject({
               { side: 1, swing: pose.armR },
             ] as const
           ).map(({ side, swing }) => (
-            <group key={side} position={[side * 0.22, 1.4, 0]} rotation={[swing, 0, side * -0.06]}>
+            <group
+              name={`WalkArm${side}`}
+              key={side}
+              position={[side * 0.22, 1.4, 0]}
+              rotation={[swing, 0, side * -0.06]}
+            >
               <mesh position={[0, -0.175, 0]} castShadow>
                 <cylinderGeometry args={[0.04, 0.035, 0.35, 10]} />
                 <meshStandardMaterial {...skinMat} transparent={ghost} opacity={opacity} />
@@ -163,26 +171,37 @@ export function AvatarObject({
             { side: 1, swing: pose.legR },
           ] as const
         ).map(({ side, swing }) => (
-          <group key={side} position={[side * 0.1, 0.775 - pose.sit, 0]} rotation={[swing, 0, 0]}>
-            <mesh position={[0, -0.375, 0]} castShadow>
-              <cylinderGeometry args={[0.05, 0.045, 0.75, 10]} />
+          <group
+            name={`WalkHip${side}`}
+            key={side}
+            position={[side * 0.1, 0.81 - pose.sit, 0]}
+            rotation={[swing, 0, 0]}
+          >
+            <mesh position={[0, -0.195, 0]} castShadow>
+              <cylinderGeometry args={[0.05, 0.047, 0.39, 10]} />
               <meshStandardMaterial {...clothMat} transparent={ghost} opacity={opacity} />
             </mesh>
-            {near && (
-              <mesh position={[0, -0.375, 0]}>
+            <group name={`WalkKnee${side}`} position={[0, -0.39, 0]}>
+              <mesh>
                 <sphereGeometry args={[0.052, 8, 6]} />
                 <meshStandardMaterial {...clothMat} transparent={ghost} opacity={opacity} />
               </mesh>
-            )}
-            <mesh position={[0, -0.745, -0.06]} rotation={[-swing, 0, 0]} castShadow>
-              <boxGeometry args={[0.08, 0.06, 0.2]} />
-              <meshStandardMaterial
-                color="#1E2022"
-                roughness={0.9}
-                transparent={ghost}
-                opacity={opacity}
-              />
-            </mesh>
+              <mesh position={[0, -0.195, 0]} castShadow>
+                <cylinderGeometry args={[0.047, 0.04, 0.39, 10]} />
+                <meshStandardMaterial {...clothMat} transparent={ghost} opacity={opacity} />
+              </mesh>
+              <group name={`WalkAnkle${side}`} position={[0, -0.39, 0]} rotation={[-swing, 0, 0]}>
+                <mesh position={[0, 0, -0.04]} castShadow>
+                  <boxGeometry args={[0.09, 0.06, 0.2]} />
+                  <meshStandardMaterial
+                    color="#1E2022"
+                    roughness={0.9}
+                    transparent={ghost}
+                    opacity={opacity}
+                  />
+                </mesh>
+              </group>
+            </group>{' '}
           </group>
         ))}
         {(showPin || object.avatarPin) && !ghost && (
@@ -206,9 +225,7 @@ export function AvatarObject({
                 side={2}
               />
             </mesh>
-            <Html center position={[0, 2.55, 0]} style={{ pointerEvents: 'none' }}>
-              <span className="fp-object-sign">{object.name || 'YOU ARE HERE'}</span>
-            </Html>
+            <RouteLabel at={[0, 2.55, 0]} text={object.name || 'YOU ARE HERE'} />
           </group>
         )}
         {ghost && (

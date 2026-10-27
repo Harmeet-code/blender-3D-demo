@@ -281,7 +281,7 @@ export function TentObject({
   if (!near) {
     return (
       <group ref={root} name="BarnTentFar">
-        <mesh position={[0, eaves / 2, 0]} castShadow>
+        <mesh position={[0, eaves / 2, 0]} castShadow userData={{ routeOccluder: true }}>
           <boxGeometry args={[w, eaves, d]} />
           <meshStandardMaterial
             color={canvasColor}
@@ -292,6 +292,7 @@ export function TentObject({
         </mesh>
         <mesh
           position={[0, (eaves + h) / 2, 0]}
+          userData={{ routeOccluder: true }}
           rotation={[0, Math.PI / 4, 0]}
           scale={[w / Math.SQRT2, h - eaves, d / Math.SQRT2]}
         >
@@ -355,7 +356,7 @@ export function TentObject({
           />
         </mesh>
       )}
-      <mesh geometry={roof} castShadow receiveShadow>
+      <mesh geometry={roof} castShadow receiveShadow userData={{ routeOccluder: true }}>
         <meshPhysicalMaterial
           color={canvasColor}
           roughness={materials.roofCanvas.roughness}

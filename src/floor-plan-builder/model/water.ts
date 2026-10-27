@@ -15,6 +15,9 @@ export function waterDesignError(object: PlanObject): string | null {
     return null;
   }
   const [w, h, d] = object.dimensions;
+  if (Math.abs(object.scale[1] - 1) > 0.0001) {
+    return 'Keep water station Scale Y at 1 to preserve both fixed basin heights.';
+  }
   if (w < 0.5 || w > 0.9 || h < 1.1 || h > 1.4 || d < 0.5 || d > 0.8) {
     return 'Water stations require width/depth 0.5–0.9/0.5–0.8 m and height 1.1–1.4 m.';
   }

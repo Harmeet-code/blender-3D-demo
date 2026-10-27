@@ -1,18 +1,20 @@
 import { create } from 'zustand';
 import { blankDocument, blankFloor, encodeLayout } from './adapter.ts';
-import { createObject, rectangle, uniqueName } from './inventory.ts';
-import { placementError, objectFromDrawing, resizeObject, insideBoundary } from './geometry.ts';
+import { createObject, inventory, nextBoothNumber, rectangle, uniqueName } from './inventory.ts';
+import { placementError, objectFromDrawing, resizeObject, insideBoundary, rotatePosition, transformZonePolygon } from './geometry.ts';
 import { polygonBounds } from '@/utils/geometry/polygon.ts';
 import { prepareFloorEdit } from './floor-edit.ts';
 import { boothPresets, withPreset } from './presets.ts';
 import { inverseStep, reconcileConnectors, restoreStep, type FloorStep } from './history.ts';
 import { transformGroup } from './grouping.ts';
 import { snapBoothPosition } from './booth.ts';
+import { snapBarrierPosition } from './barrier.ts';
 import { fitCirculation, snapCirculation } from './circulation.ts';
 import {
   objectSchema,
   polygonSchema,
   isConnector,
+  isBooth,
   type PlanDocument,
   type PlanFloor,
   type PlanObject,
@@ -28,17 +30,18 @@ interface History {
 }
 interface DraftSnapshot {
   pendingObject: PlanObject | null;
+  pendingObjects: PlanObject[] | null;
   pendingZone: PlanZone | null;
+  pendingZones: PlanZone[] | null;
   pendingFloor: PlanFloor | null;
   pendingRemoval: Selection | null;
   drawing: [number, number][];
   selection: Selection | null;
+  selectionSet: Selection[];
   tool: Tool;
 }
 interface DraftHistory {
   base: DraftSnapshot;
-  undo: DraftSnapshot[];
-  redo: DraftSnapshot[];
 }
 export interface PublicationIssue {
   floorId?: string;
@@ -47,17 +50,21 @@ export interface PublicationIssue {
 }
 const draftSnapshot = (state: DraftSnapshot): DraftSnapshot => ({
   pendingObject: state.pendingObject,
+  pendingObjects: state.pendingObjects,
   pendingZone: state.pendingZone,
+  pendingZones: state.pendingZones,
   pendingFloor: state.pendingFloor,
   pendingRemoval: state.pendingRemoval,
   drawing: state.drawing,
   selection: state.selection,
+  selectionSet: state.selectionSet,
   tool: state.tool,
 });
 export interface StudioState {
   document: PlanDocument;
   floorId: string;
   selection: Selection | null;
+  selectionSet: Selection[];
   selectionHistory: Record<string, { entries: Selection[]; cursor: number }>;
   navigateSelection: (delta: number) => void;
   groupObjects: (ids: string[]) => void;
@@ -73,7 +80,9 @@ export interface StudioState {
   drawing: [number, number][];
   pointer: [number, number] | null;
   pendingObject: PlanObject | null;
+  pendingObjects: PlanObject[] | null;
   pendingZone: PlanZone | null;
+  pendingZones: PlanZone[] | null;
   pendingFloor: PlanFloor | null;
   pendingRemoval: Selection | null;
   draftHistory: Record<string, DraftHistory>;
@@ -94,16 +103,22 @@ export interface StudioState {
   commitFloors: (floors: PlanFloor[]) => boolean;
   load: (document: PlanDocument, dirty?: boolean) => void;
   select: (selection: Selection | null) => boolean;
+  setSelectionSet: (selections: Selection[]) => boolean;
+  toggleSelection: (selection: Selection) => boolean;
   setFloor: (id: string) => boolean;
   setTool: (tool: Tool, recipe?: RecipeId) => void;
+  beginPlacement: (recipe: RecipeId) => boolean;
+  beginDuplicate: () => boolean;
   cancel: () => void;
   addPoint: (point: [number, number]) => void;
   setPointer: (point: [number, number] | null) => void;
   place: (point: [number, number]) => boolean;
   apply: () => boolean;
   patchObject: (updates: Partial<PlanObject>) => void;
+  rotateSelection: (yawDelta: number, preview?: boolean) => boolean;
   patchZone: (updates: Partial<PlanZone>) => void;
   patchFloor: (updates: Partial<PlanFloor>) => void;
+  toggleLock: (selection: Selection) => void;
   remove: (selection?: Selection) => void;
   undo: () => void;
   redo: () => void;
@@ -122,6 +137,38 @@ export function activeFloor(state: Pick<StudioState, 'document' | 'floorId'>): P
     state.document.floors[0]!
   );
 }
+function selectedEntity(floor: PlanFloor, selection: Selection) {
+  return selection.kind === 'object'
+    ? floor.objects.find((object) => object.id === selection.id)
+    : floor.zones.find((zone) => zone.id === selection.id);
+}
+function isLockedSelection(floor: PlanFloor, selection: Selection): boolean {
+  return selectedEntity(floor, selection)?.locked === true;
+}
+function selectionLabel(floor: PlanFloor, selection: Selection): string {
+  return selection.kind === 'object'
+    ? floor.objects.find((object) => object.id === selection.id)?.name ?? 'Selected item'
+    : floor.zones.find((zone) => zone.id === selection.id)?.label ?? 'Selected item';
+}
+/** Shared center of the selected object anchors and zone bounds, excluding locked entities. */
+export function selectionPivot(floor: PlanFloor, selections: Selection[]): [number, number] {
+  const centers = selections.flatMap((selection): [number, number][] => {
+    if (selection.kind === 'object') {
+      const object = floor.objects.find((item) => item.id === selection.id);
+      return object && !object.locked ? [[object.position[0], object.position[1]]] : [];
+    }
+    const zone = floor.zones.find((item) => item.id === selection.id);
+    if (!zone || zone.locked) return [];
+    const bounds = polygonBounds(zone.polygon);
+    return [[(bounds.minX + bounds.maxX) / 2, (bounds.minZ + bounds.maxZ) / 2]];
+  });
+  if (!centers.length) {
+    return [0, 0];
+  }
+  const xs = centers.map(([x]) => x),
+    zs = centers.map(([, z]) => z);
+  return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2];
+}
 function floorNames(floor: PlanFloor, exceptId?: string): string[] {
   return [
     floor.source.name,
@@ -129,26 +176,59 @@ function floorNames(floor: PlanFloor, exceptId?: string): string[] {
     ...floor.zones.filter((zone) => zone.id !== exceptId).map((zone) => zone.label),
   ];
 }
+/**
+ * Move and rotate every selected entity — objects and zones alike — around one shared pivot.
+ * Locked entities are skipped so a protected placement cannot be changed by a bulk edit.
+ */
+function transformSelection(
+  floor: PlanFloor,
+  selectionSet: Selection[],
+  delta: { dx: number; dz: number; yaw: number },
+): { objects: PlanObject[]; zones: PlanZone[] } {
+  const pivot = selectionPivot(floor, selectionSet);
+  const objects: PlanObject[] = [];
+  const zones: PlanZone[] = [];
+  for (const selection of selectionSet) {
+    if (selection.kind === 'object') {
+      const object = floor.objects.find((item) => item.id === selection.id);
+      if (!object || object.locked) {
+        continue;
+      }
+      const rotated = rotatePosition(object.position, pivot, delta.yaw);
+      objects.push({
+        ...object,
+        position: [rotated[0] + delta.dx, rotated[1] + delta.dz],
+        yawRadians: object.yawRadians + delta.yaw,
+        managed: true,
+      });
+    } else {
+      const zone = floor.zones.find((item) => item.id === selection.id);
+      if (!zone || zone.locked) {
+        continue;
+      }
+      zones.push({
+        ...zone,
+        polygon: transformZonePolygon(zone.polygon, delta.dx, delta.dz, delta.yaw, pivot),
+      });
+    }
+  }
+  return { objects, zones };
+}
+
 export function unfinished(
   state: Pick<
     StudioState,
-    | 'drawing'
-    | 'pendingObject'
-    | 'pendingZone'
-    | 'pendingFloor'
-    | 'pendingRemoval'
-    | 'draftHistory'
-    | 'floorId'
+    'drawing' | 'pendingObject' | 'pendingObjects' | 'pendingZone' | 'pendingZones' | 'pendingFloor' | 'pendingRemoval' | 'floorId'
   >,
 ): boolean {
-  const history = state.draftHistory[state.floorId];
   return (
     state.drawing.length > 0 ||
     !!state.pendingObject ||
+    !!state.pendingObjects ||
     !!state.pendingZone ||
+    !!state.pendingZones ||
     !!state.pendingFloor ||
-    !!state.pendingRemoval ||
-    !!(history && (history.undo.length || history.redo.length))
+    !!state.pendingRemoval
   );
 }
 function restoreSavedStep(state: StudioState, direction: 'undo' | 'redo'): Partial<StudioState> {
@@ -170,7 +250,25 @@ function restoreSavedStep(state: StudioState, direction: 'undo' | 'redo'): Parti
             ? { undo: history.undo.slice(0, -1), redo: [...history.redo, inverse] }
             : { undo: [...history.undo, inverse], redo: history.redo.slice(0, -1) },
       },
-      selection: null,
+      // Selection and viewport context are not part of document history. Keep a live selection
+      // across undo/redo; clear it only if the selected record no longer exists in the restored doc.
+      selection:
+        state.selection &&
+        (state.selection.kind === 'object'
+          ? activeFloor({ ...state, document }).objects.some(
+              (item) => item.id === state.selection!.id,
+            )
+          : activeFloor({ ...state, document }).zones.some(
+              (item) => item.id === state.selection!.id,
+            ))
+          ? state.selection
+          : null,
+      selectionSet: state.selection &&
+        (state.selection.kind === 'object'
+          ? activeFloor({ ...state, document }).objects.some((item) => item.id === state.selection!.id)
+          : activeFloor({ ...state, document }).zones.some((item) => item.id === state.selection!.id))
+        ? [state.selection]
+        : [],
       revision: state.revision + 1,
       saveState: 'Unsynced',
       message: direction === 'undo' ? 'Undid active-floor edit.' : 'Redid active-floor edit.',
@@ -186,6 +284,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
     document: initial,
     floorId: initial.floors[0]!.source.id,
     selection: null,
+    selectionSet: [],
     selectionHistory: {},
     navigateSelection: (delta) => {
       const state = get(),
@@ -207,6 +306,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         ) {
           set({
             selection,
+            selectionSet: [selection],
             focusId: selection.id,
             focusTick: state.focusTick + 1,
             selectionHistory: { ...state.selectionHistory, [state.floorId]: { ...trail, cursor } },
@@ -310,26 +410,20 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
     drawing: [],
     pointer: null,
     pendingObject: null,
+    pendingObjects: null,
     pendingZone: null,
+    pendingZones: null,
     pendingFloor: null,
     pendingRemoval: null,
     draftHistory: {},
     stage: (updates) =>
-      set((state) => {
-        const before = draftSnapshot(state),
-          history = state.draftHistory[state.floorId];
-        return {
-          ...updates,
-          draftHistory: {
-            ...state.draftHistory,
-            [state.floorId]: {
-              base: history && (history.undo.length || history.redo.length) ? history.base : before,
-              undo: [...(history?.undo ?? []).slice(-63), before],
-              redo: [],
-            },
-          },
-        };
-      }),
+      set((state) => ({
+        ...updates,
+        draftHistory: {
+          ...state.draftHistory,
+          [state.floorId]: state.draftHistory[state.floorId] ?? { base: draftSnapshot(state) },
+        },
+      })),
     removePoint: () => {
       const state = get();
       if (state.drawing.length) {
@@ -356,6 +450,8 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
     commitFloors: (floors) => {
       const state = get(),
         previous = activeFloor(state);
+      const draftHistory = { ...state.draftHistory };
+      delete draftHistory[previous.source.id];
       const history = state.history[previous.source.id] ?? { undo: [], redo: [] };
       const document = reconcileConnectors({ ...state.document, floors });
       try {
@@ -379,13 +475,12 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         revision: state.revision + 1,
         saveState: 'Unsynced',
         pendingObject: null,
+        pendingObjects: null,
         pendingZone: null,
+        pendingZones: null,
         pendingFloor: null,
         pendingRemoval: null,
-        draftHistory: {
-          ...state.draftHistory,
-          [previous.source.id]: { base: draftSnapshot(state), undo: [], redo: [] },
-        },
+        draftHistory,
         drawing: [],
       });
       return true;
@@ -400,9 +495,12 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           ? state.floorId
           : document.floors[0]!.source.id,
         selection: null,
+        selectionSet: [],
         selectionHistory: {},
         pendingObject: null,
+        pendingObjects: null,
         pendingZone: null,
+        pendingZones: null,
         pendingFloor: null,
         pendingRemoval: null,
         draftHistory: {},
@@ -432,6 +530,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           : (prior?.entries ?? []);
         return {
           selection,
+          selectionSet: selection ? [selection] : [],
           focusId: selection?.id ?? null,
           focusTick: state.focusTick + 1,
           selectionHistory: {
@@ -441,6 +540,41 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         };
       });
       return true;
+    },
+    setSelectionSet: (selections) => {
+      const state = get();
+      if (unfinished(state)) return false;
+      const floor = activeFloor(state);
+      const locked = selections.filter((selection) => isLockedSelection(floor, selection));
+      const unique = selections.filter((selection, index) => {
+        const exists = selection.kind === 'object'
+          ? floor.objects.some((object) => object.id === selection.id && object.managed && !object.locked)
+          : floor.zones.some((zone) => zone.id === selection.id && !zone.locked);
+        return exists && selections.findIndex((item) => item.kind === selection.kind && item.id === selection.id) === index;
+      });
+      if (locked.length) {
+        state.notify(`${locked.map((item) => selectionLabel(floor, item)).join(', ')} stayed locked and was not added to the selection.`);
+      }
+      // Mixed selections need an object anchor for the rotation ring and numeric
+      // transform controls; keep zone-only selections usable as before.
+      const selection = unique.findLast((item) => item.kind === 'object') ?? unique.at(-1) ?? null;
+      set({ selection, selectionSet: unique, focusId: selection?.id ?? null, focusTick: state.focusTick + 1 });
+      return true;
+    },
+    toggleSelection: (selection) => {
+      const state = get();
+      if (unfinished(state)) return false;
+      const current = state.selectionSet.length ? state.selectionSet : state.selection ? [state.selection] : [];
+      const selected = current.some((item) => item.kind === selection.kind && item.id === selection.id);
+      const floor = activeFloor(state);
+      if (!selected && isLockedSelection(floor, selection)) {
+        state.notify(`${selectionLabel(floor, selection)} is locked. Select it directly to unlock it.`);
+        return false;
+      }
+      const next = selected
+        ? current.filter((item) => item.kind !== selection.kind || item.id !== selection.id)
+        : [...current, selection];
+      return get().setSelectionSet(next);
     },
     setFloor: (id) => {
       if (id === get().floorId) {
@@ -453,12 +587,20 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       if (!get().document.floors.some((floor) => floor.source.id === id)) {
         return false;
       }
-      set({ floorId: id, selection: null, tool: 'select', pointer: null, focusId: null });
+      set({ floorId: id, selection: null, selectionSet: [], tool: 'select', pointer: null, focusId: null });
       return true;
     },
     setTool: (tool, recipe) => {
       if (unfinished(get())) {
         set({ message: 'Apply or discard the unfinished edit before changing tool.' });
+        return;
+      }
+      const state = get();
+      const lockedSelection = state.selection && isLockedSelection(activeFloor(state), state.selection)
+        ? state.selection
+        : null;
+      if (lockedSelection && ['move', 'resize'].includes(tool)) {
+        state.notify(`${selectionLabel(activeFloor(state), lockedSelection)} is locked. Unlock it before editing.`);
         return;
       }
       set({
@@ -473,19 +615,84 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
               : `${tool.replaceAll('-', ' ')} mode selected.`,
       });
     },
+    beginPlacement: (recipe) => {
+      const state = get();
+      if (unfinished(state)) {
+        state.notify('Apply or discard the unfinished edit before placing another item.');
+        return false;
+      }
+      if (!inventory.some((item) => item.id === recipe)) {
+        state.notify('That item is unavailable.');
+        return false;
+      }
+      set({
+        tool: 'place',
+        recipe,
+        presetId: null,
+        pointer: null,
+        selection: null,
+        selectionSet: [],
+        focusId: null,
+        message: `Place ${inventory.find((item) => item.id === recipe)!.name}.`,
+      });
+      return true;
+    },
+    beginDuplicate: () => {
+      const state = get();
+      if (unfinished(state)) {
+        state.notify('Apply or discard the unfinished edit before duplicating.');
+        return false;
+      }
+      const floor = activeFloor(state);
+      const requested = state.selectionSet.length
+        ? state.selectionSet
+        : state.selection
+          ? [state.selection]
+          : [];
+      const locked = requested.filter((selection) => isLockedSelection(floor, selection));
+      const eligible = requested.filter((selection) => {
+        if (selection.kind === 'object') {
+          const object = floor.objects.find((item) => item.id === selection.id);
+          return !!object && !object.locked;
+        }
+        const zone = floor.zones.find((item) => item.id === selection.id);
+        return !!zone && !zone.locked;
+      });
+      if (!eligible.length) {
+        state.notify(
+          locked.length
+            ? `${locked.map((item) => selectionLabel(floor, item)).join(', ')} is locked. Unlock it before duplicating.`
+            : 'Select an editable object or zone to duplicate.',
+        );
+        return false;
+      }
+      const primary = eligible.findLast((item) => item.kind === 'object') ?? eligible.at(-1)!;
+      set({
+        tool: 'duplicate',
+        pointer: null,
+        selection: primary,
+        selectionSet: eligible,
+        message: locked.length
+          ? `${locked.map((item) => selectionLabel(floor, item)).join(', ')} stayed locked. Move the copies, then click to place them.`
+          : 'Move the copy, then click to place it.',
+      });
+      return true;
+    },
     cancel: () =>
       set((state) => ({
-        selection:
-          state.draftHistory[state.floorId] &&
-          (state.draftHistory[state.floorId]!.undo.length ||
-            state.draftHistory[state.floorId]!.redo.length)
-            ? state.draftHistory[state.floorId]!.base.selection
-            : state.selection,
+        selection: state.draftHistory[state.floorId]
+          ? state.draftHistory[state.floorId]!.base.selection
+          : state.selection,
+        selectionSet: state.draftHistory[state.floorId]
+          ? state.draftHistory[state.floorId]!.base.selectionSet
+          : state.selectionSet,
         tool: 'select',
         drawing: [],
         pointer: null,
         pendingObject: null,
+        pendingObjects: null,
         pendingZone: null,
+        pendingZones: null,
         pendingFloor: null,
         pendingRemoval: null,
         draftHistory: {},
@@ -514,7 +721,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       const object =
         state.tool === 'place'
           ? {
-              ...withPreset(createObject(state.recipe, [0, 0]), state.presetId),
+              ...withPreset(createObject(state.recipe, [0, 0], floor.objects), state.presetId),
               yawRadians: state.placementYaw,
             }
           : selected;
@@ -522,7 +729,14 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         pointer:
           pointer && object && ['place', 'move', 'duplicate'].includes(state.tool)
             ? snapCirculation(
-                { ...object, position: snapBoothPosition(object, floor.objects, pointer) },
+                {
+                  ...object,
+                  position: snapBarrierPosition(
+                    object,
+                    floor.objects,
+                    snapBoothPosition(object, floor.objects, pointer),
+                  ),
+                },
                 floor,
               ).position
             : pointer,
@@ -530,39 +744,228 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
     },
     patchObject: (updates) => {
       const state = get(),
-        original = activeFloor(state).objects.find((object) => object.id === state.selection?.id);
+        floor = activeFloor(state),
+        original = floor.objects.find((object) => object.id === state.selection?.id);
       if (original) {
+        if (original.locked) {
+          state.notify(`${original.name} is locked. Unlock it before editing.`);
+          return;
+        }
         if (state.pendingFloor || state.pendingRemoval || state.pendingZone) {
           state.notify('Apply or discard the unfinished edit first.');
           return;
         }
         const pendingObject = { ...(state.pendingObject ?? original), ...updates, managed: true };
         if (updates.position && state.tool === 'move') {
-          pendingObject.position = snapBoothPosition(
+          pendingObject.position = snapBarrierPosition(
             pendingObject,
             activeFloor(state).objects,
-            pendingObject.position,
+            snapBoothPosition(pendingObject, activeFloor(state).objects, pendingObject.position),
           );
           pendingObject.position = snapCirculation(pendingObject, activeFloor(state)).position;
         }
-        state.stage({ pendingObject });
+        const selectionSet = state.selectionSet.length
+          ? state.selectionSet
+          : state.selection
+            ? [state.selection]
+            : [];
+        const locked = selectionSet.filter((selection) => isLockedSelection(floor, selection));
+        // Every selected entity — objects and zones alike — follows the primary item.
+        const entities = selectionSet.filter((selection) =>
+          selection.kind === 'object'
+            ? floor.objects.some((object) => object.id === selection.id && !object.locked)
+            : floor.zones.some((zone) => zone.id === selection.id && !zone.locked),
+        );
+        const yaw =
+          typeof updates.yawRadians === 'number' ? updates.yawRadians - original.yawRadians : 0;
+        const dx = updates.position ? pendingObject.position[0] - original.position[0] : 0;
+        const dz = updates.position ? pendingObject.position[1] - original.position[1] : 0;
+        if (entities.length > 1 && (updates.position || yaw)) {
+          const { objects, zones } = transformSelection(floor, entities, {
+            dx,
+            dz,
+            yaw,
+          });
+          state.stage({
+            pendingObject,
+            pendingObjects: objects.map((item) => (item.id === original.id ? pendingObject : item)),
+            pendingZones: zones.length ? zones : null,
+          });
+          if (locked.length) {
+            state.notify(`${locked.map((item) => selectionLabel(floor, item)).join(', ')} stayed locked; other selected items changed.`);
+          }
+          return;
+        }
+        state.stage({ pendingObject, pendingObjects: null, pendingZones: null });
+        if (locked.length && (updates.position || yaw)) {
+          state.notify(`${locked.map((item) => selectionLabel(floor, item)).join(', ')} stayed locked.`);
+        }
       }
+    },
+    rotateSelection: (yawDelta, preview = false) => {
+      const state = get(),
+        floor = activeFloor(state),
+        requested = state.selectionSet.length
+          ? state.selectionSet
+          : state.selection
+            ? [state.selection]
+            : [];
+      if (!Number.isFinite(yawDelta) || Math.abs(yawDelta) < 1e-8) {
+        return false;
+      }
+      if (!preview && unfinished(state)) {
+        state.notify('Apply or discard the unfinished edit before rotating.');
+        return false;
+      }
+      if (state.pendingFloor || state.pendingRemoval || state.pendingZone) {
+        state.notify('Apply or discard the unfinished edit before rotating.');
+        return false;
+      }
+      const locked = requested.filter((selection) => isLockedSelection(floor, selection));
+      const eligible = requested.filter((selection) => {
+        if (selection.kind === 'object') {
+          const object = floor.objects.find((item) => item.id === selection.id);
+          return !!object && !object.locked;
+        }
+        const zone = floor.zones.find((item) => item.id === selection.id);
+        return !!zone && !zone.locked;
+      });
+      if (!eligible.length) {
+        state.notify(
+          locked.length
+            ? `${locked.map((item) => selectionLabel(floor, item)).join(', ')} is locked. Unlock it before rotating.`
+            : 'Select an editable object or zone before rotating.',
+        );
+        return false;
+      }
+      let objects: PlanObject[];
+      let zones: PlanZone[];
+      let skippedLocked = locked;
+      const onlyObject = eligible.length === 1 && eligible[0]?.kind === 'object'
+        ? floor.objects.find((item) => item.id === eligible[0]!.id)
+        : undefined;
+      if (onlyObject?.groupId) {
+        const group = transformGroup(floor, onlyObject, {
+          ...onlyObject,
+          yawRadians: onlyObject.yawRadians + yawDelta,
+          managed: true,
+        });
+        const lockedGroupMembers = group.filter((item) => item.locked);
+        skippedLocked = [
+          ...locked,
+          ...lockedGroupMembers.map((item) => ({ kind: 'object' as const, id: item.id })),
+        ];
+        objects = group.filter((item) => !item.locked);
+        zones = [];
+      } else {
+        const transformed = transformSelection(floor, eligible, {
+          dx: 0,
+          dz: 0,
+          yaw: yawDelta,
+        });
+        objects = transformed.objects;
+        zones = transformed.zones;
+      }
+      const selectedObject = state.selection?.kind === 'object'
+        ? objects.find((item) => item.id === state.selection?.id)
+        : undefined;
+      state.stage({
+        pendingObject: selectedObject ?? null,
+        pendingObjects: objects.length ? objects : null,
+        pendingZones: zones.length ? zones : null,
+      });
+      if (skippedLocked.length) {
+        state.notify(`${skippedLocked.map((item) => selectionLabel(floor, item)).join(', ')} stayed locked; other selected items changed.`);
+      } else {
+        state.notify('Rotation preview.');
+      }
+      return true;
     },
     patchZone: (updates) => {
       const state = get(),
         original = activeFloor(state).zones.find((zone) => zone.id === state.selection?.id);
       if (original) {
-        if (state.pendingFloor || state.pendingRemoval || state.pendingObject) {
+        if (original.locked) {
+          state.notify(`${original.label} is locked. Unlock it before editing.`);
+          return;
+        }
+        if (
+          state.pendingFloor ||
+          state.pendingRemoval ||
+          state.pendingObject ||
+          state.pendingObjects ||
+          state.pendingZones
+        ) {
           state.notify('Apply or discard the unfinished edit first.');
           return;
         }
         state.stage({ pendingZone: { ...(state.pendingZone ?? original), ...updates } });
       }
     },
+    /**
+     * Locked objects stay out of marquee selection and every bulk edit, but they remain
+     * individually selectable so the lock can always be released.
+     */
+    toggleLock: (selection) => {
+      const state = get();
+      if (unfinished(state)) {
+        state.notify('Apply or discard the unfinished edit before locking an item.');
+        return;
+      }
+      const floor = activeFloor(state);
+      const object = selection.kind === 'object'
+        ? floor.objects.find((item) => item.id === selection.id)
+        : undefined;
+      const zone = selection.kind === 'zone'
+        ? floor.zones.find((item) => item.id === selection.id)
+        : undefined;
+      const target = object ?? zone;
+      if (!target) {
+        return;
+      }
+      if (object && !object.managed) {
+        state.notify(`${selectionLabel(floor, selection)} is an imported reference and cannot be locked in this editor.`);
+        return;
+      }
+      const locked = selection.kind === 'object' ? !object!.locked : !zone!.locked;
+      const nextFloor = selection.kind === 'object'
+        ? {
+            ...floor,
+            objects: floor.objects.map((object) =>
+              object.id === target.id ? { ...object, locked } : object,
+            ),
+          }
+        : {
+            ...floor,
+            zones: floor.zones.map((zone) =>
+              zone.id === target.id ? { ...zone, locked } : zone,
+            ),
+          };
+      if (!get().commitFloor(nextFloor)) {
+        return;
+      }
+      const remaining = state.selectionSet.filter(
+        (item) => item.kind !== selection.kind || item.id !== selection.id,
+      );
+      const selectionSet = locked && remaining.length ? remaining : [selection];
+      const nextSelection =
+        selectionSet.findLast((item) => item.kind === 'object' && !isLockedSelection(nextFloor, item)) ??
+        selectionSet.at(-1) ??
+        null;
+      set({
+        selection: nextSelection,
+        selectionSet,
+        focusId: nextSelection?.id ?? null,
+        message: locked
+          ? `${selectionLabel(floor, selection)} locked. It is excluded from marquee selection and bulk edits.`
+          : `${selectionLabel(floor, selection)} unlocked.`,
+      });
+    },
     patchFloor: (updates) => {
       const state = get();
       if (
         state.pendingObject ||
+        state.pendingObjects ||
         state.pendingZone ||
         state.pendingRemoval ||
         state.drawing.length
@@ -586,84 +989,174 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         set({ tool: 'select' });
         return true;
       }
-      if (state.selection?.kind === 'zone' && ['move', 'duplicate'].includes(state.tool)) {
-        const originalZone = floor.zones.find((zone) => zone.id === state.selection?.id);
-        if (!originalZone) {
-          return false;
-        }
-        const bounds = polygonBounds(originalZone.polygon),
-          cx = (bounds.minX + bounds.maxX) / 2,
-          cz = (bounds.minZ + bounds.maxZ) / 2;
-        const zone = {
-          ...originalZone,
-          polygon: originalZone.polygon.map(([x, z]): [number, number] => [
-            x + point[0] - cx,
-            z + point[1] - cz,
-          ]),
-          ...(state.tool === 'duplicate'
-            ? {
-                id: crypto.randomUUID(),
-                label: uniqueName(`${originalZone.label} Copy`, floorNames(floor)),
-              }
-            : {}),
-        };
-        if (!insideBoundary(zone.polygon, floor.boundary)) {
-          set({ message: 'Keep the zone inside the floor.' });
-          return false;
-        }
-        if (
-          !get().commitFloor({
-            ...floor,
-            zones: [...floor.zones.filter((item) => item.id !== zone.id), zone],
-          })
-        ) {
-          return false;
-        }
-        set({
-          selection: { kind: 'zone', id: zone.id },
-          tool: 'select',
-          message: 'Zone placement applied.',
+      const selectionSet = state.selectionSet.length
+        ? state.selectionSet
+        : state.selection
+          ? [state.selection]
+          : [];
+      if (['move', 'duplicate'].includes(state.tool)) {
+        const skippedLocked = selectionSet
+          .filter((selection) => isLockedSelection(floor, selection))
+          .map((selection) => selectionLabel(floor, selection));
+        const eligibleSelections = selectionSet.filter((selection) => {
+          if (selection.kind === 'object') {
+            const object = floor.objects.find((item) => item.id === selection.id);
+            return !!object && object.managed && !object.locked;
+          }
+          const zone = floor.zones.find((item) => item.id === selection.id);
+          return !!zone && !zone.locked;
         });
-        return true;
-      }
-      const original = floor.objects.find((object) => object.id === state.selection?.id);
-      if (['move', 'duplicate'].includes(state.tool) && !original) {
-        state.notify('Select an object or zone before moving or duplicating.');
-        return false;
-      }
-      let object: PlanObject;
-      let members: PlanObject[];
-      if ((state.tool === 'move' || state.tool === 'duplicate') && original) {
-        object = { ...original, position: point, managed: true };
-        members = transformGroup(floor, original, object);
+        // A move or duplicate transforms every selected entity — objects and zones alike.
+        const selectedObjects = eligibleSelections
+          .filter((selection) => selection.kind === 'object')
+          .map((selection) => floor.objects.find((object) => object.id === selection.id))
+          .filter((object): object is PlanObject => !!object && object.managed && !object.locked);
+        const selectedZones = eligibleSelections
+          .filter((selection) => selection.kind === 'zone')
+          .map((selection) => floor.zones.find((zone) => zone.id === selection.id))
+          .filter((zone): zone is PlanZone => !!zone && !zone.locked);
+        if (!selectedObjects.length && !selectedZones.length) {
+          state.notify(
+            skippedLocked.length
+              ? `${skippedLocked.join(', ')} is locked. Unlock it before moving or duplicating.`
+              : 'Select an editable object or zone before moving or duplicating.',
+          );
+          return false;
+        }
+        const primary = eligibleSelections.some(
+          (item) => item.kind === state.selection?.kind && item.id === state.selection?.id,
+        )
+          ? state.selection
+          : (eligibleSelections.findLast((item) => item.kind === 'object') ?? eligibleSelections.at(-1) ?? null);
+        const primaryObject = selectedObjects.find((object) => object.id === primary?.id);
+        const primaryZone = selectedZones.find((zone) => zone.id === primary?.id);
+        const anchor = selectionPivot(floor, eligibleSelections);
+        const delta: [number, number] = [point[0] - anchor[0], point[1] - anchor[1]];
+        const movedZones: PlanZone[] = selectedZones.map((zone) => ({
+          ...zone,
+          polygon: transformZonePolygon(zone.polygon, delta[0], delta[1], 0, anchor),
+        }));
+        // A single explicitly grouped object retains its group behavior. Temporary mixed
+        // selections operate on their selected entities without absorbing persistent groups.
+        const groupMembers = state.tool === 'move' && eligibleSelections.length === 1 && primaryObject?.groupId
+          ? transformGroup(floor, primaryObject, { ...primaryObject, position: point, managed: true })
+              .filter((object) => !object.locked)
+          : [];
+        const movedObjects: PlanObject[] = [
+          ...groupMembers,
+          ...selectedObjects
+            .filter((member) => !groupMembers.some((item) => item.id === member.id))
+            .map((member) => ({
+              ...member,
+              position: [
+                member.position[0] + delta[0],
+                member.position[1] + delta[1],
+              ] as [number, number],
+              managed: true,
+            })),
+        ];
         if (state.tool === 'duplicate') {
-          const groupId = original.groupId ? crypto.randomUUID() : '';
           const names = floorNames(floor),
-            numbers = floor.objects.map((item) => item.boothNumber);
-          let anchorId = '';
-          members = members.map((member) => {
-            const id = crypto.randomUUID();
-            if (member.id === original.id) {
-              anchorId = id;
-            }
+            reservedNumbers: string[] = [];
+          const copies: PlanObject[] = movedObjects.map((member) => {
             const name = uniqueName(`${member.name} Copy`, names);
-            const boothNumber = uniqueName(member.boothNumber || 'B001', numbers);
+            const boothNumber = isBooth(member)
+              ? nextBoothNumber(floor.objects, reservedNumbers)
+              : '';
             names.push(name);
-            numbers.push(boothNumber);
+            if (boothNumber) reservedNumbers.push(boothNumber);
             return {
               ...member,
-              id,
+              id: crypto.randomUUID(),
               name,
               boothNumber,
-              groupId,
+              // Temporary multi-selection copies remain independent; grouping stays explicit.
+              groupId: '',
               portalId: '',
               connectsFloorIds: [],
               legacyPoiId: undefined,
+              managed: true,
             };
           });
-          object = members.find((member) => member.id === anchorId)!;
+          const zoneCopies: PlanZone[] = movedZones.map((zone) => {
+            const label = uniqueName(`${zone.label} Copy`, names);
+            names.push(label);
+            return { ...zone, id: crypto.randomUUID(), label };
+          });
+          if (zoneCopies.some((zone) => !insideBoundary(zone.polygon, floor.boundary))) {
+            set({ message: 'Keep the zone inside the floor.' });
+            return false;
+          }
+          const candidateFloor = {
+            ...floor,
+            objects: [...floor.objects, ...copies],
+            zones: [...floor.zones, ...zoneCopies],
+          };
+          const error = copies
+            .map((member) => placementError(member, candidateFloor))
+            .find(Boolean);
+          if (error) {
+            set({ message: error });
+            return false;
+          }
+          if (!get().commitFloor(candidateFloor)) {
+            return false;
+          }
+          set({
+            selection: copies.length
+              ? { kind: 'object', id: copies[0]!.id }
+              : { kind: 'zone', id: zoneCopies[0]!.id },
+            selectionSet: [
+              ...copies.map((member) => ({ kind: 'object' as const, id: member.id })),
+              ...zoneCopies.map((zone) => ({ kind: 'zone' as const, id: zone.id })),
+            ],
+            tool: 'select',
+            pointer: null,
+            message: `${skippedLocked.length ? `${skippedLocked.join(', ')} stayed locked. ` : ''}${copies.length + zoneCopies.length} selected ${copies.length + zoneCopies.length === 1 ? 'item' : 'items'} duplicated.`,
+          });
+          return true;
         }
-      } else {
+        if (movedZones.some((zone) => !insideBoundary(zone.polygon, floor.boundary))) {
+          set({ message: 'Keep the zone inside the floor.' });
+          return false;
+        }
+        const candidateFloor = {
+          ...floor,
+          objects: floor.objects.map((item) => {
+            const moved = movedObjects.find((member) => member.id === item.id);
+            return moved ?? item;
+          }),
+          zones: floor.zones.map((item) => {
+            const moved = movedZones.find((zone) => zone.id === item.id);
+            return moved ?? item;
+          }),
+        };
+        const error = movedObjects
+          .map((member) => placementError(member, candidateFloor))
+          .find(Boolean);
+        if (error) {
+          set({ message: error });
+          return false;
+        }
+        if (!get().commitFloor(candidateFloor)) {
+          return false;
+        }
+        set({
+          selection: primaryObject
+            ? { kind: 'object', id: primaryObject.id }
+            : primaryZone
+              ? { kind: 'zone', id: primaryZone.id }
+              : state.selection,
+          selectionSet: eligibleSelections,
+          tool: 'select',
+          pointer: null,
+          message: `${skippedLocked.length ? `${skippedLocked.join(', ')} stayed locked. ` : ''}Selection moved.`,
+        });
+        return true;
+      }
+      let object: PlanObject;
+      let members: PlanObject[];
+      {
         object = withPreset(
           createObject(state.recipe, point, floor.objects, floorNames(floor)),
           state.presetId,
@@ -672,7 +1165,14 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         members = [object];
       }
       const snapped = snapCirculation(
-        { ...object, position: snapBoothPosition(object, floor.objects, object.position) },
+        {
+          ...object,
+          position: snapBarrierPosition(
+            object,
+            floor.objects,
+            snapBoothPosition(object, floor.objects, object.position),
+          ),
+        },
         floor,
       ).position;
       const dx = snapped[0] - object.position[0],
@@ -699,8 +1199,12 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       }
       set({
         selection: { kind: 'object', id: object.id },
+        selectionSet: [{ kind: 'object' as const, id: object.id }],
         message: `${object.name} placed.`,
-        tool: state.tool === 'move' ? 'select' : state.tool,
+        // A placement or manipulation is one-shot. A rejected candidate returns above without
+        // changing the active tool, so the preview remains available for correction.
+        tool: 'select',
+        pointer: null,
       });
       return true;
     },
@@ -709,6 +1213,10 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         floor = activeFloor(state);
       if (state.pendingRemoval) {
         const target = state.pendingRemoval;
+        if (isLockedSelection(floor, target)) {
+          state.notify(`${selectionLabel(floor, target)} is locked. Unlock it before deleting.`);
+          return false;
+        }
         if (
           !state.commitFloor({
             ...floor,
@@ -726,6 +1234,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         }
         set({
           selection: null,
+          selectionSet: [],
           tool: 'select',
           message: 'Removal applied. Undo saved step restores the item.',
         });
@@ -763,6 +1272,43 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           return false;
         }
         set({ message: 'Floor properties applied.' });
+        return true;
+      }
+      if (state.pendingObjects?.length || state.pendingZones?.length) {
+        const updates = (state.pendingObjects ?? []).map((object) => objectSchema.safeParse(object));
+        const invalid = updates.find((result) => !result.success);
+        if (invalid) {
+          if (invalid.success) return false;
+          set({ message: invalid.error.issues[0]?.message ?? 'Check selected object properties.' });
+          return false;
+        }
+        const objects = updates.flatMap((result) => result.success ? [result.data] : []);
+        const zones = state.pendingZones ?? [];
+        for (const zone of zones) {
+          if (!zone.label.trim()) {
+            set({ message: 'Zone name is required.' });
+            return false;
+          }
+          if (
+            !polygonSchema.safeParse(zone.polygon).success ||
+            !insideBoundary(zone.polygon, floor.boundary)
+          ) {
+            set({ message: 'Zone requires a valid polygon inside the floor.' });
+            return false;
+          }
+        }
+        const candidateFloor = {
+          ...floor,
+          objects: floor.objects.map((item) => objects.find((candidate) => candidate.id === item.id) ?? item),
+          zones: floor.zones.map((item) => zones.find((candidate) => candidate.id === item.id) ?? item),
+        };
+        const error = objects.map((object) => placementError(object, candidateFloor)).find(Boolean);
+        if (error) {
+          set({ message: error });
+          return false;
+        }
+        if (!get().commitFloor(candidateFloor)) return false;
+        set({ message: 'Selected items updated.' });
         return true;
       }
       if (state.pendingObject) {
@@ -883,12 +1429,13 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
               ],
             ),
             type: state.tool === 'blocked-rectangle' ? 'blocked' : 'walkable',
+            locked: false,
             polygon: points,
           };
           if (!get().commitFloor({ ...floor, zones: [...floor.zones, zone] })) {
             return false;
           }
-          set({ selection: { kind: 'zone', id: zone.id } });
+          set({ selection: { kind: 'zone', id: zone.id }, selectionSet: [{ kind: 'zone', id: zone.id }] });
         } else {
           const object = objectFromDrawing(
             points,
@@ -910,7 +1457,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           if (!get().commitFloor({ ...floor, objects: [...floor.objects, object] })) {
             return false;
           }
-          set({ selection: { kind: 'object', id: object.id } });
+          set({ selection: { kind: 'object', id: object.id }, selectionSet: [{ kind: 'object', id: object.id }] });
         }
         set({ tool: 'select', message: 'Drawing applied.' });
         return true;
@@ -925,38 +1472,60 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       set({ message: 'No unfinished changes to apply.' });
       return false;
     },
-    remove: (selection = get().selection ?? undefined) => {
-      if (!selection) {
-        return;
-      }
-      if (unfinished(get())) {
-        get().notify('Apply or discard the unfinished edit before removing an item.');
-        return;
-      }
-      get().stage({ pendingRemoval: selection, selection });
-      set({ message: 'Removal preview. Apply to save, or Discard to restore.', tool: 'select' });
-    },
-    undo: () => {
+    remove: (selection) => {
       const state = get();
-      const draft = state.draftHistory[state.floorId],
-        prior = draft?.undo.at(-1);
-      if (draft && prior) {
+      const selections = selection ? [selection] : state.selectionSet.length ? state.selectionSet : state.selection ? [state.selection] : [];
+      if (!selections.length || unfinished(state)) {
+        if (selections.length) {
+          state.notify('Apply or discard the unfinished edit before removing an item.');
+        }
+        return;
+      }
+      const floor = activeFloor(state);
+      const objectIds = new Set(selections.filter((item) => item.kind === 'object' && floor.objects.some((object) => object.id === item.id && object.managed)).map((item) => item.id));
+      const zoneIds = new Set(selections.filter((item) => item.kind === 'zone').map((item) => item.id));
+      if (!objectIds.size && !zoneIds.size) return;
+      // Locked entities survive deletion, while other selected entities still proceed.
+      const lockedObjects = floor.objects.filter(
+        (object) => objectIds.has(object.id) && object.locked,
+      );
+      const lockedZones = floor.zones.filter((zone) => zoneIds.has(zone.id) && zone.locked);
+      for (const object of lockedObjects) {
+        objectIds.delete(object.id);
+      }
+      for (const zone of lockedZones) {
+        zoneIds.delete(zone.id);
+      }
+      const lockedNames = [...lockedObjects.map((object) => object.name), ...lockedZones.map((zone) => zone.label)];
+      if (!objectIds.size && !zoneIds.size) {
         set({
-          ...prior,
-          draftHistory: {
-            ...state.draftHistory,
-            [state.floorId]: {
-              ...draft,
-              undo: draft.undo.slice(0, -1),
-              redo: [...draft.redo, draftSnapshot(state)],
-            },
-          },
-          message: 'Undid draft step.',
+          message: `${lockedNames.join(', ')} is locked. Unlock it before deleting.`,
         });
         return;
       }
+      const next = {
+        ...floor,
+        objects: floor.objects.filter((object) => !objectIds.has(object.id)),
+        zones: floor.zones.filter((zone) => !zoneIds.has(zone.id)),
+      };
+      if (!get().commitFloor(next)) {
+        return;
+      }
+      set({
+        selection: null,
+        selectionSet: [],
+        tool: 'select',
+        focusId: null,
+        pointer: null,
+        message: lockedNames.length
+          ? `Selected items deleted. ${lockedNames.join(', ')} stayed locked.`
+          : 'Selected items deleted.',
+      });
+    },
+    undo: () => {
+      const state = get();
+      // Drafts, selection and tools are interaction state, not document history.
       if (unfinished(state)) {
-        set({ message: 'Apply or discard unfinished changes before undo.' });
         return;
       }
       set(restoreSavedStep(state, 'undo'));
@@ -964,23 +1533,6 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
     redo: () => {
       const state = get(),
         history = state.history[state.floorId];
-      const draft = state.draftHistory[state.floorId],
-        later = draft?.redo.at(-1);
-      if (draft && later) {
-        set({
-          ...later,
-          draftHistory: {
-            ...state.draftHistory,
-            [state.floorId]: {
-              ...draft,
-              undo: [...draft.undo, draftSnapshot(state)],
-              redo: draft.redo.slice(0, -1),
-            },
-          },
-          message: 'Redid draft step.',
-        });
-        return;
-      }
       if (unfinished(state) || !history) {
         return;
       }

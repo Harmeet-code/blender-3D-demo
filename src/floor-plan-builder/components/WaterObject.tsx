@@ -4,14 +4,18 @@ import { Line } from '@react-three/drei';
 import {
   CanvasTexture,
   CatmullRomCurve3,
+  DoubleSide,
   RepeatWrapping,
   SRGBColorSpace,
   Vector3,
+  Vector2,
+  LatheGeometry,
+  TubeGeometry,
   type Group,
-  type Mesh,
 } from 'three';
 import { WATER_ACCESSIBLE_HEIGHT, WATER_BASIN_HEIGHT, waterApproachNode } from '../model/water.ts';
 import type { PlanObject } from '../model/types.ts';
+import { useServiceMotion } from './use-service-motion.ts';
 
 export function useDropletBadge(size = 256) {
   const texture = useMemo(() => {
@@ -107,60 +111,103 @@ export function WaterObject({
   void color;
   const [w, h, d] = object.dimensions;
   const root = useRef<Group>(null);
-  const jet = useRef<Mesh>(null);
   const [near, setNear] = useState(true);
+  const { animate, visible, invalidate } = useServiceMotion(
+    near && !ghost && !topDown,
+    root,
+    Math.max(w, h, d),
+  );
   const world = useMemo(() => new Vector3(), []);
-  const flow = useMemo(() => ({ t: 0 }), []);
-  useFrame(({ camera }, delta) => {
-    if (root.current) {
-      root.current.getWorldPosition(world);
-      const distance = camera.position.distanceTo(world);
-      const size = Math.max(w, h, d);
-      if (near && distance / size > 12) {
-        setNear(false);
-      } else if (!near && distance / size < 9) {
-        setNear(true);
-      }
-    }
-    if (!ghost && jet.current) {
-      const reduced =
-        typeof window !== 'undefined' &&
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (!reduced) {
-        flow.t += Math.min(delta, 0.05);
-        const { map } = jet.current.material as unknown as { map?: { offset: { y: number } } };
-        if (map) {
-          map.offset.y = (flow.t * -1.2) % 1;
-        }
-      }
-    }
-  });
-
+  const flow = useRef(0);
   const droplet = useDropletBadge();
   const jetMap = useJetTexture();
   const count = useBottleCount();
-  const opacity = ghost ? 0.45 : 1;
-  const steel = { roughness: 0.25, metalness: 0.85 };
-  const approach = waterApproachNode();
-  const jetCurve = useMemo(
+  useFrame(({ camera }, delta) => {
+    if (root.current) {
+      root.current.getWorldPosition(world);
+      const ratio = camera.position.distanceTo(world) / Math.max(w, h, d);
+      if (near && ratio > 12) {
+        setNear(false);
+      } else if (!near && ratio < 9) {
+        setNear(true);
+      }
+    }
+    if (animate && visible.current && jetMap) {
+      flow.current += Math.min(delta, 0.05);
+      jetMap.offset.y = (-1.2 * flow.current) % 1;
+      invalidate();
+    }
+  });
+  // The two 0.4 m basins need 0.75 m across; fit legacy footprints explicitly.
+  // New catalog default is 0.8 × 1.2 × 0.7 m; vertical accessibility heights stay fixed.
+  const sx = w / 0.8,
+    sz = d / 0.7;
+  const bowl = useMemo(() => {
+    const profile = [
+      [0.001, -0.15],
+      [0.12, -0.15],
+      [0.175, -0.11],
+      [0.2, -0.025],
+      [0.2, 0],
+      [0.192, 0],
+      [0.165, -0.1],
+      [0.11, -0.13],
+      [0.001, -0.13],
+    ].map(([x, y]) => new Vector2(x!, y!));
+    return new LatheGeometry(profile, 24);
+  }, []);
+  useEffect(() => () => bowl.dispose(), [bowl]);
+  const jetCurves = useMemo(
     () =>
-      new CatmullRomCurve3([
-        new Vector3(-0.1, 1.0, 0.12),
-        new Vector3(-0.1, 1.06, 0.2),
-        new Vector3(-0.1, 0.98, 0.26),
-      ]),
+      [WATER_BASIN_HEIGHT, WATER_ACCESSIBLE_HEIGHT].map(
+        (height) =>
+          new CatmullRomCurve3([
+            new Vector3(0, height + 0.03, 0),
+            new Vector3(0, height + 0.1, 0.06),
+            new Vector3(0, height - 0.1, 0.12),
+          ]),
+      ),
     [],
   );
-
+  const jetGeometries = useMemo(
+    () =>
+      jetCurves.map((curve) => {
+        const geometry = new TubeGeometry(curve, 12, 0.004, 6);
+        const uv = geometry.getAttribute('uv');
+        // Three's TubeGeometry U follows the path, V circles the tube. Map V to length
+        // so the required vertical texture scroll travels along the jet, not around it.
+        for (let i = 0; i < uv.count; i++) {
+          const along = uv.getX(i);
+          uv.setXY(i, uv.getY(i), along);
+        }
+        return geometry;
+      }),
+    [jetCurves],
+  );
+  useEffect(() => () => jetGeometries.forEach((geometry) => geometry.dispose()), [jetGeometries]);
+  const steel = {
+    color: '#C0C4C8',
+    roughness: 0.25,
+    metalness: 0.85,
+    transparent: ghost,
+    opacity: ghost ? 0.45 : 1,
+  };
+  const approach = waterApproachNode();
   if (!near && !topDown) {
     return (
-      <group ref={root} name="WaterFar">
-        <mesh position={[-0.1, h / 2, 0]} castShadow>
+      <group ref={root} name="WaterFar" scale={[sx, 1, sz]}>
+        <mesh position={[-0.175, h / 2, -0.125]} castShadow>
           <boxGeometry args={[0.4, h, 0.4]} />
-          <meshStandardMaterial color="#C0C4C8" {...steel} transparent={ghost} opacity={opacity} />
+          <meshStandardMaterial {...steel} />
         </mesh>
-        {droplet && (
-          <mesh position={[0.15, 0.9, 0.21]}>
+        {[WATER_BASIN_HEIGHT, WATER_ACCESSIBLE_HEIGHT].map((height, index) => (
+          <mesh key={height} position={[index ? 0.175 : -0.175, height - 0.075, 0.1]}>
+            <boxGeometry args={[0.4, 0.15, 0.45]} />
+            <meshStandardMaterial {...steel} />
+          </mesh>
+        ))}
+        {!ghost && droplet && (
+          <mesh position={[-0.175, 0.35, 0.078]}>
             <planeGeometry args={[0.2, 0.2]} />
             <meshBasicMaterial map={droplet} toneMapped={false} transparent />
           </mesh>
@@ -168,129 +215,131 @@ export function WaterObject({
       </group>
     );
   }
-
   return (
     <group ref={root} name="WaterStation">
-      <mesh position={[-0.1, h / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.4, h, 0.4]} />
-        <meshStandardMaterial color="#C0C4C8" {...steel} transparent={ghost} opacity={opacity} />
-      </mesh>
-      <mesh position={[-0.1, (0.75 + h) / 2, 0.12]} castShadow>
-        <boxGeometry args={[0.3, h - 0.75, 0.16]} />
-        <meshStandardMaterial
-          color="#1E2022"
-          roughness={0.6}
-          transparent={ghost}
-          opacity={opacity}
-        />
-      </mesh>
-      <mesh position={[-0.1, h - 0.015, 0.12]}>
-        <boxGeometry args={[0.05, 0.03, 0.01]} />
-        <meshBasicMaterial color="#FF4444" toneMapped={false} />
-      </mesh>
-      <mesh
-        position={[-0.1, WATER_BASIN_HEIGHT - 0.075, 0.22]}
-        scale={[0.89, 1, 1]}
-        castShadow
-        receiveShadow
-      >
-        <cylinderGeometry args={[0.225, 0.19, 0.15, 20]} />
-        <meshStandardMaterial color="#C0C4C8" {...steel} transparent={ghost} opacity={opacity} />
-      </mesh>
-      <mesh
-        position={[0.25, WATER_ACCESSIBLE_HEIGHT - 0.075, 0.22]}
-        scale={[0.89, 1, 1]}
-        castShadow
-        receiveShadow
-      >
-        <cylinderGeometry args={[0.225, 0.19, 0.15, 20]} />
-        <meshStandardMaterial color="#C0C4C8" {...steel} transparent={ghost} opacity={opacity} />
-      </mesh>
-      {[-0.1, 0.25].map((x, index) => (
-        <group key={index}>
-          <mesh
-            position={[x, (index ? WATER_ACCESSIBLE_HEIGHT : WATER_BASIN_HEIGHT) + 0.02, 0.12]}
-            castShadow
-          >
-            <torusGeometry args={[0.03, 0.008, 8, 12, Math.PI]} />
-            <meshStandardMaterial
-              color="#C0C4C8"
-              {...steel}
-              transparent={ghost}
-              opacity={opacity}
-            />
+      <group scale={[sx, 1, sz]}>
+        {/* Split pedestal makes a real recessed refill alcove, not a decal on a solid box. */}
+        <mesh position={[-0.175, 0.375, -0.125]} castShadow receiveShadow>
+          <boxGeometry args={[0.4, 0.75, 0.4]} />
+          <meshStandardMaterial {...steel} />
+        </mesh>
+        <mesh position={[-0.175, (h + 0.75) / 2, -0.275]} castShadow>
+          <boxGeometry args={[0.4, h - 0.75, 0.1]} />
+          <meshStandardMaterial {...steel} />
+        </mesh>
+        {[-0.35, 0].map((x) => (
+          <mesh key={x} position={[x, (h + 0.75) / 2, -0.075]} castShadow>
+            <boxGeometry args={[0.05, h - 0.75, 0.3]} />
+            <meshStandardMaterial {...steel} />
           </mesh>
-          <mesh
-            position={[x, (index ? WATER_ACCESSIBLE_HEIGHT : WATER_BASIN_HEIGHT) - 0.03, 0.22]}
-            rotation={[-Math.PI / 2, 0, 0]}
-          >
-            <planeGeometry args={[0.25, 0.2]} />
-            <meshStandardMaterial
-              color="#5A636B"
-              roughness={0.5}
-              metalness={0.7}
-              transparent={ghost}
-              opacity={opacity}
-            />
-          </mesh>
-        </group>
-      ))}
-      {!ghost && (
-        <mesh ref={jet} castShadow={false}>
-          <tubeGeometry args={[jetCurve, 12, 0.004, 6]} />
+        ))}
+        <mesh position={[-0.175, h - 0.025, -0.075]} castShadow>
+          <boxGeometry args={[0.3, 0.05, 0.3]} />
+          <meshStandardMaterial {...steel} />
+        </mesh>
+        <mesh position={[-0.175, (h + 0.75) / 2, -0.222]}>
+          <planeGeometry args={[0.3, Math.max(0.1, h - 0.8)]} />
           <meshStandardMaterial
-            color="#06B6D4"
-            roughness={0.05}
-            transparent
-            opacity={0.85}
-            map={jetMap ?? undefined}
-            depthWrite={false}
+            color="#1E2022"
+            roughness={0.6}
+            transparent={ghost}
+            opacity={steel.opacity}
           />
         </mesh>
-      )}
-      {near && (
-        <>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.25, 0.005, 0.45]} receiveShadow>
+        <mesh position={[-0.175, h - 0.075, -0.064]}>
+          <boxGeometry args={[0.05, 0.03, 0.01]} />
+          <meshBasicMaterial color="#FF4444" toneMapped={false} />
+        </mesh>
+        <mesh position={[-0.175, h - 0.08, -0.15]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.06, 8]} />
+          <meshStandardMaterial {...steel} />
+        </mesh>
+        <mesh position={[0, WATER_ACCESSIBLE_HEIGHT - 0.17, -0.07]} castShadow>
+          <boxGeometry args={[0.4, 0.08, 0.12]} />
+          <meshStandardMaterial {...steel} />
+        </mesh>
+        {[WATER_BASIN_HEIGHT, WATER_ACCESSIBLE_HEIGHT].map((height, index) => (
+          <group key={height} position={[index ? 0.175 : -0.175, 0, 0.1]}>
+            <mesh position={[0, height, 0]} scale={[1, 1, 1.125]} castShadow receiveShadow>
+              <primitive object={bowl} attach="geometry" />
+              <meshStandardMaterial {...steel} side={DoubleSide} />
+            </mesh>
+            {near && (
+              <>
+                <mesh position={[0, height + 0.02, -0.12]}>
+                  <torusGeometry args={[0.03, 0.008, 8, 12, Math.PI]} />
+                  <meshStandardMaterial {...steel} />
+                </mesh>
+                {/* Separate slats have actual gaps, above the open basin floor. */}
+                {Array.from({ length: 8 }, (_, i) => (
+                  <mesh key={i} position={[-0.118 + i * 0.0337, height - 0.075, 0]}>
+                    <boxGeometry args={[0.014, 0.01, 0.2]} />
+                    <meshStandardMaterial {...steel} />
+                  </mesh>
+                ))}
+                {!ghost && (
+                  <mesh position={[0, 0, -0.12]}>
+                    <primitive object={jetGeometries[index]!} attach="geometry" />
+                    <meshPhysicalMaterial
+                      color="#06B6D4"
+                      roughness={0.05}
+                      transmission={0.9}
+                      thickness={0.008}
+                      ior={1.333}
+                      map={jetMap ?? undefined}
+                    />
+                  </mesh>
+                )}
+              </>
+            )}
+            <mesh position={[0, height - 0.17, -0.07]} castShadow>
+              <boxGeometry args={[0.12, 0.08, 0.25]} />
+              <meshStandardMaterial {...steel} />
+            </mesh>
+          </group>
+        ))}
+        {!ghost && count && near && (
+          <mesh position={[-0.175, 0.62, 0.077]}>
+            <planeGeometry args={[0.25, 0.065]} />
+            <meshBasicMaterial map={count} toneMapped={false} />
+          </mesh>
+        )}
+        {!ghost && droplet && (
+          <mesh position={[-0.175, 0.35, 0.078]}>
+            <circleGeometry args={[0.09, 20]} />
+            <meshBasicMaterial map={droplet} toneMapped={false} transparent />
+          </mesh>
+        )}
+        {!ghost && near && (
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.175, 0.005, 0.22]}>
             <circleGeometry args={[0.1, 16]} />
-            <meshStandardMaterial
-              color="#9FB3BD"
+            <meshPhysicalMaterial
+              color="#C1E8F0"
               roughness={0.05}
-              metalness={0.6}
-              transparent={ghost}
-              opacity={opacity}
+              transmission={0.9}
+              thickness={0.002}
+              ior={1.333}
             />
           </mesh>
-          {count && (
-            <mesh position={[-0.1, 0.62, 0.205]}>
-              <planeGeometry args={[0.16, 0.04]} />
-              <meshBasicMaterial map={count} toneMapped={false} />
-            </mesh>
-          )}
-        </>
-      )}
-      {!ghost && droplet && (
-        <mesh position={[0.15, 0.9, d / 2 + 0.005]}>
-          <circleGeometry args={[0.09, 20]} />
-          <meshBasicMaterial map={droplet} toneMapped={false} transparent />
-        </mesh>
-      )}
+        )}
+      </group>
       {topDown && (
         <>
           <Line
             points={[
-              [-w / 2, 0.1, -d / 2],
-              [w / 2, 0.1, -d / 2],
-              [w / 2, 0.1, d / 2],
-              [-w / 2, 0.1, d / 2],
-              [-w / 2, 0.1, -d / 2],
+              [-w / 2, h + 0.02, -d / 2],
+              [w / 2, h + 0.02, -d / 2],
+              [w / 2, h + 0.02, d / 2],
+              [-w / 2, h + 0.02, d / 2],
+              [-w / 2, h + 0.02, -d / 2],
             ]}
             color="#C0C4C8"
             lineWidth={2}
           />
           {droplet && (
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, h + 0.01, 0]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, h + 0.03, 0]}>
               <circleGeometry args={[Math.min(w, d) / 2 - 0.05, 20]} />
-              <meshBasicMaterial map={droplet} toneMapped={false} transparent opacity={0.95} />
+              <meshBasicMaterial map={droplet} toneMapped={false} transparent />
             </mesh>
           )}
           <mesh position={[approach[0], 0.05, approach[1]]} rotation={[-Math.PI / 2, 0, 0]}>

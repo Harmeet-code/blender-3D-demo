@@ -1,9 +1,12 @@
-import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
+import { Euler, Matrix4, Quaternion, ShapeUtils, Vector2, Vector3 } from 'three';
 import rawCatalog from '@/assets/metadata/catalog.v1.json';
 import rawBooths from '@/assets/metadata/booth-sizes.v1.json';
 import { assetCatalogSchema } from '@/features/assets/model/asset-schema.ts';
 import { expansionAssetMetadata } from '@/features/assets/model/expansion-metadata.ts';
 import type { FloorAuthoring, PolygonPoint } from './building-schema.ts';
+import { decodeManagedPlanObject } from './managed-plan-object.ts';
+import { objectObstaclePolygons, visualHeight } from '@/floor-plan-builder/model/geometry.ts';
+import type { PlanObject } from '@/floor-plan-builder/model/types.ts';
 
 type Point3 = [number, number, number];
 export type AuthoredInstance = FloorAuthoring['instances'][number];
@@ -19,9 +22,10 @@ export interface AuthoredInstanceBox {
   hull?: Float32Array;
 }
 export interface AuthoredInstancePhysical {
-  provider: 'catalog' | 'external';
+  provider: 'catalog' | 'external' | 'managed';
   scale: Point3;
   boxes: AuthoredInstanceBox[];
+  managedObject?: PlanObject;
 }
 const catalog = assetCatalogSchema.parse(rawCatalog);
 const cache = new WeakMap<AuthoredInstance, AuthoredInstancePhysical>();
@@ -53,11 +57,63 @@ function convexFootprint(points: Point3[]): PolygonPoint[] {
   return lower.slice(0, -1).concat(upper.slice(0, -1));
 }
 
+function managedBoxes(object: PlanObject): AuthoredInstanceBox[] {
+  const height = Math.max(0.05, visualHeight(object));
+  return objectObstaclePolygons(object).flatMap((polygon) => {
+    const triangles = ShapeUtils.triangulateShape(
+      polygon.map(([x, z]) => new Vector2(x, z)),
+      [],
+    );
+    return triangles.flatMap((face) => {
+      const footprint = face.map((index) => polygon[index]!).filter(Boolean);
+      if (footprint.length !== 3) {
+        return [];
+      }
+      const minX = Math.min(...footprint.map(([x]) => x));
+      const maxX = Math.max(...footprint.map(([x]) => x));
+      const minZ = Math.min(...footprint.map(([, z]) => z));
+      const maxZ = Math.max(...footprint.map(([, z]) => z));
+      const centerX = (minX + maxX) / 2;
+      const centerZ = (minZ + maxZ) / 2;
+      const relative = footprint.flatMap(([x, z]) => [
+        x - centerX,
+        -height / 2,
+        z - centerZ,
+        x - centerX,
+        height / 2,
+        z - centerZ,
+      ]);
+      return [
+        {
+          position: [centerX, height / 2, centerZ],
+          halfExtents: [(maxX - minX) / 2, height / 2, (maxZ - minZ) / 2],
+          rotation: [0, 0, 0],
+          footprint,
+          minY: 0,
+          maxY: height,
+          hull: new Float32Array(relative),
+        },
+      ];
+    });
+  });
+}
+
 /** Shared immutable construction contract: compound catalog solids retain real entrance gaps. */
 export function authoredInstancePhysical(item: AuthoredInstance): AuthoredInstancePhysical {
   const previous = cache.get(item);
   if (previous) {
     return previous;
+  }
+  const managedObject = decodeManagedPlanObject(item);
+  if (managedObject) {
+    const physical: AuthoredInstancePhysical = {
+      provider: 'managed',
+      scale: [...managedObject.scale],
+      boxes: managedBoxes(managedObject),
+      managedObject,
+    };
+    cache.set(item, physical);
+    return physical;
   }
   const base = catalog.find((asset) => asset.id === item.assetId);
   const sized = rawBooths.find((asset) => asset.id === item.assetId);

@@ -1,4 +1,5 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { TraversalMotionContext } from '../wayfinding/walkthrough/motion-context.tsx';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { Group, InstancedMesh } from 'three';
 import { Object3D, Vector3 } from 'three';
@@ -352,6 +353,7 @@ function FixedFlights({ object }: { object: PlanObject }) {
 }
 
 function Elevator({ object }: { object: PlanObject }) {
+  const playback = useContext(TraversalMotionContext);
   const design = circulationDesign(object),
     [w, h, d] = object.dimensions,
     height = h + 2.6,
@@ -374,6 +376,11 @@ function Elevator({ object }: { object: PlanObject }) {
     if (travelling && state.open <= 0.0001) {
       state.y += Math.sign(target - state.y) * Math.min(Math.abs(target - state.y), delta);
     }
+    const override = playback?.connector?.portalId === object.portalId ? playback.connector : null;
+    if (override) {
+      state.y = override.cabinY;
+      state.open = override.open;
+    }
     const eased = state.open < 0.5 ? 4 * state.open ** 3 : 1 - (-2 * state.open + 2) ** 3 / 2;
     if (cabin.current) {
       cabin.current.position.y = state.y;
@@ -388,6 +395,7 @@ function Elevator({ object }: { object: PlanObject }) {
     // Arrival changes the next frame's door target; retain a frame for that phase transition.
     if (
       !ghost &&
+      !override &&
       (travelling || Math.abs(state.y - target) > 0.001 || Math.abs(state.open - desired) > 0.0001)
     ) {
       invalidate();
@@ -544,6 +552,8 @@ function Elevator({ object }: { object: PlanObject }) {
 }
 
 function Escalator({ object }: { object: PlanObject }) {
+  const playback = useContext(TraversalMotionContext);
+  const ridePhase = useRef<{ follower: typeof playback; offset: number } | null>(null);
   const grip = useCirculationTexture('grip');
   const m = circulationMetrics(object),
     design = circulationDesign(object),
@@ -601,10 +611,21 @@ function Escalator({ object }: { object: PlanObject }) {
     if (!design.running || design.speed === 0 || ghost || !near) {
       return;
     }
-    const advance = Math.min(dt, 0.05) * design.speed * (design.direction === 'UP' ? 1 : -1);
+    const leg = playback?.path.legs[playback.leg];
+    const riding = leg?.kind === 'escalator' && leg.connector?.portalId === object.portalId;
+    const direction = design.direction === 'UP' ? 1 : -1;
+    if (riding && playback && ridePhase.current?.follower !== playback) {
+      ridePhase.current = { follower: playback, offset: phase.current - playback.s * direction };
+    }
+    const advance =
+      riding && playback && ridePhase.current
+        ? ridePhase.current.offset + playback.s * direction - phase.current
+        : Math.min(dt, 0.05) * design.speed * direction;
     update(advance);
     belt.offset.x = (belt.offset.x - (advance * belt.repeat.x) / loop) % 1;
-    invalidate();
+    if (!riding) {
+      invalidate();
+    }
   });
   const span: CirculationSpan = {
     x: 0,
@@ -768,6 +789,7 @@ export function CirculationObject({
   ghost?: boolean;
   colorOverride?: string;
 }) {
+  const playback = useContext(TraversalMotionContext);
   const root = useRef<Group>(null),
     [near, setNear] = useState(true),
     world = useMemo(() => new Vector3(), []);
@@ -791,7 +813,9 @@ export function CirculationObject({
     m.depth > 25 ||
     Boolean(circulationError(object));
   return (
-    <CirculationAppearance.Provider value={{ ghost, tint: colorOverride, near }}>
+    <CirculationAppearance.Provider
+      value={{ ghost, tint: colorOverride, near: playback ? true : near }}
+    >
       <group ref={root}>
         {unsafe ? (
           <mesh position={[0, 0.5, 0]}>
@@ -809,7 +833,7 @@ export function CirculationObject({
             <Part size={[m.width, 0.05, m.depth]} at={[0, -0.025, 0]} color="#334155" />
             <Sign text={m.accessible ? 'ACCESS' : '↑'} at={[0, 0.008, 0]} flat size={[0.8, 0.8]} />
           </>
-        ) : !near ? (
+        ) : !near && !playback ? (
           <CirculationFar object={object} />
         ) : object.recipe === 'elevator' ? (
           <Elevator object={object} />

@@ -8,7 +8,7 @@ export const boothEdgeSchema = z.object({
 });
 /** Optional on old recipes: reading a legacy document must not introduce new placement limits. */
 export const boothDesignSchema = z.object({
-  layout: z.enum(['inline', 'corner', 'peninsula', 'island', 'custom']).default('inline'),
+  layout: z.enum(['enclosed', 'inline', 'corner', 'peninsula', 'island', 'custom']).default('inline'),
   roof: z.enum(['open', 'truss', 'solid']).default('open'),
   edges: z.array(boothEdgeSchema).max(256).default([]),
   primaryColor: boothColorSchema.default('#F8F9FA'),

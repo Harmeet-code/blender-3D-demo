@@ -1,10 +1,50 @@
-import { useState } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { Environment, Lightformer, OrbitControls } from '@react-three/drei';
+import { useEffect, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { Environment, Lightformer, OrbitControls, OrthographicCamera } from '@react-three/drei';
 import { Button } from '@/components/ui/button';
 import { createObject } from '../model/inventory.ts';
 import { ProceduralObject } from './ProceduralObject.tsx';
 import type { PlanObject } from '../model/types.ts';
+
+function PreviewCamera({ topDown, focus }: { topDown: boolean; focus: PlanObject | undefined }) {
+  const { camera, size, invalidate } = useThree();
+  useEffect(() => {
+    const [x, z] = focus?.position ?? [-1, 0];
+    const objectSize = focus
+      ? Math.max(...focus.dimensions, focus.recipe === 'information' ? focus.infoSignHeight : 0)
+      : 8;
+    const distance = focus ? objectSize * 2.1 : 17;
+    camera.up.set(0, 1, 0);
+    camera.position.set(
+      x + (topDown ? 0 : distance * 0.55),
+      topDown ? distance : distance * 0.6,
+      z + (topDown ? 0 : distance),
+    );
+    camera.lookAt(x, topDown ? 0 : 1, z);
+    camera.updateProjectionMatrix();
+    invalidate();
+  }, [camera, focus, topDown, invalidate]);
+  const span = focus
+    ? Math.max(
+        2,
+        focus.dimensions[0] * 1.8,
+        focus.dimensions[2] +
+          (focus.recipe === 'food-kiosk'
+            ? focus.kioskQueueDepth + 1
+            : focus.recipe === 'exit'
+              ? 3.5
+              : 1),
+      )
+    : 20;
+  return topDown ? (
+    <OrthographicCamera
+      makeDefault
+      near={0.05}
+      far={100}
+      zoom={Math.min(size.width, size.height) / span}
+    />
+  ) : null;
+}
 
 /** Isolated workbench for service counters and stations: no venue client. */
 export default function ServicePreview() {
@@ -17,6 +57,9 @@ export default function ServicePreview() {
   const [aid] = useState<PlanObject>(() => createObject('first-aid', [1.5, 0]));
   const [exit, setExit] = useState<PlanObject>(() => createObject('exit', [4.2, 0]));
   const [topDown, setTopDown] = useState(false);
+  const [focusIndex, setFocusIndex] = useState(-1);
+  const objects = [info, kiosk, water, aid, exit];
+  const focus = objects[focusIndex];
   return (
     <main className="flex h-dvh min-h-0 flex-col bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
@@ -39,6 +82,16 @@ export default function ServicePreview() {
         </Button>
         <Button
           variant="outline"
+          onClick={() => setFocusIndex((index) => (index + 1) % objects.length)}
+        >
+          Inspect next object
+        </Button>
+        <Button variant="outline" disabled={focusIndex < 0} onClick={() => setFocusIndex(-1)}>
+          Show all objects
+        </Button>
+        <span aria-live="polite">{focus?.name ?? 'All services'}</span>
+        <Button
+          variant="outline"
           aria-pressed={topDown}
           onClick={() => setTopDown((value) => !value)}
         >
@@ -47,11 +100,13 @@ export default function ServicePreview() {
       </div>
       <div className="min-h-0 flex-1" aria-label="Services preview">
         <Canvas
+          frameloop="demand"
           shadows
           dpr={[1, 1.5]}
           camera={{ position: [9, 8, 14], fov: 42, near: 0.05, far: 100 }}
         >
           <color attach="background" args={['#D8DFDD']} />
+          <PreviewCamera topDown={topDown} focus={focus} />
           <ambientLight intensity={0.6} />
           <directionalLight
             position={[2, 10, 6]}
@@ -72,22 +127,45 @@ export default function ServicePreview() {
               scale={[10, 5, 1]}
               intensity={2}
             />
+            <Lightformer
+              position={[-4, 3, 1]}
+              rotation-y={Math.PI / 2}
+              scale={[1, 5, 1]}
+              intensity={3}
+            />
+            <Lightformer
+              position={[4, 3, -1]}
+              rotation-y={-Math.PI / 2}
+              scale={[2, 5, 1]}
+              intensity={2}
+            />
           </Environment>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.006, 0]} receiveShadow>
             <planeGeometry args={[48, 48]} />
             <meshStandardMaterial color="#C2CBC7" roughness={0.92} />
           </mesh>
-          <ProceduralObject object={info} color="#dfceb1" topDown={topDown} />
-          <ProceduralObject object={kiosk} color="#d8b594" topDown={topDown} />
-          <ProceduralObject object={water} color="#8ebbd5" topDown={topDown} />
-          <ProceduralObject object={aid} color="#F8F9FA" topDown={topDown} />
-          <ProceduralObject object={exit} color="#9fceaa" topDown={topDown} />
+          {(!focus || focus.id === info.id) && (
+            <ProceduralObject object={info} color="#dfceb1" topDown={topDown} />
+          )}
+          {(!focus || focus.id === kiosk.id) && (
+            <ProceduralObject object={kiosk} color="#d8b594" topDown={topDown} />
+          )}
+          {(!focus || focus.id === water.id) && (
+            <ProceduralObject object={water} color="#8ebbd5" topDown={topDown} />
+          )}
+          {(!focus || focus.id === aid.id) && (
+            <ProceduralObject object={aid} color="#F8F9FA" topDown={topDown} />
+          )}
+          {(!focus || focus.id === exit.id) && (
+            <ProceduralObject object={exit} color="#9fceaa" topDown={topDown} />
+          )}
           <OrbitControls
             makeDefault
-            target={[-1, 1, 0]}
+            target={[focus?.position[0] ?? -1, topDown ? 0 : 1, focus?.position[1] ?? 0]}
             minDistance={3}
             maxDistance={40}
-            maxPolarAngle={Math.PI / 2 - 0.025}
+            maxPolarAngle={topDown ? 0 : Math.PI / 2 - 0.025}
+            enableRotate={!topDown}
           />
         </Canvas>
       </div>

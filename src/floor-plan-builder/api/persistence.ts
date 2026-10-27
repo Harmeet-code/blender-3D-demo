@@ -1,8 +1,8 @@
 import {
-  getLayout,
-  getLayoutDraft,
-  saveLayout,
-  saveLayoutDraft,
+  getBuilderLayout,
+  getBuilderLayoutDraft,
+  saveBuilderLayout,
+  saveBuilderLayoutDraft,
   acceptLayoutVersion,
 } from '@/features/building/api/layouts-client.ts';
 import { publishReadiness } from '@/features/building/model/layout-readiness.ts';
@@ -30,13 +30,13 @@ export class StudioPersistence {
   async load(signal?: AbortSignal, replaceDirty = false) {
     if (this.publishing) {
       this.store.getState().notify('Wait for publication to finish before reloading.');
-      return { draft: null, published: null };
+      return { draft: null, published: null, restoredDraft: null };
     }
     const sequence = ++this.loadSequence;
     const initialRevision = this.store.getState().revision;
     const [published, draft] = await Promise.all([
-      getLayout(this.eventId, { signal }),
-      getLayoutDraft(this.eventId, { signal }),
+      getBuilderLayout(this.eventId, { signal }),
+      getBuilderLayoutDraft(this.eventId, { signal }),
     ]);
     const current = this.store.getState();
     if (
@@ -45,11 +45,17 @@ export class StudioPersistence {
       this.publishing ||
       current.revision !== initialRevision
     ) {
-      return { draft: null, published: null };
+      return { draft: null, published: null, restoredDraft: null };
+    }
+    if (draft.isErr()) {
+      const message =
+        'Could not load the saved draft. Your local workspace is preserved; check the server.';
+      this.store.setState({ saveState: 'Error', message });
+      throw new Error(message);
     }
     if (unfinished(current) || (!replaceDirty && current.revision !== current.savedRevision)) {
       return {
-        draft: draft.isOk() ? draft.value : null,
+        draft: draft.value,
         published: published.isOk() ? published.value : null,
       };
     }
@@ -60,17 +66,29 @@ export class StudioPersistence {
         throw new Error('The server returned another event. The current workspace was preserved.');
       }
       acceptLayoutVersion(this.eventId, published.value);
-      this.store.getState().load(document);
       publishedDocument = published.value;
     } else if (published.error.status !== 404) {
       this.store.setState({ saveState: 'Error' });
       this.store
         .getState()
         .notify(
-          'Could not load the published event. Your local workspace is preserved; check the server or sign in.',
+          'Could not load the published event. Your local workspace is preserved; check the server.',
         );
     }
-    return { draft: draft.isOk() ? draft.value : null, published: publishedDocument };
+    const serverDraft = draft.isOk() ? draft.value : null;
+    if (serverDraft) {
+      const document = decodeLayout(serverDraft);
+      if (document.baseline.buildingId !== this.eventId) {
+        throw new Error('The server returned another event’s draft. The current workspace was preserved.');
+      }
+      this.store.getState().load(document);
+      this.store.getState().notify('Saved draft loaded.');
+      return { draft: null, published: publishedDocument, restoredDraft: serverDraft };
+    }
+    if (published.isOk()) {
+      this.store.getState().load(decodeLayout(published.value));
+    }
+    return { draft: null, published: publishedDocument, restoredDraft: null };
   }
   saveDraft(): Promise<void> {
     const state = this.store.getState(),
@@ -92,7 +110,7 @@ export class StudioPersistence {
           return;
         }
         this.store.setState({ saveState: 'Saving' });
-        const result = await saveLayoutDraft(this.eventId, snapshot);
+        const result = await saveBuilderLayoutDraft(this.eventId, snapshot);
         if (this.store.getState().documentEpoch !== documentEpoch) {
           return;
         }
@@ -102,9 +120,7 @@ export class StudioPersistence {
           this.store.setState({
             saveState: 'Error',
             message: result.isErr()
-              ? result.error.status === 401 || result.error.status === 403
-                ? 'Sign in to save this event. Local edits are preserved.'
-                : 'Draft save failed. Local edits are preserved; use Retry save.'
+              ? 'Draft save failed. Local edits are preserved; use Retry save.'
               : 'The server did not acknowledge the save.',
           });
         }
@@ -218,7 +234,7 @@ export class StudioPersistence {
         .notify('New edits or a failed draft save require saving again before finalizing.');
       return false;
     }
-    const result = await saveLayout(this.eventId, snapshot);
+    const result = await saveBuilderLayout(this.eventId, snapshot);
     if (this.store.getState().documentEpoch !== documentEpoch) {
       return result.isOk() && result.value.saved;
     }
@@ -229,11 +245,9 @@ export class StudioPersistence {
         message:
           status === 409
             ? 'Publication conflict. Keep your draft, then explicitly reload/compare the published event.'
-            : status === 401 || status === 403
-              ? 'Sign in with administrator access to finalize.'
-              : status === 428
-                ? 'Load the published event version before finalizing.'
-                : 'Finalization failed. Your draft remains saved; check readiness and retry.',
+            : status === 428
+              ? 'Load the published event version before finalizing.'
+              : 'Finalization failed. Your draft remains saved; check readiness and retry.',
       });
       return false;
     }

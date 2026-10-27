@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { polygonBounds } from '@/utils/geometry/polygon.ts';
 import { boothDesign, boothDesignError, boothEdges } from '../model/booth.ts';
 import type { BoothDesign } from '../model/booth-schema.ts';
 import type { PlanObject } from '../model/types.ts';
@@ -10,9 +9,11 @@ import type { PlanObject } from '../model/types.ts';
 export function BoothFields({
   object,
   patch,
+  shellStructure = false,
 }: {
   object: PlanObject;
   patch: (updates: Partial<PlanObject>) => void;
+  shellStructure?: boolean;
 }) {
   const design = boothDesign(object),
     edges = boothEdges(object);
@@ -48,53 +49,15 @@ export function BoothFields({
         ...(edge.index === index ? updates : {}),
       })),
     });
-  const example = (kind: 'L' | 'U') => {
-    const raw: [number, number][] =
-      kind === 'L'
-        ? [
-            [0, 0],
-            [4, 0],
-            [4, 2],
-            [2, 2],
-            [2, 4],
-            [0, 4],
-          ]
-        : [
-            [0, 0],
-            [5, 0],
-            [5, 4],
-            [3.5, 4],
-            [3.5, 1.5],
-            [1.5, 1.5],
-            [1.5, 4],
-            [0, 4],
-          ];
-    const bounds = polygonBounds(raw),
-      w = bounds.maxX - bounds.minX,
-      d = bounds.maxZ - bounds.minZ;
-    const polygon = raw.map(([x, z]): [number, number] => [x - w / 2, z - d / 2]);
-    const openings = kind === 'L' ? [1, 4] : [2, 6];
-    patch({
-      recipe: 'polygon-booth',
-      polygon,
-      dimensions: [w, Math.max(2.2, object.dimensions[1]), d],
-      boothDesign: {
-        ...design,
-        layout: 'custom',
-        edges: polygon.map((_, edge) => ({
-          edge,
-          mode: openings.includes(edge) ? 'open' : 'wall',
-          width: 1.2,
-        })),
-        storage: false,
-      },
-    });
-  };
   return (
-    <div className="fp-form" aria-label="Booth construction settings">
+    <div
+      className="fp-form"
+      aria-label={shellStructure ? 'Structure shell settings' : 'Booth construction settings'}
+    >
       <p className="fp-muted">
-        Modular shell scheme · 80 mm panels · 350 mm fascia · 80 mm plinth. Profiles keep their
-        physical thickness when the footprint is stretched.
+        {shellStructure ? 'Enclosed shell' : 'Modular booth shell scheme'} · 80 mm panels · 350 mm
+        fascia · 80 mm plinth. Profiles keep their physical thickness when the footprint is
+        stretched.
       </p>
       {error && (
         <p className="fp-error" role="alert">
@@ -110,6 +73,7 @@ export function BoothFields({
             update({ layout: event.target.value as BoothDesign['layout'], edges: [] })
           }
         >
+          <option value="enclosed">Enclosed — 1.2 m front doorway</option>
           <option value="inline">Inline — front open</option>
           <option value="corner">Corner — two sides open</option>
           <option value="peninsula">Peninsula — three sides open</option>
@@ -129,18 +93,6 @@ export function BoothFields({
           <option value="solid">Solid roof</option>
         </select>
       </Label>
-      <div className="fp-row">
-        <Button size="sm" variant="outline" onClick={() => example('L')}>
-          L-shaped example
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => example('U')}>
-          U-shaped example
-        </Button>
-      </div>
-      <p className="fp-muted">
-        The U example uses fully open ends. Its 1.5 m edges cannot fit a 1.2 m doorway plus two 0.3
-        m margins.
-      </p>
       <Label>
         Panel primary color
         <Input
@@ -229,8 +181,9 @@ export function BoothFields({
         />
       </Label>
       <p className="fp-muted">
-        New rectangular/polygon booths default to 0.10/0.15 m clearance. Two snapped closed walls
-        may share an edge. Navigation uses walls and columns, leaving the booth interior accessible.
+        {shellStructure
+          ? 'Two snapped closed walls may share an edge. Navigation uses walls and columns, leaving the shell interior accessible.'
+          : 'New rectangular/polygon booths default to 0.10/0.15 m clearance. Two snapped closed walls may share an edge. Navigation uses walls and columns, leaving the booth interior accessible.'}
       </p>
       <details>
         <summary>Walls & entrances · vertex-order edge numbers</summary>

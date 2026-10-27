@@ -7,8 +7,15 @@ import type {
   VenuePublicView,
 } from './venue-contracts.ts';
 
-// Session credentials stay in memory. A reload requires signing in again.
-let session: VenueSession | null = null;
+// Keep the session in memory through development module replacements. A full
+// reload still requires sign-in; credentials are never written to browser storage.
+let session: VenueSession | null =
+  (import.meta.hot?.data.venueSession as VenueSession | null | undefined) ?? null;
+if (import.meta.hot) {
+  import.meta.hot.dispose((data) => {
+    data.venueSession = session;
+  });
+}
 export function venueSession(): VenueSession | null {
   return session;
 }

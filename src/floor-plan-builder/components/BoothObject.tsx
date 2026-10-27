@@ -33,7 +33,16 @@ import {
 import type { PlanObject } from '../model/types.ts';
 import { insideBoundary } from '../model/geometry.ts';
 
-type Batch = 'carpet' | 'panels' | 'aluminum' | 'fascia' | 'rubber' | 'plan' | 'light';
+type Batch =
+  | 'carpet'
+  | 'panels'
+  | 'aluminum'
+  | 'fascia'
+  | 'rubber'
+  | 'plan'
+  | 'light'
+  | 'roof'
+  | 'roofMetal';
 const tokens = {
   carpet: { roughness: 0.95, metalness: 0 },
   panels: { roughness: 0.85, metalness: 0.05 },
@@ -42,6 +51,8 @@ const tokens = {
   rubber: { roughness: 1, metalness: 0 },
   plan: { roughness: 0.8, metalness: 0 },
   light: { roughness: 0.4, metalness: 0 },
+  roof: { roughness: 0.85, metalness: 0.05 },
+  roofMetal: { roughness: 0.35, metalness: 0.85 },
 };
 function polygonSolid(points: BoothPoint[], height: number, y: number) {
   const shape = new Shape(points.map(([x, z]) => new Vector2(x, -z)));
@@ -52,6 +63,11 @@ function polygonSolid(points: BoothPoint[], height: number, y: number) {
 }
 function useSignTexture(company: string, number: string) {
   const texture = useMemo(() => {
+    const companyName = company.trim(),
+      boothNumber = number.trim();
+    if (!companyName && !boothNumber) {
+      return null;
+    }
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 128;
@@ -64,17 +80,24 @@ function useSignTexture(company: string, number: string) {
     context.fillStyle = '#FFFFFF';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    const title = company.trim() || 'COMPANY NAME';
-    const subtitle = `BOOTH ${number.trim() || 'A-101'}`;
-    let size = 66;
-    context.font = `600 ${size}px Arial, sans-serif`;
-    while (context.measureText(title).width > 960 && size > 12) {
-      context.font = `600 ${--size}px Arial, sans-serif`;
+    if (companyName) {
+      let size = 66;
+      context.font = `600 ${size}px Arial, sans-serif`;
+      while (context.measureText(companyName).width > 960 && size > 12) {
+        context.font = `600 ${--size}px Arial, sans-serif`;
+      }
+      context.fillText(companyName, 512, boothNumber ? 43 : 64, 960);
     }
-    context.fillText(title, 512, 47, 960);
-    context.font = '500 28px Arial, sans-serif';
-    context.fillStyle = '#DDE4E8';
-    context.fillText(subtitle, 512, 102, 960);
+    if (boothNumber) {
+      context.font = companyName ? '500 28px Arial, sans-serif' : '600 66px Arial, sans-serif';
+      context.fillStyle = companyName ? '#DDE4E8' : '#FFFFFF';
+      context.fillText(
+        companyName ? `BOOTH ${boothNumber}` : boothNumber,
+        512,
+        companyName ? 102 : 64,
+        960,
+      );
+    }
     const value = new CanvasTexture(canvas);
     value.colorSpace = SRGBColorSpace;
     value.anisotropy = 4;
@@ -281,7 +304,7 @@ function buildBooth(
   }
   if (design.roof === 'solid') {
     add(
-      'panels',
+      'roof',
       polygonSolid(object.polygon, 0.04, h - 0.04),
       colorOverride ? floorColor : design.primaryColor,
     );
@@ -309,7 +332,7 @@ function buildBooth(
             continue;
           }
           box(
-            'aluminum',
+            'roofMetal',
             axis ? [to - from, 0.045, 0.035] : [0.035, 0.045, to - from],
             axis
               ? [(from + to) / 2, h - 0.025, coordinate]
@@ -520,6 +543,7 @@ export function BoothObject({
       {batches.map(({ kind, geometry }, index) => (
         <mesh
           key={kind}
+          userData={{ routeOccluder: kind === 'roof' || kind === 'roofMetal' }}
           ref={index === 0 ? anchor : undefined}
           geometry={geometry}
           castShadow={!ghost && kind !== 'plan'}

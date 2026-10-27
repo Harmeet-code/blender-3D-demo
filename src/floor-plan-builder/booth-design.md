@@ -1,13 +1,16 @@
 # Booth construction refinement — 15 October 2026
 
-This implements the user's supplied Standard Rectangular Booth / Custom Polygon Booth description
-in the isolated floor-plan frontend. Other inventory items remain unchanged planning placeholders.
-The source brief was the attached `Pasted text.txt`; no external models, images or fonts are fetched.
+This implements the Standard Rectangular Booth / Custom Polygon Booth construction system in the
+floor-plan frontend. Booth geometry and shell-compatible office structures share procedural wall
+construction; operational footprints and movable equipment use separate semantic object types.
+No external models, images or fonts are fetched.
 
 ## Geometry and appearance
 
 - Both booth recipes use a shared modular renderer: a 50 mm raised carpet platform, 80 mm inward
   panels, aluminum plinths/corner profiles, 1 m panel joins, fascia beams and optional light strips.
+- New shell booths use a closed enclosure with a centered 1.2 m front doorway. The doorway is cut
+  from generated wall runs and navigation obstacles; the other three sides stay closed.
 - The 350 mm fascia sits above open edges and doorway openings. Corner, peninsula and island
   layouts expose two, three and four sides relative to the selected gate. Custom edge modes are
   wall, full opening, 1.2 m doorway or 2 m doorway.
@@ -21,18 +24,19 @@ The source brief was the attached `Pasted text.txt`; no external models, images 
 - Surface IDs are `floor`, `wall-N-inner`, `wall-N-outer`, `header-N`, `plinth-N`, with zero-based N.
   Floor color inherits automatic sampling or explicit object color; individual overrides take
   precedence. Wall faces inherit the panel primary color. Header/plinth defaults remain dark/silver.
-  Availability, heat and collision colors remain temporary display overrides.
+  Availability and heatmap overlays are booth-only; shell construction materials and non-booth
+  inventory retain their semantic colors.
 - A centered company/booth title is visible from above, with solid dark wall strokes and dashed
-  cyan opening markers. Label bounds are fitted inside the polygon, including L/U shapes.
+  cyan opening markers. Label bounds are fitted inside rectangular and irregular polygon footprints.
 - Stretching bakes the footprint and height into geometry while retaining physical wall/frame/
   platform thicknesses; it does not multiply an 80 mm profile by the object's scale.
 
 ## Settings and persistence
 
 The Inspector exposes shell layout, roof, edge openings, panel/surface colors, snapping, clearance,
-and storage. It also supplies L/U examples. Settings live in the optional validated `boothDesign`
-recipe field and survive the existing versioned metadata envelope. They use the current staged
-Apply/Discard/undo boundary. No backend/shared schema was changed.
+and storage. Polygon booths remain available through generic polygon drawing and retain arbitrary
+valid footprints. Settings live in the optional validated `boothDesign` recipe field and survive the
+existing versioned metadata envelope. They use the current staged Apply/Discard/undo boundary.
 
 The optional rear-left closet occupies 1.7 × 1.1 m; its 0.8 × 2 m door slides 0.8 m into a pocket
 behind the front panel. Opening state persists. The transition uses a 0.4 s cubic easing, demand
@@ -40,16 +44,19 @@ invalidation, and reduced-motion handling. Storage placement is rejected if the 
 the booth boundary; navigation conservatively excludes the storage enclosure regardless of door
 state. The closet is not an attendee destination.
 
-New rectangular booths default to 3 × 2.6 × 3 m, with width/depth 2–12 m and height 2.2–4.5 m.
-New polygon booths start with a 4 × 3 m rectangle and 2.6 m height; their construction contract
-allows up to 32 vertices, height 2.2–6 m, 0.8 m minimum edges and 45° minimum convex angles.
+New enclosed rectangular booths default to 3 × 2.6 × 3 m, with width/depth 2–12 m and height
+2.2–4.5 m. Their doorway is 1.2 m unless explicitly configured otherwise.
+New polygon booths start with a 4 × 3 m rectangle, 2.6 m height and a 1.2 m front doorway; their
+construction contract allows up to 32 vertices, height 2.2–6 m, 0.8 m minimum edges and 45°
+minimum convex angles.
 The existing simple-polygon validation/triangulation utilities remain authoritative. Both winding
 orders are supported using signed normals; existing vertex/surface IDs are not silently reordered.
 A new sweep-line algorithm is unnecessary for this bounded authoring contract.
 
 Legacy objects without `boothDesign` render with the new materials/construction but retain their
-previous geometric acceptance and original demo preset heights. New shell-scheme objects clamp
-demo preset heights to the new 2.2 m minimum; price/type/color/preset cycling remain intact. Booth
+previous geometric acceptance, inline layout fallback and original demo preset heights. Newly
+created shell booths explicitly opt into the enclosed layout. New shell-scheme objects clamp demo
+preset heights to the new 2.2 m minimum; price/type/color/preset cycling remain intact. Booth
 presets do not alter stairs or other inventory recipes.
 
 ## Placement, openings and navigation
@@ -62,13 +69,9 @@ vertices on the 0.5 m grid or nearby matching closed edges; it does not impose a
 
 Object placement still reserves the entire booth footprint. Studio Recast navigation instead uses
 actual wall runs and corner columns, leaving openings and the interior traversable. If a floor has
-an explicit positive walkable mask, the booth's footprint joins that mask before its wall/column/
-storage exclusions are applied. This does not add a second routing engine. Canonical booth
+an explicit positive walkable mask, booth and shell-office footprints join that mask before their
+wall/column/storage exclusions are applied. This does not add a second routing engine. Canonical booth
 entrance selection follows an available opening rather than retaining an entrance on a closed edge.
-
-The supplied U example has 1.5 m end edges. A 1.2 m doorway plus two 0.3 m corner margins requires
-1.8 m, so the example uses full openings. The UI explains this; invalid narrower cutouts remain
-correctable and cannot be applied.
 
 The existing backend/visitor physical consumers still do not decode this procedural recipe.
 Tasks 44/49 retain that integration limitation. Studio navigation/visual improvements do not certify
@@ -85,9 +88,10 @@ neither those budgets nor 50-booth performance have been measured in this sessio
 
 An isolated development preview is available at `/admin/floor-plan?boothPreview=1`. It has no venue
 API, persistence or recovery-draft actions. The preview module is excluded from production builds.
-It displays both recipes and permits layout, L/U shape, roof, closet/door and camera inspection.
+It displays rectangular and irregular polygon footprints and permits layout, roof, closet/door and
+camera inspection.
 
 TypeScript, oxlint, formatting and the standalone production build were checked. Browser inspection
-covered the standard model, corner/island layouts, L/U footprints, top labels, truss, and closet door;
+covered the standard model, corner/island layouts, irregular polygon footprints, top labels, truss, and closet door;
 the preview's captured warning/error log was empty. Automated tests remain skipped as requested.
 Live backend persistence and publication remain unverified; the backend on port 8000 is unavailable.

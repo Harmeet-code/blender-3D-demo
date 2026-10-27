@@ -43,7 +43,13 @@ scope.onmessage = ({ data }) => {
         data.from,
         data.toFloor,
         data.to,
-        { enabledPortalTypes: data.enabledPortalTypes },
+        {
+          enabledPortalTypes: data.enabledPortalTypes,
+          disabledPortals: data.disabledPortals,
+          queryFilter: data.queryFilter,
+          straight: data.straight,
+          navAreas: data.navAreas,
+        },
       );
       if (!cancelled.delete(data.id)) {
         scope.postMessage({ id: data.id, revision, route });

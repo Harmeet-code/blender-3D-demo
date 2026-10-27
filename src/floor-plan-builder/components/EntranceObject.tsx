@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { TraversalMotionContext } from '../wayfinding/walkthrough/motion-context.tsx';
+import { proximityDoors } from '../wayfinding/game/door-state.ts';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import { CanvasTexture, MathUtils, SRGBColorSpace, Vector3, type Group } from 'three';
@@ -67,6 +69,7 @@ export function EntranceObject({
   topDown?: boolean;
 }) {
   const [w, h, d] = object.dimensions;
+  const playback = useContext(TraversalMotionContext);
   const gate = object.entranceGate;
   const open = gate === 'open-arch' ? true : object.entranceOpen;
   const opening = entranceClearWidth(object);
@@ -90,7 +93,14 @@ export function EntranceObject({
         setNear(true);
       }
     }
-    const target = open ? 1 : 0;
+    const target =
+      playback && gate === 'arch-sliding-doors' && object.entranceOpen
+        ? proximityDoors.has(object.id)
+          ? 1
+          : 0
+        : open
+          ? 1
+          : 0;
     const current = slide.current.value;
     if (Math.abs(current - target) > 0.001) {
       slide.current.value = MathUtils.damp(current, target, 6, Math.min(delta, 0.1));

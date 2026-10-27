@@ -38,8 +38,6 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
   const toggleDollhouse = useWorldStore((s) => s.toggleDollhouse);
   const proof = useWorldStore((s) => s.assetProof);
   const toggleProof = useWorldStore((s) => s.toggleAssetProof);
-  const lowQuality = useWorldStore((s) => s.lowQuality);
-  const toggleQuality = useWorldStore((s) => s.toggleQuality);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -68,13 +66,6 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
               <FieldDescription>Swap the venue for the asset-proof layout.</FieldDescription>
             </FieldContent>
             <Switch checked={proof} onCheckedChange={toggleProof} aria-label="Asset preview" />
-          </Field>
-          <Field orientation="horizontal">
-            <FieldContent>
-              <FieldTitle>Low quality</FieldTitle>
-              <FieldDescription>Reduce shadows and pixel ratio on weak devices.</FieldDescription>
-            </FieldContent>
-            <Switch checked={lowQuality} onCheckedChange={toggleQuality} aria-label="Low quality" />
           </Field>
           <Field orientation="horizontal">
             <FieldContent>

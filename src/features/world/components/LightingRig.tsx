@@ -7,11 +7,11 @@ import { polygonBounds } from '@/utils/geometry/polygon.ts';
 
 /** Warm late-afternoon sun and a cool studio sky, matching the Blender reference. */
 export function LightingRig({
-  lowQuality = false,
   shadowSize = 2048,
   framing,
   studio = false,
 }: {
+  /** @deprecated Accepted for legacy callers and ignored; renderer quality is fixed High. */
   lowQuality?: boolean;
   shadowSize?: number;
   framing?: { center: [number, number, number]; radius: number };
@@ -51,7 +51,7 @@ export function LightingRig({
         position={[x - radius * 0.65, height + radius * 1.3, z - radius * 0.45]}
         target={target}
         intensity={studio ? 3.2 : 1.8}
-        castShadow={!lowQuality && !studio}
+        castShadow={!studio}
         shadow-mapSize={[shadowSize, shadowSize]}
         shadow-camera-left={-radius}
         shadow-camera-right={radius}
@@ -71,7 +71,7 @@ export function LightingRig({
         />
       )}
       <Environment
-        resolution={lowQuality ? 64 : 128}
+        resolution={128}
         frames={1}
         environmentIntensity={studio ? 1.1 : 0.35}
       >

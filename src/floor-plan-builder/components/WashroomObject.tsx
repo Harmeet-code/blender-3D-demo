@@ -152,7 +152,12 @@ export function WashroomObject({
           />
         </mesh>
       ))}
-      <mesh position={[0, h - 0.025, 0]} castShadow receiveShadow>
+      <mesh
+        userData={{ routeOccluder: true }}
+        position={[0, h - 0.025, 0]}
+        castShadow
+        receiveShadow
+      >
         <boxGeometry args={[w, 0.05, d]} />
         <meshStandardMaterial color={wallColor} {...panel} transparent={ghost} opacity={opacity} />
       </mesh>

@@ -34,7 +34,6 @@ interface WorldState {
   setWalkMode: (enabled: boolean) => void;
   publishRuntimePose: (animationState: AvatarState['animationState']) => void;
   assetProof: boolean;
-  lowQuality: boolean;
   stressPreview: boolean;
   geometryFallback: boolean;
   showCeilings: boolean;
@@ -52,7 +51,6 @@ interface WorldState {
   toggleStressPreview: () => void;
   toggleGeometryFallback: () => void;
   toggleAssetProof: () => void;
-  toggleQuality: () => void;
   selectedBoothId: string | null;
   cart: Record<string, string[]>;
   localAvatar: AvatarState;
@@ -103,9 +101,6 @@ export const useWorldStore = create<WorldState>()((set, get) => ({
   assetProof:
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('asset-preview'),
-  lowQuality:
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('quality') === 'low',
   stressPreview:
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('asset-stress'),
@@ -134,7 +129,6 @@ export const useWorldStore = create<WorldState>()((set, get) => ({
   toggleStressPreview: () => set((state) => ({ stressPreview: !state.stressPreview })),
   toggleGeometryFallback: () => set((state) => ({ geometryFallback: !state.geometryFallback })),
   toggleAssetProof: () => set((state) => ({ assetProof: !state.assetProof })),
-  toggleQuality: () => set((state) => ({ lowQuality: !state.lowQuality })),
   selectedBoothId: null,
   cart: {},
   localAvatar: {

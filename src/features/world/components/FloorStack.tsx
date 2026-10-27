@@ -28,6 +28,7 @@ import { useThree } from '@react-three/fiber';
 import { BoothLabels } from './BoothLabels.tsx';
 import { useRoutePointSelection } from '@/features/navigation/model/route-point-selection.ts';
 import { VenueFloorOverlay } from '@/features/venue/components/VenueFloorOverlay.tsx';
+import { managedBoothInstanceIds } from '@/features/building/model/managed-plan-object.ts';
 const placementCache = new WeakMap<Room, Map<string, ReturnType<typeof placeAddOns>>>();
 function acceptedPlacement(room: Room, selected: readonly string[]) {
   const key = [...selected].sort().join('|'),
@@ -89,10 +90,12 @@ function FloorContents({
   floor,
   rooms,
   benchmark,
+  managedBoothIds,
 }: {
   floor: Floor;
   rooms: Room[];
   benchmark: boolean;
+  managedBoothIds: Set<string>;
 }) {
   const cart = useWorldStore((s) => s.cart),
     dollhouse = useWorldStore((s) => s.dollhouse),
@@ -100,6 +103,10 @@ function FloorContents({
   const showCeilings = useWorldStore((s) => s.showCeilings);
   const showLabels = useWorldStore((s) => s.showLabels);
   const layout = useActiveLayout();
+  const visualRooms = useMemo(
+    () => rooms.filter((room) => !managedBoothIds.has(room.id)),
+    [rooms, managedBoothIds],
+  );
   const allRooms = useMemo(
     () => layout.rooms.filter((room) => room.floorId === floor.id),
     [layout, floor.id],
@@ -138,22 +145,25 @@ function FloorContents({
       batches.set(key, list);
     };
     for (const room of rooms) {
-      const physical = boothPhysical(room);
-      if (physical.warning) {
+      const managedBooth = managedBoothIds.has(room.id);
+      const physical = managedBooth ? null : boothPhysical(room);
+      if (physical?.warning) {
         warnings.push(physical.warning);
       }
-      const assembly = assembleRoom(room),
-        selected = cart[room.id] ?? (benchmark ? ['chair', 'table', 'display-case'] : []);
+      const assembly = managedBooth ? null : assembleRoom(room);
+      const canonical = assembly?.canonical ?? false;
+      const selected = cart[room.id] ?? (benchmark ? ['chair', 'table', 'display-case'] : []);
       const reference = room.boothAssetRef;
       if (
-        !assembly.canonical &&
+        !managedBooth &&
+        !canonical &&
         reference &&
         resolveAsset(reference.id, reference.version).isErr()
       ) {
         warnings.push(
           `${room.id}: Unknown asset ${reference.id}@${reference.version}; polygon preview retained.`,
         );
-      } else if (assembly.canonical && !room.boothModelUrl) {
+      } else if (canonical && !room.boothModelUrl) {
         if (selected.includes('logo-banner')) {
           individual.push({
             id: `${room.id}:frame`,
@@ -162,8 +172,8 @@ function FloorContents({
             placement: {
               id: `${room.id}:frame`,
               boothId: room.id,
-              position: assembly.center,
-              yawRadians: assembly.entrance.yawRadians,
+              position: assembly!.center,
+              yawRadians: assembly!.entrance.yawRadians,
             },
             branding: true,
           });
@@ -173,8 +183,8 @@ function FloorContents({
             {
               id: `${room.id}:frame`,
               boothId: room.id,
-              position: assembly.center,
-              yawRadians: assembly.entrance.yawRadians,
+              position: assembly!.center,
+              yawRadians: assembly!.entrance.yawRadians,
             },
             room.boothAssetRef?.version ?? 1,
           );
@@ -182,7 +192,7 @@ function FloorContents({
       }
       const placed = acceptedPlacement(
         room,
-        assembly.canonical ? selected.filter((id) => id !== 'logo-banner') : selected,
+        canonical ? selected.filter((id) => id !== 'logo-banner') : selected,
       );
       if (placed.isErr()) {
         warnings.push(placed.error.message);
@@ -225,7 +235,7 @@ function FloorContents({
       }
     }
     return { batches, individual, warnings };
-  }, [rooms, cart, floor, benchmark, logistics]);
+  }, [rooms, cart, floor, benchmark, logistics, managedBoothIds]);
   useEffect(() => {
     const key = `placement:${floor.id}`;
     useAssetStatus
@@ -255,18 +265,18 @@ function FloorContents({
           )}
         </>
       )}
-      {rooms
+      {visualRooms
         .filter((room) => boothPhysical(room).provider !== 'premium')
         .map((room) => (
           <BoothSurface key={room.id} room={room} />
         ))}
-      <DetailedBooths rooms={rooms} floorId={floor.id} />
+      <DetailedBooths rooms={visualRooms} floorId={floor.id} />
       {!benchmark && (
         <VenueFloorOverlay rooms={rooms} floorId={floor.id} heightOffset={floor.heightOffset} />
       )}
-      {showLabels && <BoothLabels rooms={rooms} />}
+      {showLabels && <BoothLabels rooms={visualRooms} />}
       {showCeilings &&
-        rooms.map((room) => {
+        visualRooms.map((room) => {
           const assembly = assembleRoom(room);
           return assembly.canonical ? (
             <AssetInstance
@@ -381,6 +391,10 @@ export function FloorStack() {
   const proof = useWorldStore((s) => s.assetProof),
     stress = useWorldStore((s) => s.stressPreview);
   const portalPlan = useMemo(() => portalPlacements(layout), [layout]);
+  const managedBoothsByFloor = useMemo(
+    () => new Map(layout.floors.map((floor) => [floor.id, managedBoothInstanceIds(floor)])),
+    [layout],
+  );
   useEffect(() => {
     if (!layout.floors.some((floor) => floor.id === currentFloorId)) {
       const first = layout.floors[0];
@@ -442,11 +456,13 @@ export function FloorStack() {
               floor={floor}
               rooms={floorRooms.get(floor.id) ?? []}
               benchmark={stress}
+              managedBoothIds={managedBoothsByFloor.get(floor.id) ?? new Set()}
             />
             <RoomWalls
               rooms={layout.rooms.filter(
                 (room) =>
                   room.floorId === floor.id &&
+                  !managedBoothsByFloor.get(floor.id)?.has(room.id) &&
                   boothPhysical(room).provider === 'procedural' &&
                   (!floor.authoring || room.type === 'booth'),
               )}

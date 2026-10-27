@@ -3,6 +3,7 @@ import { normalizeLayout } from './normalize-layout.ts';
 import { authoredWallBoxes } from './authored-walls.ts';
 import { boothPhysical, boxFootprint } from './booth-physical.ts';
 import { authoredInstancePhysical } from './authored-instance-physical.ts';
+import { managedBoothInstanceIds } from './managed-plan-object.ts';
 import { authoredPointWalkable } from './walkable-surfaces.ts';
 import { isFloorPointClear } from './floor-point-clear.ts';
 import { portalPlacements } from './portal-placement.ts';
@@ -47,6 +48,7 @@ export function publishReadiness(source: BuildingLayout): string[] {
     if (!authored) {
       continue;
     }
+    const managedBooths = managedBoothInstanceIds(floor);
     const areas = [
       ...authored.obstacles,
       ...(authored.zones ?? [])
@@ -61,7 +63,10 @@ export function publishReadiness(source: BuildingLayout): string[] {
         )
         .map(boxFootprint),
       ...layout.rooms
-        .filter((room) => room.floorId === floor.id && room.type === 'booth')
+        .filter(
+          (room) =>
+            room.floorId === floor.id && room.type === 'booth' && !managedBooths.has(room.id),
+        )
         .flatMap((room) => boothPhysical(room).boxes.map(boxFootprint)),
       ...authored.instances
         .filter((item) => item.collidable)

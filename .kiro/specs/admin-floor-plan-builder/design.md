@@ -1680,6 +1680,12 @@ inside the new frontend. Native off-mesh cost/accessibility/direction flags, exa
 colliders and Recast ramp surfaces remain future consumer integration; existing portal semantics
 are unchanged. The brief's contradictory dimensions are corrected without altering old imports.
 
+The subsequent five-service asset brief is preserved in `service-assets-brief.md`.
+Its implementation, dimensional conflict resolutions and outstanding navigation/
+physics consumer work are reconciled in `src/floor-plan-builder/service-design.md`.
+That audit supplements these detailed specs; it does not replace their requirements
+or mark the deferred consumer integrations complete.
+
 1. **Real-time collaboration**: Multiple admins working simultaneously
 2. **Booth reservation workflow**: Integrate with existing booth reservation system
 3. **Public visitor deployment**: Publish the new frontend beyond the required local studio viewer/preview composition

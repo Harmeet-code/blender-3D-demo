@@ -67,7 +67,7 @@ interface Tour {
   p99Ms?: number;
   warmupSeconds: number;
   durationSeconds: number;
-  quality?: { lowQuality: boolean; floorId: string; pixelRatio: number; browser: string };
+  quality?: { tier: 'high'; floorId: string; pixelRatio: number; browser: string };
   passed?: boolean;
   peakMainCalls?: number;
   peakTriangles?: number;
@@ -113,7 +113,6 @@ export function cancelCameraTour() {
   }
 }
 const tourSceneFields = [
-  'lowQuality',
   'dollhouse',
   'assetProof',
   'stressPreview',
@@ -256,7 +255,7 @@ export function AssetDiagnostics() {
           state,
         };
         tour.quality = {
-          lowQuality: state.lowQuality,
+          tier: 'high',
           floorId: state.currentFloorId,
           pixelRatio: gl.getPixelRatio(),
           browser: navigator.userAgent,
@@ -307,7 +306,7 @@ export function AssetDiagnostics() {
             tour: {
               ...tour,
               phase: 'complete',
-              ...frameStatistics(tour.samples, state.lowQuality ? 33.3 : 16.7),
+              ...frameStatistics(tour.samples, 16.7),
               ...(gpuTimer.current
                 ? {
                     gpu: {

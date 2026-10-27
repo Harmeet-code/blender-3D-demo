@@ -13,9 +13,14 @@ export interface ExitLayersInput {
   open: boolean;
 }
 
+export function exitOpening(width: number) {
+  const clear = Math.min(width - 0.15, 2.2);
+  return { clear, jamb: (width - clear) / 2 };
+}
+
 export function exitCollisionLocal({ width, depth, open }: ExitLayersInput): Point2[][] {
   const hw = width / 2;
-  const jamb = 0.075;
+  const { jamb, clear } = exitOpening(width);
   const polygons: Point2[][] = [
     [
       [-hw, -depth / 2],
@@ -38,6 +43,15 @@ export function exitCollisionLocal({ width, depth, open }: ExitLayersInput): Poi
       [clearHalf, depth / 2],
       [-clearHalf, depth / 2],
     ]);
+  } else {
+    // The open leaf still exists outside the threshold: +Y rotation sends +X to −Z.
+    const hinge = -clear / 2;
+    polygons.push([
+      [hinge - 0.03, -clear],
+      [hinge + 0.03, -clear],
+      [hinge + 0.03, 0],
+      [hinge - 0.03, 0],
+    ]);
   }
   return polygons;
 }
@@ -58,11 +72,12 @@ export function exitSinkLocal(): Point2 {
 /**
  * Approach clear zone: 1.5 m × 2.0 m unimpeded floor directly in front of
  * the doorway (hall side). Enforced in placement; no evacuation-goal pathing
- * consumer exists yet, so the sink node currently serves markers only.
+ * consumer exists yet. The sink is available as a regular studio direction
+ * destination (with avatar clearance); it has no special priority or capacity rating.
  */
 export function exitClearLocal(object: PlanObject): Point2[] {
-  const [w, , d] = object.dimensions;
-  const half = Math.min(0.75, w / 2);
+  const [, , d] = object.dimensions;
+  const half = 0.75;
   return [
     [-half, d / 2],
     [half, d / 2],

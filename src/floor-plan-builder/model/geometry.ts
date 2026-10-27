@@ -6,24 +6,40 @@ import {
   segmentDistance,
   segmentsIntersect,
 } from '@/utils/geometry/polygon.ts';
-import { polygonSchema, type PlanFloor, type PlanObject } from './types.ts';
+import {
+  isBooth,
+  isShellStructure,
+  polygonSchema,
+  type PlanFloor,
+  type PlanObject,
+} from './types.ts';
 import { referencePoint, referenceYaw } from './coordinates.ts';
 import { wallSpans, wallHeightFor } from '@/features/building/model/wall-spans.ts';
 import { authoredWallBoxes } from '@/features/building/model/authored-walls.ts';
 import { boxFootprint } from '@/features/building/model/booth-physical.ts';
 import { inventory } from './inventory.ts';
 import { ShapeUtils, Vector2 } from 'three';
-import { boothDesignError, polygonGap, sharesBoothWall } from './booth.ts';
-import { tentDesignError } from './tent.ts';
-import { entranceDesignError } from './entrance.ts';
-import { washroomDesignError } from './washroom.ts';
-import { kidsDesignError } from './kids.ts';
+import {
+  boothDesignError,
+  boothNavigationPolygons,
+  polygonGap,
+  sharesBoothWall,
+} from './booth.ts';
+import { tentCollisionLocal, tentDesignError } from './tent.ts';
+import { entranceCollisionLocal, entranceDesignError } from './entrance.ts';
+import { benchDesignError, benchObstacleLocal } from './bench.ts';
+import { tableDesignError, tableObstacleLocal } from './table.ts';
+import { barrierDesignError, barrierObstacleLocal } from './barrier.ts';
+import { planterDesignError, planterObstacleLocal } from './planter.ts';
+import { binDesignError } from './bin.ts';
+import { washroomDesignError, washroomObstacleLocal } from './washroom.ts';
+import { kidsDesignError, kidsObstacleLocal } from './kids.ts';
 import { avatarDesignError } from './avatar.ts';
-import { infoDesignError } from './information.ts';
+import { infoDesignError, infoObstaclesLocal } from './information.ts';
 import { kioskDesignError, kioskQueueLocal } from './kiosk.ts';
 import { waterDesignError } from './water.ts';
 import { firstAidDesignError } from './firstaid.ts';
-import { exitDesignError, exitClearLocal } from './exit.ts';
+import { exitDesignError, exitClearLocal, exitCollisionFor } from './exit.ts';
 import {
   circulationApproaches,
   circulationError,
@@ -86,6 +102,15 @@ export function visualHeight(object: PlanObject): number {
   if (object.circulationDesign && !object.legacyPortalLanding) {
     return circulationHeight(object);
   }
+  if (object.recipe === 'information') {
+    return Math.max(object.dimensions[1], object.infoSignHeight + 0.2) * object.scale[1];
+  }
+  if (object.recipe === 'first-aid') {
+    return (Math.max(2.5, object.dimensions[1] + 0.35) + 0.2) * object.scale[1];
+  }
+  if (object.recipe === 'exit') {
+    return (object.dimensions[1] + 0.47) * object.scale[1];
+  }
   const rails =
     !object.legacyPortalLanding &&
     object.handrails &&
@@ -135,6 +160,45 @@ export function footprint(object: PlanObject): [number, number][] {
       : object.polygon;
   return objectPoints(object, polygon);
 }
+
+/** Shared authored-object collision and navigation footprints in floor world coordinates. */
+export function objectObstaclePolygons(object: PlanObject): [number, number][][] {
+  if (!object.collidable) {
+    return [];
+  }
+  if (isBooth(object) || isShellStructure(object)) {
+    return boothNavigationPolygons(object);
+  }
+  const mapped = (local: [number, number][][]) =>
+    local.map((polygon) => objectPoints(object, polygon));
+  switch (object.recipe) {
+    case 'barn-tent':
+      return mapped(tentCollisionLocal(object));
+    case 'entrance':
+      return mapped(entranceCollisionLocal(object));
+    case 'washroom-men':
+    case 'washroom-women':
+      return [objectPoints(object, washroomObstacleLocal(object))];
+    case 'kids-zone':
+      return mapped(kidsObstacleLocal(object));
+    case 'exit':
+      return mapped(exitCollisionFor(object));
+    case 'information':
+      return mapped(infoObstaclesLocal(object));
+    case 'bench':
+      return [objectPoints(object, benchObstacleLocal(object))];
+    case 'table':
+    case 'chair':
+      return [objectPoints(object, tableObstacleLocal(object))];
+    case 'barrier':
+      return mapped(barrierObstacleLocal(object));
+    case 'planter':
+      return [objectPoints(object, planterObstacleLocal(object))];
+    default:
+      return [footprint(object)];
+  }
+}
+
 export function toLocal(
   points: [number, number][],
   position: [number, number],
@@ -244,7 +308,12 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
     kioskDesignError(object) ??
     waterDesignError(object) ??
     firstAidDesignError(object) ??
-    exitDesignError(object);
+    exitDesignError(object) ??
+    benchDesignError(object) ??
+    tableDesignError(object) ??
+    barrierDesignError(object) ??
+    planterDesignError(object) ??
+    binDesignError(object);
   if (designError) {
     return designError;
   }
@@ -276,6 +345,66 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
   if (!insideBoundary(shape, floor.boundary)) {
     return 'Keep the whole object inside the floor boundary.';
   }
+  // Reserve approaches in both placement orders. These are clear floor, not navmesh obstacles.
+  const reserved = (item: PlanObject) =>
+    item.recipe === 'food-kiosk'
+      ? [objectPoints(item, kioskQueueLocal(item))]
+      : item.recipe === 'exit'
+        ? [objectPoints(item, exitClearLocal(item))]
+        : [];
+  const solids = (item: PlanObject) => [
+    ...(isBooth(item) || isShellStructure(item)
+      ? objectObstaclePolygons(item)
+      : [footprint(item)]),
+    ...(item.recipe === 'exit' && item.exitOpen
+      ? exitCollisionFor(item).map((polygon) => objectPoints(item, polygon))
+      : []),
+  ];
+  const fixed = [
+    ...floor.zones.filter((zone) => zone.type === 'blocked').map((zone) => zone.polygon),
+    ...staticBlockers(floor, visualHeight(object)),
+  ];
+  const others = floor.objects.filter((other) => other.id !== object.id && other.collidable);
+  if (
+    reserved(object).some(
+      (area) =>
+        fixed.some((obstacle) => overlaps(area, obstacle)) ||
+        others.some((other) => solids(other).some((obstacle) => overlaps(area, obstacle))),
+    )
+  ) {
+    return 'Keep the entire service queue or exit approach free of objects, blocked zones and walls.';
+  }
+  if (
+    object.collidable &&
+    others.some((other) =>
+      reserved(other).some((area) => solids(object).some((obstacle) => overlaps(area, obstacle))),
+    )
+  ) {
+    return 'This position obstructs a reserved kiosk queue or exit approach.';
+  }
+  if (
+    object.recipe === 'exit' &&
+    object.exitOpen &&
+    solids(object).some(
+      (solid) =>
+        !insideBoundary(solid, floor.boundary) ||
+        fixed.some((obstacle) => overlaps(solid, obstacle)) ||
+        others.some((other) => solids(other).some((obstacle) => overlaps(solid, obstacle))),
+    )
+  ) {
+    return 'Keep the open exit leaf inside the floor and clear of objects and walls.';
+  }
+  if (
+    object.collidable &&
+    others.some(
+      (other) =>
+        other.recipe === 'exit' &&
+        other.exitOpen &&
+        solids(other).some((obstacle) => overlaps(shape, obstacle)),
+    )
+  ) {
+    return 'This position intersects an open exit leaf.';
+  }
   if (object.recipe === 'food-kiosk') {
     const queue = objectPoints(object, kioskQueueLocal(object));
     if (!insideBoundary(queue, floor.boundary)) {
@@ -299,7 +428,9 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
     const obstacles = [
       ...floor.zones.filter((zone) => zone.type === 'blocked').map((zone) => zone.polygon),
       ...staticBlockers(floor, visualHeight(object)),
-      ...floor.objects.filter((other) => other.id !== object.id && other.collidable).map(footprint),
+      ...floor.objects
+        .filter((other) => other.id !== object.id && other.collidable)
+        .flatMap(solids),
     ];
     if (
       approaches.some(
@@ -321,8 +452,12 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
     if (staticBlockers(floor, visualHeight(object)).some((polygon) => overlaps(shape, polygon))) {
       return 'This position intersects an authored obstacle or wall.';
     }
+    const objectSolids = solids(object);
     const collision = floor.objects.find(
-      (other) => other.id !== object.id && other.collidable && overlaps(shape, footprint(other)),
+      (other) =>
+        other.id !== object.id &&
+        other.collidable &&
+        objectSolids.some((solid) => solids(other).some((obstacle) => overlaps(solid, obstacle))),
     );
     if (collision) {
       return `Overlaps ${collision.name}. Move or resize the object.`;
@@ -331,7 +466,7 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
       (other) =>
         other.id !== object.id &&
         other.recipe === 'food-kiosk' &&
-        overlaps(shape, objectPoints(other, kioskQueueLocal(other))),
+        objectSolids.some((solid) => overlaps(solid, objectPoints(other, kioskQueueLocal(other)))),
     );
     if (queueBlock) {
       return `Keep the ${queueBlock.name} queue clear zone unobstructed.`;
@@ -340,7 +475,7 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
       (other) =>
         other.id !== object.id &&
         other.recipe === 'exit' &&
-        overlaps(shape, objectPoints(other, exitClearLocal(other))),
+        objectSolids.some((solid) => overlaps(solid, objectPoints(other, exitClearLocal(other)))),
     );
     if (exitBlock) {
       return `Keep the ${exitBlock.name} approach clear zone unobstructed.`;
@@ -369,6 +504,25 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
   }
   return null;
 }
+
+/** Runtime-owned check for preserving route connectivity when a candidate document is committed. */
+export type PlacementReachabilityCheck = (candidateFloor: PlanFloor) => string | null;
+
+/** Validate every changed object, then allow navigation runtime to veto the complete candidate. */
+export function validatePlacementBatch(
+  changedObjects: readonly PlanObject[],
+  candidateFloor: PlanFloor,
+  checkReachability?: PlacementReachabilityCheck,
+): string | null {
+  for (const object of changedObjects) {
+    const error = placementError(object, candidateFloor);
+    if (error) {
+      return error;
+    }
+  }
+  return checkReachability?.(candidateFloor) ?? null;
+}
+
 /** Optional measured gaps; these never impose an aisle or modify placement policy. */
 export function placementClearance(
   objects: PlanObject[],
@@ -468,6 +622,113 @@ export function resizeObject(
   return fitCirculation(resized);
 }
 
+/**
+ * Zone polygons are stored in world metres, so a group transform moves the vertices directly.
+ * The rotation follows the scene's Y-axis convention, matching the footprint transform.
+ */
+export function transformZonePolygon(
+  polygon: readonly [number, number][],
+  dx: number,
+  dz: number,
+  yaw: number,
+  pivot: [number, number],
+): [number, number][] {
+  const cosine = Math.cos(yaw);
+  const sine = Math.sin(yaw);
+  return polygon.map(([x, z]) => {
+    const rx = x - pivot[0];
+    const rz = z - pivot[1];
+    return [
+      pivot[0] + rx * cosine + rz * sine + dx,
+      pivot[1] - rx * sine + rz * cosine + dz,
+    ] as [number, number];
+  });
+}
+
+/** Rotate a placement about a pivot using the scene's Y-axis convention. */
+export function rotatePosition(
+  position: [number, number],
+  pivot: [number, number],
+  yaw: number,
+): [number, number] {
+  const cosine = Math.cos(yaw);
+  const sine = Math.sin(yaw);
+  const rx = position[0] - pivot[0];
+  const rz = position[1] - pivot[1];
+  return [pivot[0] + rx * cosine + rz * sine, pivot[1] - rx * sine + rz * cosine];
+}
+
+const connectorResizePresets: Partial<Record<PlanObject['recipe'], readonly [number, number][]>> = {
+  stairs: [
+    [2, 7.48], [2.5, 7.48], [3, 7.48],
+    [2, 9], [2.5, 9], [3, 9],
+  ],
+  elevator: [[2.5, 2.5], [3, 3], [3.5, 3.5]],
+  escalator: [
+    [2, 7.2], [2.5, 7.2], [3, 7.2],
+    [2, 9], [2.5, 9], [3, 9],
+  ],
+};
+
+/**
+ * A ramp is dimensioned by its accessible slope, not by a free width/depth pair: the clear width
+ * stays within 1.2–3 m and the run keeps a 1:12–1:20 slope with the landings counted outside it.
+ */
+export function rampResizeLimits(object: PlanObject): {
+  width: [number, number];
+  depth: [number, number];
+} {
+  const design = object.circulationDesign;
+  const landing = design?.landingLength ?? 1.5;
+  const rise = object.dimensions[1] > 0 ? object.dimensions[1] : 0.5;
+  const switchback = design?.layout === 'switchback';
+  const flights = switchback ? 2 : Math.max(1, Math.ceil(rise / 0.76));
+  const landings = switchback ? 2 * landing : (flights + 1) * landing;
+  const depth = (ratio: number) => (switchback ? (rise * ratio) / 2 : rise * ratio) + landings;
+  return {
+    width: switchback ? [2.6, 6.2] : [1.2, 3],
+    depth: [depth(12), depth(20)],
+  };
+}
+
+/** Keep an accessible ramp inside its slope band instead of the generic dimension range. */
+export function resizeRampSafely(
+  object: PlanObject,
+  width: number,
+  height: number,
+  depth: number,
+): PlanObject {
+  const limits = rampResizeLimits(object);
+  const safeWidth = Math.min(limits.width[1], Math.max(limits.width[0], width));
+  const safeDepth = Math.min(
+    20,
+    Math.max(limits.depth[0], Math.min(limits.depth[1], depth)),
+  );
+  return resizeObject(object, safeWidth, height, safeDepth);
+}
+
+/** Keep vertical connectors on validated footprint presets while retaining ordinary numeric editing. */
+export function resizeObjectSafely(
+  object: PlanObject,
+  width: number,
+  height: number,
+  depth: number,
+): PlanObject {
+  if (object.recipe === 'ramp') {
+    return resizeRampSafely(object, width, height, depth);
+  }
+  const presets = connectorResizePresets[object.recipe];
+  if (!presets) return resizeObject(object, width, height, depth);
+  const safe = presets.reduce((best, candidate) => {
+    const score = ((candidate[0] - width) / Math.max(width, 0.1)) ** 2 +
+      ((candidate[1] - depth) / Math.max(depth, 0.1)) ** 2;
+    const bestScore = ((best[0] - width) / Math.max(width, 0.1)) ** 2 +
+      ((best[1] - depth) / Math.max(depth, 0.1)) ** 2;
+    return score < bestScore ? candidate : best;
+  });
+  return resizeObject(object, safe[0], height, safe[1]);
+}
+
 export function resizeFromPointer(
   object: PlanObject,
   start: [number, number],
@@ -506,5 +767,5 @@ export function resizeFromPointer(
     width = Math.max(0.1, Math.round(width / snap) * snap);
     depth = Math.max(0.1, Math.round(depth / snap) * snap);
   }
-  return resizeObject(object, width, object.dimensions[1], depth);
+  return resizeObjectSafely(object, width, object.dimensions[1], depth);
 }

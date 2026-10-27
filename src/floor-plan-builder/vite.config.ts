@@ -35,12 +35,16 @@ export default defineConfig(({ command, isPreview }) => ({
   publicDir: false,
   server: {
     port: 5175,
-    proxy: { '/api': 'http://127.0.0.1:8000' },
+    strictPort: true,
+    // Respect CLI/environment port overrides; a fixed clientPort leaves the
+    // browser on stale modules when this dev server runs on a non-default port.
+    hmr: { protocol: 'ws', overlay: true },
+    proxy: { '/api': `http://127.0.0.1:${process.env.BACKEND_PORT ?? 8000}` },
     watch: {
       ignored: ['**/archive/**', '**/assets-source/**', '**/.codegraph/**', '**/reports/**'],
     },
   },
-  preview: { port: 4175, proxy: { '/api': 'http://127.0.0.1:8000' } },
+  preview: { port: 4175, strictPort: true, proxy: { '/api': 'http://127.0.0.1:8000' } },
   build: {
     outDir: 'dist/floor-plan-builder',
     emptyOutDir: true,

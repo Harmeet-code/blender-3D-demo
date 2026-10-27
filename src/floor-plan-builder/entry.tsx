@@ -1,5 +1,6 @@
 import { lazy, Suspense, useLayoutEffect } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { BuilderRouterProvider } from './shell/router.tsx';
 
 const StudioPage = lazy(() => import('./components/StudioPage.tsx'));
 const BoothPreview = import.meta.env.DEV
@@ -17,9 +18,12 @@ const AmenityPreview = import.meta.env.DEV
 const ServicePreview = import.meta.env.DEV
   ? lazy(() => import('./components/ServicePreview.tsx'))
   : null;
-export function isFloorPlanPath(path: string): boolean {
-  return /^(?:\/floorplan)?\/admin\/floor-plan\/?$/.test(path);
-}
+const FurniturePreview = import.meta.env.DEV
+  ? lazy(() => import('./components/FurniturePreview.tsx'))
+  : null;
+const WayfindingPreview = import.meta.env.DEV
+  ? lazy(() => import('./wayfinding/ui/WayfindingPreview.tsx'))
+  : null;
 export function FloorPlanEntry() {
   useLayoutEffect(() => {
     const root = document.documentElement,
@@ -32,28 +36,34 @@ export function FloorPlanEntry() {
     };
   }, []);
   return (
-    <TooltipProvider delayDuration={200}>
-      <Suspense
-        fallback={
-          <p className="p-6" role="status">
-            Opening floor plan studio…
-          </p>
-        }
-      >
-        {CirculationPreview && new URLSearchParams(location.search).has('circulationPreview') ? (
-          <CirculationPreview />
-        ) : StructurePreview && new URLSearchParams(location.search).has('structurePreview') ? (
-          <StructurePreview />
-        ) : AmenityPreview && new URLSearchParams(location.search).has('amenityPreview') ? (
-          <AmenityPreview />
-        ) : ServicePreview && new URLSearchParams(location.search).has('servicePreview') ? (
-          <ServicePreview />
-        ) : BoothPreview && new URLSearchParams(location.search).has('boothPreview') ? (
-          <BoothPreview />
-        ) : (
-          <StudioPage />
-        )}
-      </Suspense>
-    </TooltipProvider>
+    <BuilderRouterProvider>
+      <TooltipProvider delayDuration={200}>
+        <Suspense
+          fallback={
+            <p className="p-6" role="status">
+              Opening floor plan studio…
+            </p>
+          }
+        >
+          {CirculationPreview && new URLSearchParams(location.search).has('circulationPreview') ? (
+            <CirculationPreview />
+          ) : StructurePreview && new URLSearchParams(location.search).has('structurePreview') ? (
+            <StructurePreview />
+          ) : AmenityPreview && new URLSearchParams(location.search).has('amenityPreview') ? (
+            <AmenityPreview />
+          ) : ServicePreview && new URLSearchParams(location.search).has('servicePreview') ? (
+            <ServicePreview />
+          ) : FurniturePreview && new URLSearchParams(location.search).has('furniturePreview') ? (
+            <FurniturePreview />
+          ) : WayfindingPreview && new URLSearchParams(location.search).has('wayfindingPreview') ? (
+            <WayfindingPreview />
+          ) : BoothPreview && new URLSearchParams(location.search).has('boothPreview') ? (
+            <BoothPreview />
+          ) : (
+            <StudioPage />
+          )}
+        </Suspense>
+      </TooltipProvider>
+    </BuilderRouterProvider>
   );
 }

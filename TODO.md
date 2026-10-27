@@ -1,86 +1,64 @@
-# TODO
 
-Roadmap for blender-3D-demo. Behavior contracts live in `openspec/specs/`
-(`spatial-world`, `platform-infra`); this file tracks execution order only.
-
-How to use this file: one task per line starting with `- [ ]` (open),
-`- [x]` (done), `- [-]` (declined). Keep tasks small enough for one session,
-ordered by dependency, each naming its check (e.g. `bun run verify`).
-Owners use `@name`, areas use `#tag`. Move finished tasks to DONE with the
-date; park ideas in BACKLOG instead of deleting them. Review weekly.
-
-## TODO > Now
-
-- [ ] Complete integrated-GPU laptop acceptance; use `reports/assets/website-acceptance.md` protocol #quality
-- [ ] Provide add-on prices + currency and issue payable invoices on reserve #backend
-- [ ] Select an identity provider and enforce admin login + per-event roles #backend
-- [ ] Select a storage/CDN target and serve GLB/HDRI from it instead of the bundle #infra
-- [ ] Bake AO lightmaps with `uv2` (blocked: no Blender on this host) #frontend
-
-## TODO > Demo parity (one-to-one port from `C:/Users/HarmeetSingh/Desktop/Projects/demo/src`)
-
-Port order: viewer sidebar first (visible value), then authoring forms, then
-keyboard shortcuts, then debug/polish. Non-goals at the bottom are declined
-with reasons, not deleted.
-
-- [ ] Verify BoothDrawer shows all demo sidebar fields (booth no/name/size/price/status/company/contact rows, Focus button); 
-- [ ] Port booth directory with status colors + click-to-focus into the sidebar Floors area; 
-- [ ] Add heat/availability toggle to the visitor sidebar;
-- [ ] Add hover tooltip (booth no, status, price) to booth picking; `bunx tsc --noEmit -p tsconfig.json` #frontend
-- [ ] Add START/REACHED endpoint markers to route preview;
-- [ ] Add camera preset buttons (iso/top/reset) + orbit lock to the world HUD;
-- [ ] Port auto-tour mode (cycle booths with highlight + focus, 1200ms);
-- [ ] Port night toggle + heat toggle into ViewOptions; `bunx tsc --noEmit -p tsconfig.json` #frontend
-- [ ] Port human-friendly unique-name dedupe (NameUtils) for booths/zones/POIs; 
-- [ ] Reach booth-form parity (height/rotation presets, YouTube link, gate, tags, contacts) in the editor; 
-- [ ] Port POI move/duplicate shortcut modes to PortalEditor; 
-- [ ] Port right-click/double-click to finish polygons in FloorPlanEditor; 
-- [ ] Port Shift-letter shortcut suite (Shift+S apply, R resize, M move, D duplicate, B rect, P polygon, T preset, I POI cycle, Z zone, X arm-remove) with input-focus guard; 
-- [ ] Port click-vs-drag disambiguation for scene selection;
-- [ ] Port coord-debug panel as dev-only (`?debug`) overlay + console AUDIT helpers; `bunx tsc --noEmit -p tsconfig.json` #frontend
-- [ ] Port finalize/save-all status semantics (Saving/Saved/Unsynced) into the studio; 
-- [ ] Port floor-switch guard (block when unsaved draft history exists); 
-- [ ] Add freeform booth drawing tools (rect/polygon/drag-place + ghost preview + resize handles) beside booth-preset; 
-- [ ] Add in-canvas POI stair-vs-entrance placement with ghost preview, rotation control, and connects editing;
-- [ ] Add zone point-undo (remove last drawn point without cancelling the shape);
-- [ ] Add floor-image remove + floor delete flows with confirm; 
-- [ ] Scope saved-step history per floor (AuthoringHistory parity); 
-- [ ] Add pending-remove preview (hide + "Apply to save") for booth/POI/zone deletes;
-- [-] Blazor HostBridge command channel (no Blazor host in this stack; share URLs + iframe embed cover it)
-- [-] Grid A* engine port (Recast stays the engine per migration plan; only interaction + visual language are ported)
 
 ## TODO > Next
 
 - [ ] Write `.opencode/instructions/opencode.jsonc` and `AGENTS.md` with repo-specific agent and contributor guidance; validate config and run `bun run verify` #developer-experience
-- [ ] Verify GitHub Actions CI on the first pushed branch #quality
 
-## DONE
+1. remove old and unwanted PNG and GLB files  DONE
+2. remove all unnecessary skills    DONE
+4. check if all the new items are in admin inventory  DONE
+3. need to refine admin authoring UX first then make new assets  
+5. the adjustments to inventory items are coming in a spearate page. i should be able to customise them while placing them on the scene by right clicking on the scene with a game like scene overlay on top of it for this page Procedural services preview
+6. admin authoring needs to be a little simpler
+7. clciking on save shouldnt zoom out view should remain fixed 
+8. zooming in shouldnt make it animate and of high quality. it should remain in its default view as high quality
+9. image upload is not working. if the image is bigger then the floor width and depth then it should automatically adjust. need to remove calibration coordinates
+10. polygon booth add isnt working as in demo.
+11. route should be formed only if we have walking zone defined and there should be a avatar walking around not from the top/iso view, it should walk around the scene from the avatar POV
+12. remove sign in as it is not needed for now
+13. right and left sidebar have a lot of unnecessary things that are not needed and should be hideable
+14. zoom works perfectly when there is no item. but when there are items it kinda works slowly. 
+15. when placing an item into the scene it is currently stuck right there after placing it on the scene. after an item have been placed once it should go back to the state of empty. if the user wants to place the same thing then user will use shift + D shortcut which can then be dragged to any place and then click on the desired place to settle it right there
+16. no need of this need as we should geta  shadcn notification only if the item cannot be placed there. Placement needs attention
+Floor edge: 0.00 m · Nearest blocked geometry: 23.50 m
 
-- [x] Archived `blender-asset-pipeline` to `openspec/changes/archive/2026-10-02-blender-asset-pipeline` with synced specs (2026-10-06)
-- [x] Wired BoothDrawer reserve button to `reserveBooth` entity client with pending/success/error states; `bun test tests/booth-drawer.test.tsx` + E2E reservation spec (2026-10-06) #frontend
-- [x] Render layout from API (`getLayout`) with last-valid fallback; `bun test tests/frontend-results.test.ts` (2026-10-06) #frontend
-- [x] Subscribed WorldPage to presence socket with remote-avatar interpolation; `bun test tests/avatar-presence.test.ts` (2026-10-06) #frontend
-- [x] Booted live infra and ran migrate + seed twice idempotently; health reported postgres/redis `up` (2026-10-06) #infra
-- [x] Added GitHub Actions CI running `bun run verify` + asset validation + build on push/PR (2026-10-06) #quality
-- [x] Single-floor Recast NavMesh routing with typed no-route results; `bun test tests/navigation.test.ts` (2026-10-06) #frontend
-- [x] Extruded wall polygons into 3D meshes with preset heights + entrance openings; `bun test tests/room-walls.test.ts` (2026-10-06) #frontend
-- [x] Dollhouse stack/unstack animation + wall fading with canonical restore; `bun test tests/floor-presentation.test.ts` (2026-10-06) #frontend
-- [x] Double-click teleport + room-search autopilot with cancel; `bun test tests/teleport.test.ts` + E2E navigation spec (2026-10-06) #frontend
-- [x] Order creation on reserve via pending-order transaction + reservation rate limiting; `bun test tests/server-features.test.ts tests/server-results.test.ts` (2026-10-06) #backend
-- [x] Split vendor/3D chunks via `manualChunks`; `bun scripts/assets/check-build-chunks.ts` (2026-10-06) #frontend
-- [x] WebGPU renderer shim with WebGL2 fallback (`?webgpu=1` opt-in); `bun test tests/renderer-selection.test.ts` (2026-10-06) #frontend
-- [x] E2E tests for world navigation + reserve flow; `bun run test:e2e` 2 passed (2026-10-06) #quality
-- [x] Complete Blender catalog (14 baseline + 5 variants), calibrated editor, placement, branding, batching, recovery and desktop browser acceptance; laptop release gate pending (2026-10-02)
-- [x] Render repeated props in material batches with independent booth picking IDs (2026-10-02)
-- [x] Attach isolated aspect-preserving logo planes to validated branding sockets (2026-10-02)
-- [x] Initialise Vite + React + R3F + Fastify scaffold (2026-10-01)
-- [x] Feature-slice `src/` for frontend and backend (2026-10-01)
-- [x] Docker + Postgres + Redis compose with migrate/seed (2026-10-01)
-- [x] Spec-gated OpenSpec workflow adapted to this stack (2026-10-01)
-- [x] neverthrow Result + typed errors as the standard, both sides (2026-10-02)
-- [x] DTOs with request + response validation on every boundary (2026-10-02)
-- [x] Pino structured logging with redaction, no console.* (2026-10-02)
+Keep the whole object inside the floor boundary
+17. need to have a little bit of automatic alignemnt for things like walls etc 
+18. need to fix shimmering of all the objects
+19. need to make a good interactive loading screen while the scene is being loaded
+20. zoom in and out should work will in admin authoring 
+21. what are all the pages in the new - wayfindingPreview, eventId=floor-plan-studio, ?furniturePreview=1
+22. KRRP QUALITY PERMANENTLY HIGH and it shouldnt get into high quality once i zoom in. 
+23. need to fix the necessary ports for Frontend and backend 
+24. need customise button along with move, rotate, duplicate, delete. need to have a resize to resize it dynamically. with live preview. 
+25. remove night lighting feature(maybe), where is the information being stored regardingplacement of booths 
+26. walking modal should live in sidebar and not on the screen itself
+27. need to have the admin sidebar things like walkable zones and other things collasible and visible at all times 
+28. need to show shortcuts available  DONE
+29. need to have all walls closed in shell layout DONE
+30. need to have a notification when the save is successfull. DONE
+31. need to display booth number or coompany name if company name is empty      DONE
+32. should be able to completly backspace width and depth of the floor DONE
+33. need to have drag and select multiple items as well DONE
+34. as i zoom in sometimes the zoom and drag the scene gets slowed quite a lot
+35. Ctrl+S needs to be in sync with UI unsaved changes DONE
+36. need to have auto increamenting booth number from the previous DONE
+37. need to remove L and U shpae reference DONE
+38. availibilty and heat should onyl affect booth DONE
+31. need to have extra items in inventory such as show office, shipping, wash rack, parking lot, food truck/dining DONE
 
-1. remove old and unwanted PNG and GLB files
-2. remove all unnecessary skills
-3. need to refine admin authoring UX forst then make new assets
+32. move should display an overlau where that object is being placed DONE
+33. need to have auto increamenting names for all inventory objwects as well even if they are duplicate DONE
+34. what is colision and need to remove material roughness, metalness, position X/Y
+35. some of the booths required to be placed next to each other so preveting the user from place it there isnt the right behaviour DONE
+36. need to have stairs and escalators connected visually ie at a height distnace with stairs, escalator, lift connecting the 2 with animation. DONE
+37. i should get a slider for rotation instead of just number
+38. why do i get a red line while placing a polygone walkable zone 
+39. should be able to zoom in and out while placing polygon booth, polygon booth have 2 separate behaviour one is above the vuew finder and one is in inventory
+40. focus booth button doesnt work
+41. apply changes and save arent working in sync. 
+42. label on top of booth is quite small. it needs to get bigger and smaller in size as i zoom out and in 
+43. resizing men booth and other things doesnt persist the change nor does saving it works 
+44. selecting a object locks the rotation of the screen as well as zoom in out
+45. placing rectangle is not working alway, neither is double clicking, 
+46. need to think about the tooltip as it is quiet irrtating at times, including sometimes placing just alongside some booth

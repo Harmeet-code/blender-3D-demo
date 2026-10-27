@@ -25,38 +25,22 @@ function CameraPreset({ top }: { top: boolean }) {
   }, [camera, controls, top, invalidate]);
   return null;
 }
-function polygonExample(shape: 'L' | 'U'): PlanObject {
-  const points: [number, number][] =
-    shape === 'L'
-      ? [
-          [-2, -2],
-          [2, -2],
-          [2, 0],
-          [0, 0],
-          [0, 2],
-          [-2, 2],
-        ]
-      : [
-          [-2.5, -2],
-          [2.5, -2],
-          [2.5, 2],
-          [1, 2],
-          [1, -0.5],
-          [-1, -0.5],
-          [-1, 2],
-          [-2.5, 2],
-        ];
-  const open = shape === 'L' ? [1, 4] : [2, 6];
+function polygonExample(): PlanObject {
+  const points: [number, number][] = [
+    [-2.1, -1.4],
+    [-0.4, -2],
+    [1.8, -1.3],
+    [2.2, 0.8],
+    [0.7, 1.9],
+    [-1.6, 1.4],
+  ];
   return {
     ...createObject('polygon-booth', [3, 0]),
     polygon: points,
-    dimensions: [shape === 'L' ? 4 : 5, 2.6, 4],
+    dimensions: [4.4, 2.6, 3.9],
     company: 'FORM STUDIO',
     boothNumber: 'B-202',
-    boothDesign: boothDesignSchema.parse({
-      layout: 'custom',
-      edges: points.map((_, edge) => ({ edge, mode: open.includes(edge) ? 'open' : 'wall' })),
-    }),
+    boothDesign: boothDesignSchema.parse({ layout: 'enclosed' }),
   };
 }
 /** Isolated visual workbench: no venue client, persisted state, uploads, or publication. */
@@ -66,7 +50,7 @@ export default function BoothPreview() {
     company: 'NORTHSTAR',
     boothNumber: 'A-101',
   }));
-  const [polygon, setPolygon] = useState(() => polygonExample('L'));
+  const [polygon, setPolygon] = useState(() => polygonExample());
   const [top, setTop] = useState(false);
   const update = (values: Partial<BoothDesign>) =>
     setStandard((object) => ({ ...object, boothDesign: { ...object.boothDesign!, ...values } }));
@@ -92,20 +76,9 @@ export default function BoothPreview() {
             value={standard.boothDesign!.layout}
             onChange={(event) => update({ layout: event.target.value as BoothDesign['layout'] })}
           >
-            {['inline', 'corner', 'peninsula', 'island'].map((layout) => (
+            {['enclosed', 'inline', 'corner', 'peninsula', 'island'].map((layout) => (
               <option key={layout}>{layout}</option>
             ))}
-          </select>
-        </label>
-        <label>
-          Polygon shape{' '}
-          <select
-            className="rounded border border-white/20 bg-slate-900 p-2"
-            aria-label="Preview polygon shape"
-            onChange={(event) => setPolygon(polygonExample(event.target.value as 'L' | 'U'))}
-          >
-            <option value="L">L shape</option>
-            <option value="U">U shape</option>
           </select>
         </label>
         <label>

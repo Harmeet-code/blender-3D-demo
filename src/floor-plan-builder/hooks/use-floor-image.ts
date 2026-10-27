@@ -3,22 +3,28 @@ import { CanvasTexture, SRGBColorSpace } from 'three';
 import { mediaUrl } from '@/features/layout-editor/api/media-client.ts';
 import type { SurfacePixels } from '../model/surface-color.ts';
 import type { PlanFloor } from '../model/types.ts';
+import { decodedImageSize } from '../model/floor-image.ts';
 
 export function useFloorImage(floor: PlanFloor) {
   const url = floor.source.authoring?.originalImage ?? floor.source.image;
   const [image, setImage] = useState<{
+    url: string;
     texture: CanvasTexture | null;
     pixels: SurfacePixels | null;
     size: [number, number] | null;
     error: string;
-  }>({ texture: null, pixels: null, size: null, error: '' });
+  }>(() => ({ url, texture: null, pixels: null, size: null, error: '' }));
   useEffect(() => {
+    // Blank floors need no image work. Keep the passive setup free of state
+    // writes for an empty URL; Strict Mode intentionally replays this setup.
+    if (!url) return;
     let alive = true;
     let texture: CanvasTexture | null = null;
-    setImage({ texture: null, pixels: null, size: null, error: '' });
-    if (!url) {
-      return;
-    }
+    setImage((current) =>
+      current.url === url && !current.texture && !current.pixels && !current.error
+        ? current
+        : { url, texture: null, pixels: null, size: null, error: '' },
+    );
     const source = new Image();
     source.crossOrigin = 'anonymous';
     source.onload = () => {
@@ -27,9 +33,10 @@ export function useFloorImage(floor: PlanFloor) {
       }
       try {
         const canvas = document.createElement('canvas');
-        const ratio = Math.min(1, 2048 / Math.max(source.naturalWidth, source.naturalHeight));
-        canvas.width = Math.max(1, Math.round(source.naturalWidth * ratio));
-        canvas.height = Math.max(1, Math.round(source.naturalHeight * ratio));
+        const decodedSize = decodedImageSize(source.naturalWidth, source.naturalHeight);
+        if (!decodedSize) throw new Error('Invalid floor image dimensions.');
+        canvas.width = decodedSize[0];
+        canvas.height = decodedSize[1];
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) {
           throw new Error('Image pixels unavailable.');
@@ -39,6 +46,7 @@ export function useFloorImage(floor: PlanFloor) {
         texture = new CanvasTexture(canvas);
         texture.colorSpace = SRGBColorSpace;
         setImage({
+          url,
           texture,
           pixels: {
             width: canvas.width,
@@ -51,6 +59,7 @@ export function useFloorImage(floor: PlanFloor) {
         });
       } catch {
         setImage({
+          url,
           texture: null,
           pixels: null,
           size: null,
@@ -61,6 +70,7 @@ export function useFloorImage(floor: PlanFloor) {
     source.onerror = () => {
       if (alive) {
         setImage({
+          url,
           texture: null,
           pixels: null,
           size: null,
@@ -76,5 +86,9 @@ export function useFloorImage(floor: PlanFloor) {
       texture?.dispose();
     };
   }, [url]);
-  return image;
+  // A prior floor's decoded image is retained only until its request cleanup
+  // runs; never expose it while the selected floor has a different URL.
+  return image.url === url
+    ? image
+    : { url, texture: null, pixels: null, size: null, error: '' };
 }

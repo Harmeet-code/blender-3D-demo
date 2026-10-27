@@ -24,7 +24,7 @@ import {
 } from '@/features/world/components/AssetDiagnostics.tsx';
 import { AssetStatusAlert } from '@/features/world/components/AssetStatusAlert.tsx';
 import { FrameCoordinator } from './FrameCoordinator.tsx';
-import { GRAPHICS, useGraphicsQuality } from '../model/graphics-quality.ts';
+import { GRAPHICS } from '../model/graphics-quality.ts';
 import { frameRuntime } from '../model/frame-runtime.ts';
 import { useReducedMotion } from '../hooks/use-reduced-motion.ts';
 import { ShaderPreparation } from './ShaderPreparation.tsx';
@@ -162,10 +162,8 @@ function AutopilotPath() {
 }
 export function WorldCanvas() {
   const walkMode = useWorldStore((s) => s.walkMode);
-  const tier = useGraphicsQuality((s) => s.tier);
-  const graphics = GRAPHICS[tier];
-  const lowQuality = useWorldStore((s) => s.lowQuality),
-    currentFloorId = useWorldStore((s) => s.currentFloorId),
+  const graphics = GRAPHICS.high;
+  const currentFloorId = useWorldStore((s) => s.currentFloorId),
     dollhouse = useWorldStore((s) => s.dollhouse);
   const proof = useWorldStore((s) => s.assetProof),
     stress = useWorldStore((s) => s.stressPreview);
@@ -216,8 +214,8 @@ export function WorldCanvas() {
     <div className="h-full w-full">
       <Canvas
         frameloop="demand"
-        shadows={!lowQuality}
-        dpr={lowQuality ? 1 : Math.min(window.devicePixelRatio || 1, graphics.dpr)}
+        shadows
+        dpr={Math.min(window.devicePixelRatio || 1, graphics.dpr)}
         camera={{ position: [24, 20, 30], fov: 50 }}
         gl={gl}
         onCreated={({ gl: renderer }) => {
@@ -231,7 +229,7 @@ export function WorldCanvas() {
       >
         <color attach="background" args={['#8491a2']} />
         <ShaderPreparation />
-        <LightingRig lowQuality={lowQuality} shadowSize={graphics.shadowSize} />
+        <LightingRig shadowSize={graphics.shadowSize} />
         <Physics gravity={[0, -9.81, 0]} timeStep={1 / 60} interpolate={false} paused>
           <FrameCoordinator />
           <FloorPointInteraction>

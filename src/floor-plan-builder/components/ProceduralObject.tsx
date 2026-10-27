@@ -1,8 +1,8 @@
-import { useMemo, createContext, useContext } from 'react';
+import { memo, useMemo, createContext, useContext } from 'react';
 import { Matrix4 } from 'three';
-import { Line, Html } from '@react-three/drei';
+import { Line } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
-import { isBooth, type PlanObject } from '../model/types.ts';
+import { isBooth, isPlanArea, isShellStructure, type PlanObject } from '../model/types.ts';
 import { bakeBooth } from '../model/booth.ts';
 import { BoothObject } from './BoothObject.tsx';
 import { isCirculation } from '../model/circulation.ts';
@@ -17,6 +17,17 @@ import { FoodKioskObject } from './FoodKioskObject.tsx';
 import { WaterObject } from './WaterObject.tsx';
 import { FirstAidObject } from './FirstAidObject.tsx';
 import { ExitObject } from './ExitObject.tsx';
+import { BenchObject } from './BenchObject.tsx';
+import { TableObject } from './TableObject.tsx';
+import { ChairObject } from './ChairObject.tsx';
+import { BarrierObject } from './BarrierObject.tsx';
+import { PlanterObject } from './PlanterObject.tsx';
+import { BinObject } from './BinObject.tsx';
+import { AreaObject } from './AreaObject.tsx';
+import { OperationalAreaObject, isOperationalRecipe } from './OperationalAreaObject.tsx';
+import { FoodTruckObject } from './FoodTruckObject.tsx';
+import { GhostController } from '../wayfinding/rendering/GhostController.tsx';
+import { RouteLabel } from '../wayfinding/rendering/Beacon.tsx';
 
 interface Props {
   object: PlanObject;
@@ -26,6 +37,7 @@ interface Props {
   colorOverride?: boolean;
   topDown?: boolean;
   windSway?: boolean;
+  routeCutaway?: boolean;
   onClick?: (event: ThreeEvent<MouseEvent>) => void;
   onPointerOver?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: (event: ThreeEvent<PointerEvent>) => void;
@@ -60,7 +72,7 @@ function Box({
     </mesh>
   );
 }
-export function ProceduralObject({
+export const ProceduralObject = memo(function ProceduralObject({
   object: sourceObject,
   color,
   selected,
@@ -68,21 +80,25 @@ export function ProceduralObject({
   colorOverride,
   topDown = false,
   windSway = true,
+  routeCutaway = false,
   ...events
 }: Props) {
   // Cache construction geometry separately from placement transforms and business metadata.
   const baked = useMemo(
-    () => (isBooth(sourceObject) ? bakeBooth(sourceObject) : null),
+    () =>
+      isBooth(sourceObject) || isShellStructure(sourceObject) ? bakeBooth(sourceObject) : null,
     [
       sourceObject.polygon,
       sourceObject.dimensions,
       sourceObject.scale,
       sourceObject.planarMatrix,
       sourceObject.recipe,
+      sourceObject.documentType,
+      sourceObject.boothDesign,
       sourceObject.legacyRoom,
     ],
   );
-  const object = baked
+  const object = useMemo(() => baked
     ? {
         ...sourceObject,
         polygon: baked.polygon,
@@ -90,16 +106,22 @@ export function ProceduralObject({
         scale: baked.scale,
         planarMatrix: undefined,
       }
-    : sourceObject;
+    : sourceObject, [sourceObject, baked]);
   const [w, h, d] = object.dimensions,
     opacity = ghost ? 0.45 : 1;
-  const appearance = { roughness: object.roughness, metalness: object.metalness };
+  const appearance = useMemo(
+    () => ({ roughness: object.roughness, metalness: object.metalness }),
+    [object.roughness, object.metalness],
+  );
   const planarTransform = useMemo(() => {
     const [xx, zx, xz, zz] = object.planarMatrix ?? [1, 0, 0, 1];
     return new Matrix4().set(xx, 0, xz, 0, 0, 1, 0, 0, zx, 0, zz, 0, 0, 0, 0, 1);
   }, [object.planarMatrix]);
   const outline = object.polygon.map(([x, z]): [number, number, number] => [x, 0.1, z]);
   outline.push(outline[0]!);
+  // Event handlers on the placement group can change with the pointer without
+  // rebuilding the unchanged procedural asset subtree.
+  const body = useMemo(() => {
   let body;
   if (object.legacyPortalLanding) {
     body = (
@@ -113,9 +135,20 @@ export function ProceduralObject({
         />
       </mesh>
     );
-  } else if (isBooth(object)) {
+  } else if (isBooth(object) || isShellStructure(object)) {
     body = (
-      <BoothObject object={object} color={color} ghost={ghost} colorOverride={colorOverride} />
+      <BoothObject
+        object={object}
+        color={isBooth(object) ? color : object.color}
+        ghost={ghost}
+        colorOverride={isBooth(object) && colorOverride}
+      />
+    );
+  } else if (isPlanArea(object)) {
+    body = isOperationalRecipe(object.recipe) ? (
+      <OperationalAreaObject object={object} color={color} ghost={ghost} />
+    ) : (
+      <AreaObject object={object} color={color} ghost={ghost} />
     );
   } else if (isCirculation(object.recipe)) {
     body = (
@@ -151,98 +184,30 @@ export function ProceduralObject({
     body = <KidsZoneObject object={object} color={color} ghost={ghost} topDown={topDown} />;
   } else if (object.recipe === 'entrance') {
     body = <EntranceObject object={object} color={color} ghost={ghost} topDown={topDown} />;
-  } else if (object.recipe === 'bench' || object.recipe === 'table') {
-    body = (
-      <>
-        <Box
-          size={[w, h * 0.12, d]}
-          position={[0, h * (object.recipe === 'bench' ? 0.49 : 0.94), 0]}
-          color={color}
-          opacity={opacity}
-        />
-        {[-1, 1].flatMap((x) =>
-          [-1, 1].map((z) => (
-            <Box
-              key={`${x}:${z}`}
-              size={[w * 0.04, h * (object.recipe === 'bench' ? 0.43 : 0.88), d * 0.1]}
-              position={[x * w * 0.4, h * (object.recipe === 'bench' ? 0.215 : 0.44), z * d * 0.35]}
-              color="#7d898c"
-              opacity={opacity}
-            />
-          )),
-        )}
-        {object.recipe === 'bench' && (
-          <Box
-            size={[w, h * 0.45, d * 0.12]}
-            position={[0, h * 0.775, -d * 0.44]}
-            color={color}
-            opacity={opacity}
-          />
-        )}
-      </>
-    );
+  } else if (object.recipe === 'bench') {
+    body = <BenchObject object={object} color={color} ghost={ghost} topDown={topDown} />;
+  } else if (object.recipe === 'table') {
+    body = <TableObject object={object} color={color} ghost={ghost} topDown={topDown} />;
+  } else if (object.recipe === 'chair') {
+    body = <ChairObject object={object} color={color} ghost={ghost} topDown={topDown} />;
   } else if (object.recipe === 'information') {
     body = <InformationObject object={object} color={color} ghost={ghost} topDown={topDown} />;
   } else if (object.recipe === 'food-kiosk') {
     body = <FoodKioskObject object={object} color={color} ghost={ghost} topDown={topDown} />;
+  } else if (object.recipe === 'food-truck') {
+    body = <FoodTruckObject object={object} color={color} ghost={ghost} />;
   } else if (object.recipe === 'water') {
     body = <WaterObject object={object} color={color} ghost={ghost} topDown={topDown} />;
   } else if (object.recipe === 'first-aid') {
     body = <FirstAidObject object={object} color={color} ghost={ghost} topDown={topDown} />;
   } else if (object.recipe === 'exit') {
     body = <ExitObject object={object} color={color} ghost={ghost} topDown={topDown} />;
-  } else if (object.recipe === 'planter' || object.recipe === 'bin') {
-    body = (
-      <>
-        <mesh position={[0, h * 0.3, 0]} scale={[w * 0.42, h * 0.6, d * 0.42]} castShadow>
-          <cylinderGeometry args={[1, 0.81, 1, 12]} />
-          <meshStandardMaterial
-            {...appearance}
-            color={color}
-            transparent={!!ghost}
-            opacity={opacity}
-          />
-        </mesh>
-        {object.recipe === 'planter' ? (
-          <mesh position={[0, h * 0.6, 0]} scale={[w * 0.5, h * 0.4, d * 0.5]} castShadow>
-            <sphereGeometry args={[1, 10, 10]} />
-            <meshStandardMaterial
-              {...appearance}
-              color="#6c9a73"
-              transparent={!!ghost}
-              opacity={opacity}
-            />
-          </mesh>
-        ) : (
-          <Box
-            size={[w * 0.9, h * 0.35, d * 0.9]}
-            position={[0, h * 0.78, 0]}
-            color="#c7d8df"
-            opacity={opacity}
-          />
-        )}
-      </>
-    );
+  } else if (object.recipe === 'planter') {
+    body = <PlanterObject object={object} color={color} ghost={ghost} topDown={topDown} />;
+  } else if (object.recipe === 'bin') {
+    body = <BinObject object={object} color={color} ghost={ghost} topDown={topDown} />;
   } else if (object.recipe === 'barrier') {
-    body = (
-      <>
-        {[-1, 1].map((side) => (
-          <Box
-            key={side}
-            size={[w * 0.05, h, d]}
-            position={[side * w * 0.475, h / 2, 0]}
-            color={color}
-            opacity={opacity}
-          />
-        ))}
-        <Box
-          size={[w, h * 0.08, d * 0.2]}
-          position={[0, h * 0.88, 0]}
-          color="#7a8a9b"
-          opacity={opacity}
-        />
-      </>
-    );
+    body = <BarrierObject object={object} color={color} ghost={ghost} topDown={topDown} />;
   } else {
     body = (
       <>
@@ -256,6 +221,8 @@ export function ProceduralObject({
       </>
     );
   }
+  return body;
+  }, [object, color, ghost, colorOverride, topDown, windSway, appearance, w, h, d, opacity, selected]);
   return (
     <MaterialContext.Provider value={appearance}>
       <group
@@ -266,34 +233,38 @@ export function ProceduralObject({
         {...events}
       >
         <group matrix={planarTransform} matrixAutoUpdate={false}>
-          {body}
+          <GhostController enabled={routeCutaway}>{body}</GhostController>
           {!ghost &&
             (object.legacyPortalLanding ||
-              [
-                'washroom-men',
-                'washroom-women',
-                'kids-zone',
-                'entrance',
-                'exit',
-                'information',
-                'water',
-                'food-kiosk',
-              ].includes(object.recipe)) && (
-              <Html center position={[0, h + 0.25, 0]} style={{ pointerEvents: 'none' }}>
-                <span className="fp-object-sign">
-                  {object.recipe.startsWith('washroom')
+              ['washroom-men', 'washroom-women', 'kids-zone', 'entrance'].includes(
+                object.recipe,
+              )) && (
+              <RouteLabel
+                at={[0, h + 0.25, 0]}
+                text={
+                  object.recipe.startsWith('washroom')
                     ? object.gender === 'men'
                       ? 'MEN'
                       : object.gender === 'women'
                         ? 'WOMEN'
                         : 'WASHROOM'
-                    : object.name}
-                </span>
-              </Html>
+                    : object.name
+                }
+              />
             )}
           {selected && <Line points={outline} color="#e3b96c" lineWidth={2.5} />}
+          {object.locked && (
+            <Line
+              points={outline}
+              color="#8d9aa6"
+              lineWidth={1.5}
+              dashed
+              dashSize={0.14}
+              gapSize={0.1}
+            />
+          )}
         </group>
       </group>
     </MaterialContext.Provider>
   );
-}
+});

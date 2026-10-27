@@ -60,6 +60,8 @@ export const authoredZoneSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   type: z.enum(['walkable', 'blocked', 'display']),
+  /** Editor protection state. Missing values stay false without rewriting legacy zones. */
+  locked: z.boolean().optional(),
   polygon: areaSchema,
 });
 export type AuthoredZone = z.infer<typeof authoredZoneSchema>;

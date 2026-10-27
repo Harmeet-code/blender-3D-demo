@@ -1,7 +1,9 @@
 import type { NormalizedLayout } from './normalize-layout.ts';
 import type { RoutePoint } from './navigation.ts';
 import type {
+  AreaQueryFilter,
   BuildingRoute,
+  NavAreaPaint,
   NavigationRequest,
   NavigationResponse,
   NavigationRouteOptions,
@@ -23,6 +25,9 @@ interface PendingRoute {
 }
 export interface NavigationQueryOptions extends NavigationRouteOptions {
   signal?: AbortSignal;
+  queryFilter?: AreaQueryFilter;
+  straight?: boolean;
+  navAreas?: Record<string, NavAreaPaint[]>;
 }
 const cancelledError = () => new DOMException('Route calculation was cancelled.', 'AbortError');
 
@@ -117,6 +122,10 @@ export class NavigationClient {
         ...(options.enabledPortalTypes
           ? { enabledPortalTypes: [...options.enabledPortalTypes] }
           : {}),
+        ...(options.disabledPortals ? { disabledPortals: [...options.disabledPortals] } : {}),
+        ...(options.queryFilter ? { queryFilter: options.queryFilter } : {}),
+        ...(options.straight ? { straight: true } : {}),
+        ...(options.navAreas ? { navAreas: options.navAreas } : {}),
       });
     });
   }

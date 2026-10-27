@@ -1,6 +1,8 @@
 import { apiBaseUrl } from '@/api/base-url.ts';
 import { z } from 'zod';
+import { venueAuthorizationHeaders } from '@/features/venue/model/venue-client.ts';
 import { tilePyramidSchema } from '@/features/building/model/floor-tiles.ts';
+import { floorPlanBuilderHeaders } from '@/features/building/api/builder-layout-policy.ts';
 import {
   revisionedAssetUrl,
   legacyMediaCacheUrl,
@@ -16,19 +18,39 @@ const mediaResponse = z.object({
   tiles: tilePyramidSchema.optional(),
 });
 export async function uploadMedia(file: File) {
+  return postMedia(file, venueAuthorizationHeaders());
+}
+
+/** Upload for the active builder's implicit local-admin session (no Venue OS credential). */
+export async function uploadBuilderMedia(file: File) {
+  return postMedia(file, floorPlanBuilderHeaders());
+}
+
+async function postMedia(file: File, authHeaders: Record<string, string>) {
   const response = await fetch(`${apiBaseUrl()}/api/media`, {
     method: 'POST',
     headers: {
+      ...authHeaders,
       'Content-Type': file.name.toLowerCase().endsWith('.glb') ? 'model/gltf-binary' : file.type,
     },
     body: file,
   });
-  const json: unknown = await response.json();
+  const json: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(
-      typeof json === 'object' && json !== null && 'error' in json
-        ? String(json.error)
-        : 'Upload failed',
+      response.status === 401
+        ? 'Sign in before uploading an image. Your session may have expired.'
+        : typeof json === 'object' &&
+            json !== null &&
+            'message' in json &&
+            typeof json.message === 'string'
+          ? json.message
+          : typeof json === 'object' &&
+              json !== null &&
+              'error' in json &&
+              typeof json.error === 'string'
+            ? json.error
+            : `Upload failed (${response.status}). Check that the backend is running and try again.`,
     );
   }
   return mediaResponse.parse(json);

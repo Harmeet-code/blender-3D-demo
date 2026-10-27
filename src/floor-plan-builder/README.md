@@ -5,15 +5,14 @@ The new frontend lives entirely in this directory. `src/app/main.tsx` only choos
 ## Run
 
 ```powershell
-bun run dev:floor-plan
+bun start
 # http://127.0.0.1:5175/admin/floor-plan?eventId=floor-plan-studio
 
-bun run build:floor-plan
-bun run preview:floor-plan
-# http://127.0.0.1:4175/floorplan/admin/floor-plan?eventId=floor-plan-studio
+bun start --production
+# http://127.0.0.1:5175/floorplan/admin/floor-plan?eventId=floor-plan-studio
 ```
 
-Use the real event ID in the query. Dev/preview proxy `/api` to the existing server on port 8000. Viewing and local authoring work while the backend is unavailable; protected draft reads/writes, image uploads and publication need that backend and an authorized venue session. Credentials stay in the existing in-memory session.
+Use the real event ID in the query. Both launcher modes start the backend on port 8000 and proxy `/api` to it. Viewing and local authoring work while the backend is unavailable; protected draft reads/writes, image uploads and publication need that backend and an authorized venue session. Credentials stay in the existing in-memory session.
 
 Production output is `dist/floor-plan-builder/`. Host it under `/floorplan/`, with the studio routes falling back to `src/floor-plan-builder/index.html` within that output. Proxy `/api` to the unchanged backend. Static hosting must serve the generated ES module navigation worker and Recast companion bundle. The standalone Vite config avoids three missing helpers in the existing root config; it does not repair or replace those helpers.
 

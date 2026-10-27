@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef, type Dispatch, type SetStateAction } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { useStore } from 'zustand';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { activeFloor, unfinished, type StudioStore } from '../model/store.ts';
@@ -8,8 +10,20 @@ import { formatPrice, statusColors, type StudioView } from '../model/view.ts';
 export type SetView = Dispatch<SetStateAction<StudioView>>;
 
 export function BoothDirectory({ store }: { store: StudioStore }) {
-  const state = store(),
-    floor = activeFloor(state);
+  // The directory only reacts to the selection and the document, not to the pointer preview.
+  const state = useStore(
+    store,
+    useShallow((value) => ({
+      document: value.document,
+      floorId: value.floorId,
+      selection: value.selection,
+      selectionSet: value.selectionSet,
+      pendingRemoval: value.pendingRemoval,
+      revision: value.revision,
+      select: value.select,
+    })),
+  );
+  const floor = activeFloor(state);
   const [query, setQuery] = useState('');
   const booths = floor.objects.filter(
     (object) => isBooth(object) && object.id !== state.pendingRemoval?.id,
@@ -60,8 +74,18 @@ export function BoothDirectory({ store }: { store: StudioStore }) {
 }
 
 export function BoothDetails({ store }: { store: StudioStore }) {
-  const state = store(),
-    floor = activeFloor(state);
+  const state = useStore(
+    store,
+    useShallow((value) => ({
+      document: value.document,
+      floorId: value.floorId,
+      selection: value.selection,
+      pendingRemoval: value.pendingRemoval,
+      revision: value.revision,
+      focus: value.focus,
+    })),
+  );
+  const floor = activeFloor(state);
   const booth = floor.objects.find(
     (object) =>
       state.selection?.kind === 'object' &&
@@ -159,14 +183,6 @@ export function ViewOptions({ view, setView }: { view: StudioView; setView: SetV
           <span>Higher price</span>
         </div>
       )}
-      <Button
-        variant="outline"
-        size="sm"
-        aria-pressed={view.night}
-        onClick={() => setView((current) => ({ ...current, night: !current.night }))}
-      >
-        {view.night ? 'Night lighting on' : 'Night lighting off'}
-      </Button>
     </div>
   );
 }
@@ -226,7 +242,15 @@ export function CameraHud({ view, setView }: { view: StudioView; setView: SetVie
 }
 
 export function useBoothTour(store: StudioStore, view: StudioView, setView: SetView) {
-  const state = store();
+  const state = useStore(
+    store,
+    useShallow((value) => ({
+      floorId: value.floorId,
+      revision: value.revision,
+      tool: value.tool,
+      document: value.document,
+    })),
+  );
   const session = useRef<{ floorId: string; revision: number } | null>(null);
   useEffect(() => {
     if (!view.touring) {

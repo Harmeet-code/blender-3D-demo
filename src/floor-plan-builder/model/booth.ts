@@ -66,7 +66,14 @@ export function boothEdges(
     const tangent: BoothPoint = [(b[0] - a[0]) / length, (b[1] - a[1]) / length];
     const override = design.edges.find((edge) => edge.edge === index);
     const mode =
-      override?.mode ?? (design.layout === 'island' || open.has(index) ? 'open' : 'wall');
+      override?.mode ??
+      (design.layout === 'enclosed'
+        ? index === front
+          ? 'entrance'
+          : 'wall'
+        : design.layout === 'island' || open.has(index)
+          ? 'open'
+          : 'wall');
     return {
       index,
       a: [...a] as BoothPoint,

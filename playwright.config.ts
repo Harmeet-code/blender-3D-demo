@@ -14,19 +14,13 @@ export default defineConfig({
         ? ['--enable-gpu', '--use-gl=angle', `--use-angle=${process.env['R3F_TEST_ANGLE']}`]
         : [],
     },
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:5175',
     trace: 'retain-on-failure',
   },
   webServer: [
     {
-      command: 'bun src/server/app/server.ts',
-      url: 'http://127.0.0.1:8000/api/health',
-      reuseExistingServer: true,
-      timeout: 60_000,
-    },
-    {
-      command: 'bun run dev --port 5173 --host 127.0.0.1',
-      url: 'http://127.0.0.1:5173/',
+      command: 'bun start',
+      url: 'http://127.0.0.1:5175/',
       reuseExistingServer: true,
       timeout: 120_000,
       env: { BROWSER: 'none' },

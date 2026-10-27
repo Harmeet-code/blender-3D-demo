@@ -5,6 +5,7 @@ import { apiResultValidated } from '@/api/api-result.ts';
 import { apiBaseUrl } from '@/api/base-url.ts';
 import type { BuildingLayout } from '@/features/building/model/building-schema.ts';
 import { venueAuthorizationHeaders } from '@/features/venue/model/venue-client.ts';
+import { floorPlanBuilderHeaders } from './builder-layout-policy.ts';
 const loadedVersions = new Map<string, number>();
 const layoutLoadGenerations = new Map<string, number>();
 const responseVersions = new WeakMap<BuildingLayout, { eventId: string; version: number }>();
@@ -25,6 +26,24 @@ import {
 } from '@/features/building/api/dto.ts';
 
 export async function getLayout(
+  eventId: string,
+  config?: AxiosRequestConfig,
+): Promise<Result<BuildingLayout, ApiError>> {
+  return loadLayout(eventId, config);
+}
+
+/** Public layout read used by the active builder's implicit local-admin session. */
+export function getBuilderLayout(
+  eventId: string,
+  config?: AxiosRequestConfig,
+): Promise<Result<BuildingLayout, ApiError>> {
+  return loadLayout(eventId, {
+    ...config,
+    headers: { ...config?.headers, ...floorPlanBuilderHeaders() },
+  });
+}
+
+async function loadLayout(
   eventId: string,
   config?: AxiosRequestConfig,
 ): Promise<Result<BuildingLayout, ApiError>> {
@@ -76,6 +95,28 @@ export async function saveLayout(
   return result;
 }
 
+/** Save the active builder's published snapshot without Venue OS session credentials. */
+export async function saveBuilderLayout(
+  eventId: string,
+  layout: BuildingLayout,
+): Promise<Result<{ saved: boolean }, ApiError>> {
+  const version = loadedVersions.get(eventId) ?? 0;
+  const result = await apiResultValidated(
+    `${apiBaseUrl()}/api/events/${eventId}/layout`,
+    saveLayoutResponseSchema,
+    {
+      method: 'PUT',
+      data: layout,
+      headers: { ...floorPlanBuilderHeaders(), 'X-Venue-Version': String(version) },
+    },
+  );
+  if (result.isOk()) {
+    loadedVersions.set(eventId, Math.max(loadedVersions.get(eventId) ?? version, version + 1));
+    layoutLoadGenerations.set(eventId, (layoutLoadGenerations.get(eventId) ?? 0) + 1);
+  }
+  return result;
+}
+
 export function getLayoutDraft(
   eventId: string,
   config?: AxiosRequestConfig,
@@ -87,6 +128,17 @@ export function getLayoutDraft(
   );
 }
 
+export function getBuilderLayoutDraft(
+  eventId: string,
+  config?: AxiosRequestConfig,
+): Promise<Result<BuildingLayout | null, ApiError>> {
+  return apiResultValidated(
+    `${apiBaseUrl()}/api/events/${encodeURIComponent(eventId)}/layout/draft`,
+    draftLayoutResponseSchema,
+    { ...config, headers: { ...config?.headers, ...floorPlanBuilderHeaders() } },
+  );
+}
+
 export function saveLayoutDraft(
   eventId: string,
   layout: BuildingLayout,
@@ -95,5 +147,16 @@ export function saveLayoutDraft(
     `${apiBaseUrl()}/api/events/${encodeURIComponent(eventId)}/layout/draft`,
     saveLayoutResponseSchema,
     { method: 'PUT', data: layout, headers: venueAuthorizationHeaders() },
+  );
+}
+
+export function saveBuilderLayoutDraft(
+  eventId: string,
+  layout: BuildingLayout,
+): Promise<Result<{ saved: boolean }, ApiError>> {
+  return apiResultValidated(
+    `${apiBaseUrl()}/api/events/${encodeURIComponent(eventId)}/layout/draft`,
+    saveLayoutResponseSchema,
+    { method: 'PUT', data: layout, headers: floorPlanBuilderHeaders() },
   );
 }

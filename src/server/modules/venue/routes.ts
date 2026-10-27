@@ -16,6 +16,10 @@ import {
   telemetry,
   VenueError,
 } from './store.ts';
+import {
+  isFloorPlanBuilderLayoutWrite,
+  isFloorPlanBuilderMediaUpload,
+} from '../../../features/building/api/builder-layout-policy.ts';
 
 export function venueToken(request: FastifyRequest): string | undefined {
   const value = request.headers.authorization;
@@ -25,7 +29,7 @@ function loopback(request: FastifyRequest): boolean {
   return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket.remoteAddress ?? '');
 }
 function trustedOrigin(request: FastifyRequest): boolean {
-  const origin = request.headers.origin;
+  const { origin } = request.headers;
   if (!origin) {
     return true;
   }
@@ -37,7 +41,23 @@ function trustedOrigin(request: FastifyRequest): boolean {
     const url = new URL(origin);
     return (
       ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) &&
-      ['5173', '4173', '8000'].includes(url.port)
+      ['5173', '5175', '4173', '4175', '8000'].includes(url.port)
+    );
+  } catch {
+    return false;
+  }
+}
+/** The local builder may run on a dynamically assigned dev-server port. Keep its origin local. */
+function trustedBuilderOrigin(request: FastifyRequest): boolean {
+  const { origin } = request.headers;
+  if (!origin) {
+    return false;
+  }
+  try {
+    const url = new URL(origin);
+    return (
+      url.protocol === 'http:' &&
+      ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
     );
   } catch {
     return false;
@@ -94,16 +114,28 @@ function admit(
 export function registerVenueGuard(app: FastifyInstance): void {
   app.addHook('preHandler', async (request, reply) => {
     const path = request.url.split('?')[0] ?? '';
+    const { method } = request;
     if (path.startsWith('/api/venue')) {
       return;
     }
-    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
+    if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      return;
+    }
+    // The active floor-plan builder has an implicit local-admin policy for its
+    // layout document endpoints. Vite may choose a dynamic port when its default
+    // is occupied, so validate loopback host + request peer rather than a port list.
+    if (
+      (isFloorPlanBuilderLayoutWrite(method, path, request.headers) ||
+        isFloorPlanBuilderMediaUpload(method, path, request.headers)) &&
+      loopback(request) &&
+      trustedBuilderOrigin(request)
+    ) {
       return;
     }
     if (!trustedOrigin(request)) {
       return reply.code(403).send({ message: 'Untrusted application origin.' });
     }
-    const configured = (await authStatus()).configured;
+    const { configured } = await authStatus();
     if (!configured) {
       if (app.serverMode === 'production' || !loopback(request)) {
         return reply

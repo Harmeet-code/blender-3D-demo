@@ -10,7 +10,6 @@ import { frameRuntime } from '@/features/world/model/frame-runtime.ts';
 import { usePublicVenue } from './VenuePublicProvider.tsx';
 import type { VenuePublicView } from '../model/venue-contracts.ts';
 import { useWorldStore } from '@/features/viewer/model/viewer-store.ts';
-import { useGraphicsQuality } from '@/features/world/model/graphics-quality.ts';
 
 const statusColors = {
   available: '#22c55e',
@@ -130,8 +129,7 @@ export function VenueFloorOverlay({
   const { data, heatmap, operations } = usePublicVenue();
   const selected = useWorldStore((state) => state.selectedBoothId);
   const activeFloor = useWorldStore((state) => state.currentFloorId);
-  const tier = useGraphicsQuality((state) => state.tier);
-  const headerLimit = tier === 'efficient' ? 8 : tier === 'balanced' ? 16 : 24;
+  const headerLimit = 24;
   const [nearby, setNearby] = useState<string[]>([]);
   const elapsed = useRef(1);
   const booths = useMemo(

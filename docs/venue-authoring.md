@@ -1,6 +1,6 @@
 # Venue authoring and procedural inventory
 
-Run `bun run dev:all` and open http://127.0.0.1:5173/. The default event is `luminary-galleria`; `VITE_EVENT_ID` can select another event. Open **Admin builder → Annotate** to author the layout.
+Run `bun start` and open http://127.0.0.1:5175/. The same launcher starts both frontend and backend; use `bun start --production` to build and serve both in production mode.
 
 ## Create and calibrate
 

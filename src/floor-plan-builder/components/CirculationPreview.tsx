@@ -15,8 +15,7 @@ export default function CirculationPreview() {
     recipes.map((recipe) => createObject(recipe, [0, 0])),
   );
   const [selected, setSelected] = useState<(typeof recipes)[number] | 'all'>('all');
-  const [top, setTop] = useState(false),
-    [night, setNight] = useState(false);
+  const [top, setTop] = useState(false);
   const visible =
     selected === 'all' ? objects : objects.filter((object) => object.recipe === selected);
   const update = (recipe: string, values: Partial<CirculationDesign>) =>
@@ -106,9 +105,6 @@ export default function CirculationPreview() {
         <Button variant="outline" aria-pressed={top} onClick={() => setTop(!top)}>
           {top ? 'Isometric view' : 'Top view'}
         </Button>
-        <Button variant="outline" aria-pressed={night} onClick={() => setNight(!night)}>
-          {night ? 'Day lighting' : 'Night lighting'}
-        </Button>
       </div>
       <div className="min-h-0 flex-1" aria-label="Interactive circulation models">
         <Canvas
@@ -127,11 +123,11 @@ export default function CirculationPreview() {
             far: 150,
           }}
         >
-          <color attach="background" args={[night ? '#16202C' : '#D8DFDD']} />
-          <ambientLight intensity={night ? 0.35 : 0.65} />
+          <color attach="background" args={['#D8DFDD']} />
+          <ambientLight intensity={0.65} />
           <directionalLight
             position={[4, 12, 9]}
-            intensity={night ? 0.8 : 2.2}
+            intensity={2.2}
             castShadow
             shadow-mapSize={[2048, 2048]}
             shadow-camera-left={-13}
@@ -140,8 +136,8 @@ export default function CirculationPreview() {
             shadow-camera-bottom={-12}
             shadow-normalBias={0.015}
           />
-          <Environment key={night ? 'night' : 'day'} resolution={64} frames={1}>
-            <color attach="background" args={[night ? '#505F73' : '#B7C3CA']} />
+          <Environment resolution={64} frames={1}>
+            <color attach="background" args={['#B7C3CA']} />
             <Lightformer
               position={[0, 8, 4]}
               rotation-x={Math.PI / 2}
@@ -158,7 +154,7 @@ export default function CirculationPreview() {
           </Environment>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.065, 0]} receiveShadow>
             <planeGeometry args={[80, 80]} />
-            <meshStandardMaterial color={night ? '#29343D' : '#BDC8C4'} roughness={0.92} />
+            <meshStandardMaterial color="#BDC8C4" roughness={0.92} />
           </mesh>
           {visible.map((object, i) => (
             <ProceduralObject

@@ -22,11 +22,14 @@ import {
 } from '../../../features/building/model/building-schema.ts';
 
 async function initialLayout(eventId: string): Promise<BuildingLayout> {
-  return eventId === 'luminary-galleria'
-    ? buildingLayoutSchema.parse(
-        JSON.parse(await readFile(resolve('public/floor-assets/luminary-layout.json'), 'utf8')),
-      )
-    : demoLayout;
+  if (eventId === 'luminary-galleria') {
+    return buildingLayoutSchema.parse(
+      JSON.parse(await readFile(resolve('public/floor-assets/luminary-layout.json'), 'utf8')),
+    );
+  }
+  // Demo geometry is a template, not a different event. Keep the requested project ID
+  // so the builder cannot accidentally hydrate one event's draft under another ID.
+  return buildingLayoutSchema.parse({ ...demoLayout, buildingId: eventId });
 }
 
 export async function fetchLayoutDraft(

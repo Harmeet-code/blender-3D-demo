@@ -1,6 +1,7 @@
 import { boothPhysical } from './booth-physical.ts';
 import { authoredWallBoxes } from './authored-walls.ts';
 import { authoredInstancePhysical } from './authored-instance-physical.ts';
+import { managedBoothInstanceIds } from './managed-plan-object.ts';
 import type { NormalizedLayout } from './normalize-layout.ts';
 
 const floorKeys = new WeakMap<NormalizedLayout, Map<string, string>>();
@@ -18,6 +19,7 @@ export function navigationFloorKey(layout: NormalizedLayout, floorId: string): s
     return cached;
   }
   const floor = layout.floors.find((candidate) => candidate.id === floorId);
+  const managedBooths = floor ? managedBoothInstanceIds(floor) : new Set<string>();
   const key = JSON.stringify({
     floorId,
     height: floor?.heightOffset,
@@ -45,7 +47,7 @@ export function navigationFloorKey(layout: NormalizedLayout, floorId: string): s
         yaw: instance.yawRadians,
       })),
     rooms: layout.rooms
-      .filter((room) => room.floorId === floorId)
+      .filter((room) => room.floorId === floorId && !managedBooths.has(room.id))
       .map((room) => ({
         type: room.type,
         polygon: room.polygon,

@@ -11,10 +11,14 @@ import {
 } from '../venue/store.ts';
 import { venueToken } from '../venue/routes.ts';
 import { z } from 'zod';
+import { isFloorPlanBuilderRequest } from '../../../features/building/api/builder-layout-policy.ts';
 
 export async function registerLayoutRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { eventId: string } }>('/:eventId/layout/draft', async (request, reply) => {
     reply.header('Cache-Control', 'private, no-store');
+    if (isFloorPlanBuilderRequest(request.headers)) {
+      return replyResult(reply, await getLayoutDraft(request.params.eventId, app.db));
+    }
     if ((await authStatus()).configured) {
       try {
         return reply.send(await privateDraft(venueToken(request), request.params.eventId));
@@ -29,6 +33,12 @@ export async function registerLayoutRoutes(app: FastifyInstance): Promise<void> 
   });
   app.put<{ Params: { eventId: string } }>('/:eventId/layout/draft', async (request, reply) => {
     reply.header('Cache-Control', 'private, no-store');
+    if (isFloorPlanBuilderRequest(request.headers)) {
+      return replyResult(
+        reply,
+        await saveLayoutDraft(request.params.eventId, request.body, app.db),
+      );
+    }
     if ((await authStatus()).configured) {
       try {
         await writeLayout(
@@ -52,6 +62,9 @@ export async function registerLayoutRoutes(app: FastifyInstance): Promise<void> 
   });
   app.get<{ Params: { eventId: string } }>('/:eventId/layout', async (request, reply) => {
     reply.header('Cache-Control', 'no-store');
+    if (isFloorPlanBuilderRequest(request.headers)) {
+      return replyResult(reply, await getLayout(request.params.eventId, app.db));
+    }
     const snapshot = await publicLayoutSnapshot(request.params.eventId);
     if (snapshot.layout) {
       return reply.header('X-Venue-Version', String(snapshot.version)).send(snapshot.layout);
@@ -67,6 +80,9 @@ export async function registerLayoutRoutes(app: FastifyInstance): Promise<void> 
   });
 
   app.put<{ Params: { eventId: string } }>('/:eventId/layout', async (request, reply) => {
+    if (isFloorPlanBuilderRequest(request.headers)) {
+      return replyResult(reply, await saveLayout(request.params.eventId, request.body, app.db));
+    }
     if ((await authStatus()).configured) {
       try {
         const revision = request.headers['x-venue-version'];

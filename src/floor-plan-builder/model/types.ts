@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { boothDesignSchema } from './booth-schema.ts';
 import { circulationDesignSchema } from './circulation-schema.ts';
+import { parkingDesignSchema } from './parking-schema.ts';
 import { finiteNumberSchema, point2Schema } from '@/types/spatial.ts';
 import type { BuildingLayout, Floor, Room } from '@/features/building/model/building-schema.ts';
 import {
@@ -26,6 +27,7 @@ export const recipes = [
   'information',
   'bench',
   'table',
+  'chair',
   'barrier',
   'planter',
   'bin',
@@ -33,9 +35,18 @@ export const recipes = [
   'water',
   'first-aid',
   'exit',
+  'show-office',
+  'shipping',
+  'wash-rack',
+  'parking-lot',
+  'food-truck',
+  'dining',
   'legacy',
 ] as const;
 export type RecipeId = (typeof recipes)[number];
+export const documentTypes = ['booth', 'structure', 'area', 'asset'] as const;
+export const planDocumentTypeSchema = z.enum(documentTypes);
+export type PlanDocumentType = (typeof documentTypes)[number];
 export const polygonSchema = z
   .array(point2Schema)
   .min(3)
@@ -84,8 +95,12 @@ const positive = finiteNumberSchema.positive().max(1000);
 export const objectSchema = z.object({
   id: z.string().min(1).max(256),
   recipe: z.enum(recipes),
+  /** Semantic capability, independent of the procedural renderer used to draw the object. */
+  documentType: planDocumentTypeSchema.optional(),
   name: text.trim().min(1, 'Name is required.'),
   managed: z.boolean().default(true),
+  /** Locked objects stay out of marquee selection and every bulk edit. */
+  locked: z.boolean().default(false),
   position: point2Schema,
   yawRadians: finiteNumberSchema,
   scale: z.tuple([positive, positive, positive]),
@@ -103,6 +118,7 @@ export const objectSchema = z.object({
   boothNumber: text.default(''),
   boothDesign: boothDesignSchema.optional(),
   circulationDesign: circulationDesignSchema.optional(),
+  parkingDesign: parkingDesignSchema.optional(),
   boothSize: text.default(''),
   presetId: text.default(''),
   groupId: text.default(''),
@@ -160,6 +176,18 @@ export const objectSchema = z.object({
   kioskQueueDepth: finiteNumberSchema.min(1.5).max(3.0).default(2.0),
   kioskMenu: text.default('ESPRESSO - $3.50 | LATTE - $4.50 | SANDWICH - $7.00'),
   exitOpen: z.boolean().default(false),
+  benchVariant: z.enum(['backed', 'backless']).default('backed'),
+  tableVariant: z
+    .enum(['cocktail-standing', 'standard-dining', 'cloth-draped'])
+    .default('cocktail-standing'),
+  tableTop: z.enum(['round', 'rectangular']).default('rectangular'),
+  tableChairs: z.enum(['none', '2-chairs', '4-chairs']).default('none'),
+  barrierBelt: z.enum(['cyan', 'blue', 'red']).default('cyan'),
+  barrierSag: finiteNumberSchema.min(0.01).max(0.08).default(0.04),
+  planterVariant: z.enum(['tall-tree', 'hedge-box', 'flower-shrub']).default('tall-tree'),
+  planterSeed: z.number().int().min(1).max(9999).default(42),
+  binStream: z.enum(['general-waste', 'recycling', 'organics']).default('general-waste'),
+  binBody: z.enum(['dark', 'steel']).default('dark'),
   gender: z.enum(['men', 'women', 'unisex']).default('unisex'),
   roughness: finiteNumberSchema.min(0).max(1).default(0.65),
   metalness: finiteNumberSchema.min(0).max(1).default(0),
@@ -177,6 +205,8 @@ export interface PlanZone {
   id: string;
   label: string;
   type: 'walkable' | 'blocked' | 'display';
+  /** Missing on older layouts; treated as unlocked until explicitly set. */
+  locked?: boolean;
   polygon: [number, number][];
 }
 export interface PlanFloor {
@@ -209,14 +239,25 @@ export type Tool =
   | 'zone-rectangle'
   | 'zone-polygon'
   | 'blocked-rectangle'
-  | 'spawn';
+  | 'spawn'
+  | 'route-start'
+  | 'route-dest';
 export interface Selection {
   kind: 'object' | 'zone';
   id: string;
 }
-export const isBooth = (object: Pick<PlanObject, 'recipe'>) =>
-  object.recipe === 'booth' ||
-  object.recipe === 'polygon-booth' ||
-  !!('legacyRoom' in object && object.legacyRoom);
+export const isBooth = (
+  object: Pick<PlanObject, 'recipe'> & Partial<Pick<PlanObject, 'documentType' | 'legacyRoom'>>,
+) =>
+  object.documentType !== undefined
+    ? object.documentType === 'booth'
+    : object.recipe === 'booth' ||
+      object.recipe === 'polygon-booth' ||
+      !!object.legacyRoom;
+export const isShellStructure = (
+  object: Pick<PlanObject, 'documentType'> & Partial<Pick<PlanObject, 'boothDesign'>>,
+) => object.documentType === 'structure' && !!object.boothDesign;
+export const isPlanArea = (object: Pick<PlanObject, 'documentType'>) =>
+  object.documentType === 'area';
 export const isConnector = (recipe: RecipeId) =>
-  recipe === 'stairs' || recipe === 'elevator' || recipe === 'escalator';
+  recipe === 'stairs' || recipe === 'elevator' || recipe === 'escalator' || recipe === 'ramp';
