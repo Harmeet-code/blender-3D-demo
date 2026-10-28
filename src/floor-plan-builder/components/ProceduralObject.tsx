@@ -25,6 +25,7 @@ import { PlanterObject } from './PlanterObject.tsx';
 import { BinObject } from './BinObject.tsx';
 import { AreaObject } from './AreaObject.tsx';
 import { OperationalAreaObject, isOperationalRecipe } from './OperationalAreaObject.tsx';
+import { WashRackObject } from './WashRackObject.tsx';
 import { FoodTruckObject } from './FoodTruckObject.tsx';
 import { GhostController } from '../wayfinding/rendering/GhostController.tsx';
 import { RouteLabel } from '../wayfinding/rendering/Beacon.tsx';
@@ -38,6 +39,7 @@ interface Props {
   topDown?: boolean;
   windSway?: boolean;
   routeCutaway?: boolean;
+  rowConnections?: { left: boolean; right: boolean };
   onClick?: (event: ThreeEvent<MouseEvent>) => void;
   onPointerOver?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: (event: ThreeEvent<PointerEvent>) => void;
@@ -82,6 +84,7 @@ export const ProceduralObject = memo(
     topDown = false,
     windSway = true,
     routeCutaway = false,
+    rowConnections,
     ...events
   }: Props) => {
     // Cache construction geometry separately from placement transforms and business metadata.
@@ -147,6 +150,19 @@ export const ProceduralObject = memo(
             color={isBooth(object) ? color : object.color}
             ghost={ghost}
             colorOverride={isBooth(object) && colorOverride}
+          />
+        );
+      } else if (object.recipe === 'wash-rack' && object.washRackVariant) {
+        body = (
+          <WashRackObject
+            variant={object.washRackVariant}
+            dimensions={object.dimensions}
+            wetness={object.washRackWetness ?? 0}
+            running={object.washRackRunning ?? false}
+            boomAngle={object.washRackBoomAngle ?? (object.washRackBoomArc ?? 180) / 2}
+            boomArc={object.washRackBoomArc ?? 180}
+            ghost={ghost}
+            rowConnections={rowConnections}
           />
         );
       } else if (isPlanArea(object)) {
@@ -240,6 +256,7 @@ export const ProceduralObject = memo(
       d,
       opacity,
       selected,
+      rowConnections,
     ]);
     return (
       <MaterialContext.Provider value={appearance}>

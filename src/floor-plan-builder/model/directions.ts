@@ -9,6 +9,12 @@ import { boothNavigationPolygons } from './booth.ts';
 import { tentCollisionLocal, tentWalkableLocal } from './tent.ts';
 import { entranceCollisionLocal } from './entrance.ts';
 import { washroomObstacleLocal } from './washroom.ts';
+import {
+  washRackApproachLocal,
+  washRackObstacleLocal,
+  washRackRowConnections,
+  washRackWalkableLocal,
+} from './wash-rack-spatial.ts';
 import { kidsObstacleLocal } from './kids.ts';
 import { infoObstaclesLocal } from './information.ts';
 import { exitCollisionFor } from './exit.ts';
@@ -125,6 +131,22 @@ export class StudioNavigator {
                         type: 'walkable' as const,
                         polygon: objectPoints(object, tentWalkableLocal(object)),
                       })),
+                    ...source.objects
+                      .filter((object) => object.recipe === 'wash-rack' && object.washRackVariant && object.collidable)
+                      .map((object) => ({
+                        id: `fpb-wash-rack-interior:${object.id}`,
+                        label: `${object.name} interior`,
+                        type: 'walkable' as const,
+                        polygon: objectPoints(object, washRackWalkableLocal(object)),
+                      })),
+                    ...source.objects
+                      .filter((object) => object.recipe === 'wash-rack' && object.washRackVariant && object.collidable)
+                      .map((object) => ({
+                        id: `fpb-wash-rack-approach:${object.id}`,
+                        label: `${object.name} entrance approach`,
+                        type: 'walkable' as const,
+                        polygon: objectPoints(object, washRackApproachLocal(object)),
+                      })),
                   ]
                 : []),
             ],
@@ -149,6 +171,13 @@ export class StudioNavigator {
                   }
                   if (object.recipe === 'washroom-men' || object.recipe === 'washroom-women') {
                     return [objectPoints(object, washroomObstacleLocal(object))];
+                  }
+                  if (object.recipe === 'wash-rack') {
+                    if (!object.washRackVariant) return [footprint(object)];
+                    return washRackObstacleLocal(
+                      object,
+                      washRackRowConnections(object, source.objects),
+                    ).map((polygon) => objectPoints(object, polygon));
                   }
                   if (object.recipe === 'kids-zone') {
                     return kidsObstacleLocal(object).map((polygon) =>

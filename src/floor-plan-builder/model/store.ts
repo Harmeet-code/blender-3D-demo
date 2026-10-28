@@ -10,6 +10,7 @@ import { transformGroup } from './grouping.ts';
 import { snapBoothPosition } from './booth.ts';
 import { snapBarrierPosition } from './barrier.ts';
 import { fitCirculation, snapCirculation } from './circulation.ts';
+import { snapWashRackPosition } from './wash-rack-spatial.ts';
 import {
   objectSchema,
   polygonSchema,
@@ -42,6 +43,18 @@ interface DraftSnapshot {
 }
 interface DraftHistory {
   base: DraftSnapshot;
+}
+
+function snapAuthoredObjectPosition(
+  object: PlanObject,
+  siblings: PlanObject[],
+  floor: PlanFloor,
+  position: readonly [number, number],
+): [number, number] {
+  const boothSnapped = snapBoothPosition(object, siblings, [position[0], position[1]]);
+  const barrierSnapped = snapBarrierPosition(object, siblings, boothSnapped);
+  const rackSnapped = snapWashRackPosition(object, siblings, barrierSnapped);
+  return snapCirculation({ ...object, position: rackSnapped }, floor).position;
 }
 export interface PublicationIssue {
   floorId?: string;
@@ -781,17 +794,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       set({
         pointer:
           pointer && object && ['place', 'move', 'duplicate'].includes(state.tool)
-            ? snapCirculation(
-                {
-                  ...object,
-                  position: snapBarrierPosition(
-                    object,
-                    floor.objects,
-                    snapBoothPosition(object, floor.objects, pointer),
-                  ),
-                },
-                floor,
-              ).position
+            ? snapAuthoredObjectPosition(object, floor.objects, floor, pointer)
             : pointer,
       });
     },
@@ -810,12 +813,12 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         }
         const pendingObject = { ...(state.pendingObject ?? original), ...updates, managed: true };
         if (updates.position && state.tool === 'move') {
-          pendingObject.position = snapBarrierPosition(
+          pendingObject.position = snapAuthoredObjectPosition(
             pendingObject,
             activeFloor(state).objects,
-            snapBoothPosition(pendingObject, activeFloor(state).objects, pendingObject.position),
+            activeFloor(state),
+            pendingObject.position,
           );
-          pendingObject.position = snapCirculation(pendingObject, activeFloor(state)).position;
         }
         const selectionSet = state.selectionSet.length
           ? state.selectionSet
@@ -1217,17 +1220,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         object.yawRadians = state.placementYaw;
         members = [object];
       }
-      const snapped = snapCirculation(
-        {
-          ...object,
-          position: snapBarrierPosition(
-            object,
-            floor.objects,
-            snapBoothPosition(object, floor.objects, object.position),
-          ),
-        },
-        floor,
-      ).position;
+      const snapped = snapAuthoredObjectPosition(object, floor.objects, floor, object.position);
       const dx = snapped[0] - object.position[0],
         dz = snapped[1] - object.position[1];
       members = members.map((member) => ({

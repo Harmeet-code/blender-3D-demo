@@ -1,6 +1,7 @@
 import { ShapeUtils, Vector2 } from 'three';
 import { pointInPolygon, polygonBounds } from '@/utils/geometry/polygon.ts';
-import { objectObstaclePolygons } from '../../model/geometry.ts';
+import { objectObstaclePolygons, objectPoints } from '../../model/geometry.ts';
+import { washRackApproachLocal, washRackWalkableLocal } from '../../model/wash-rack-spatial.ts';
 import type { PlanObject } from '../../model/types.ts';
 import type { WalkableZone } from '../model/zone-schema.ts';
 import type { NavAreaPaint } from '../model/route-schema.ts';
@@ -102,7 +103,7 @@ export function buildFloorNavInput(
   objects: PlanObject[],
   diagnostics = true,
 ): FloorNavInput {
-  const obstacles = objects.flatMap(objectObstaclePolygons);
+  const obstacles = objects.flatMap((object) => objectObstaclePolygons(object, objects));
   const surfaces: Point2[][] = [];
   const areas: NavAreaPaint[] = [];
   // Restriction wins even where a queue overlaps it, regardless of authoring order.
@@ -122,6 +123,13 @@ export function buildFloorNavInput(
     const { area, flags } = ZONE_AREA[zone.type];
     for (const triangle of triangulate(outer, zone.holes as Point2[][])) {
       areas.push({ polygon: triangle, area, flags });
+    }
+  }
+  if (relevant.some((zone) => zone.type !== 'restricted')) {
+    for (const object of objects) {
+      if (object.recipe !== 'wash-rack' || !object.washRackVariant || !object.collidable) continue;
+      surfaces.push(objectPoints(object, washRackWalkableLocal(object)));
+      surfaces.push(objectPoints(object, washRackApproachLocal(object)));
     }
   }
   return {

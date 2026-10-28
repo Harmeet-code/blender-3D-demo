@@ -24,6 +24,9 @@ const FurniturePreview = import.meta.env.DEV
 const WayfindingPreview = import.meta.env.DEV
   ? lazy(() => import('./wayfinding/ui/WayfindingPreview.tsx'))
   : null;
+const WashRackPreview = import.meta.env.DEV
+  ? lazy(() => import('./components/WashRackPreview.tsx'))
+  : null;
 export function FloorPlanEntry() {
   useLayoutEffect(() => {
     const root = document.documentElement,
@@ -45,7 +48,9 @@ export function FloorPlanEntry() {
             </p>
           }
         >
-          {CirculationPreview && new URLSearchParams(location.search).has('circulationPreview') ? (
+          {WashRackPreview && new URLSearchParams(location.search).has('washRackPreview') ? (
+            <WashRackPreview />
+          ) : CirculationPreview && new URLSearchParams(location.search).has('circulationPreview') ? (
             <CirculationPreview />
           ) : StructurePreview && new URLSearchParams(location.search).has('structurePreview') ? (
             <StructurePreview />

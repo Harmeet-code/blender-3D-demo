@@ -31,6 +31,15 @@ import { boothPresets, withPreset } from '../model/presets.ts';
 import { BoothFields } from './BoothFields.tsx';
 import { CirculationFields } from './CirculationFields.tsx';
 import { isCirculation } from '../model/circulation.ts';
+import {
+  applyWashRackVariant,
+  isLegacyWashRack,
+  resetWashRackVariantDimensions,
+  washRackHasCustomDimensions,
+  washRackVariantProfiles,
+  washRackVariants,
+  type WashRackVariant,
+} from '../model/wash-rack.ts';
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -429,9 +438,119 @@ function ObjectFields({ store, object, onChangeFloor }: { store: StudioStore; ob
           </option>
         </select>
       </Field>
-      <p className="fp-muted">Turn this off for a visual reference visitors can walk through.</p>
+      <p className="fp-muted">
+        {object.recipe === 'wash-rack'
+          ? 'When enabled, rails, posts, and the rear boundary block routes; the entrance and wash area stay open.'
+          : 'Turn this off for a visual reference visitors can walk through.'}
+      </p>
       <details className="fp-settings-group">
         <summary>{isBooth(object) ? 'Booth details' : `${object.name} options`}</summary>
+      {object.recipe === 'wash-rack' && (
+        <>
+          <Field label="Wash rack type">
+            <select
+              aria-label="Wash rack type"
+              value={object.washRackVariant ?? ''}
+              onChange={(event) => {
+                const variant = event.target.value as WashRackVariant;
+                patch(applyWashRackVariant(object, variant));
+                commitPendingObject();
+              }}
+            >
+              <option value="" disabled>Select a rack type</option>
+              {washRackVariants.map((variant) => (
+                <option key={variant} value={variant}>
+                  {washRackVariantProfiles[variant].label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {isLegacyWashRack(object) ? (
+            <p className="fp-muted">
+              This saved rack keeps its existing footprint until you choose a type above.
+            </p>
+          ) : (
+            <>
+              <Field label="Water delivery running">
+                <Input
+                  aria-label="Water delivery running"
+                  type="checkbox"
+                  checked={object.washRackRunning ?? false}
+                  onChange={(event) => patch({ washRackRunning: event.target.checked })}
+                />
+              </Field>
+              <Field label="Wetness (0 dry – 1 saturated)">
+                <Input
+                  aria-label="Wash rack wetness slider"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={object.washRackWetness ?? 0}
+                  onChange={(event) => patch({ washRackWetness: Number(event.target.value) })}
+                  onPointerUp={commitPendingObject}
+                  onKeyUp={commitPendingObject}
+                />
+              </Field>
+              <NumberInput
+                label="Wetness value"
+                value={object.washRackWetness ?? 0}
+                min={0}
+                max={1}
+                step={0.01}
+                onChange={(washRackWetness) => patch({ washRackWetness })}
+              />
+              <Field label="Boom sweep arc">
+                <select
+                  aria-label="Boom sweep arc"
+                  value={object.washRackBoomArc ?? 180}
+                  onChange={(event) => {
+                    const washRackBoomArc = Number(event.target.value) as 180 | 360;
+                    const previousArc = object.washRackBoomArc ?? 180;
+                    const previousAngle = object.washRackBoomAngle ?? previousArc / 2;
+                    patch({
+                      washRackBoomArc,
+                      washRackBoomAngle: Math.max(
+                        0,
+                        Math.min(
+                          previousAngle - previousArc / 2 + washRackBoomArc / 2,
+                          washRackBoomArc,
+                        ),
+                      ),
+                    });
+                  }}
+                >
+                  <option value={180}>180°</option>
+                  <option value={360}>360°</option>
+                </select>
+              </Field>
+              <NumberInput
+                label="Boom angle (degrees)"
+                value={object.washRackBoomAngle ?? (object.washRackBoomArc ?? 180) / 2}
+                min={0}
+                max={object.washRackBoomArc ?? 180}
+                step={1}
+                onChange={(washRackBoomAngle) => patch({ washRackBoomAngle })}
+              />
+              {washRackHasCustomDimensions(object) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const dimensions = resetWashRackVariantDimensions(object);
+                    if (dimensions) {
+                      patch(dimensions);
+                      commitPendingObject();
+                    }
+                  }}
+                >
+                  Reset to {washRackVariantProfiles[object.washRackVariant!].label} dimensions
+                </Button>
+              )}
+            </>
+          )}
+        </>
+      )}
       {object.recipe.startsWith('washroom') && (
         <Field label="Washroom signage">
           <select

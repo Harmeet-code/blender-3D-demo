@@ -1,4 +1,4 @@
-import { pointInPolygon, polygonEdges, segmentDistance } from '@/utils/geometry/polygon.ts';
+import { pointInPolygon, polygonBounds, polygonEdges, segmentDistance } from '@/utils/geometry/polygon.ts';
 import { bakeBooth, boothEdges, boothWorldPoints } from '../../model/booth.ts';
 import { objectPoints } from '../../model/geometry.ts';
 import { isBooth, type PlanDocument, type PlanObject } from '../../model/types.ts';
@@ -8,6 +8,7 @@ import { washroomLandingLocal } from '../../model/washroom.ts';
 import { infoCustomerNode } from '../../model/information.ts';
 import { firstAidEntryLocal } from '../../model/firstaid.ts';
 import { waterApproachNode } from '../../model/water.ts';
+import { washRackApproachLocal, washRackWalkableLocal } from '../../model/wash-rack-spatial.ts';
 import { circulationEntry } from '../../model/circulation.ts';
 import { type StudioNavigator, type PlanRoute } from '../../model/directions.ts';
 import { buildFloorNavInput, ZONE_AREA } from './input-builder.ts';
@@ -146,6 +147,10 @@ export function itemAccessPoint(object: PlanObject, from?: Point2): Point2 {
       return local(firstAidEntryLocal(object));
     case 'water':
       return local(waterApproachNode());
+    case 'wash-rack': {
+      const bounds = polygonBounds(washRackApproachLocal(object));
+      return local([(bounds.minX + bounds.maxX) / 2, (bounds.minZ + bounds.maxZ) / 2]);
+    }
     case 'entrance':
       return local([0, object.dimensions[2] / 2 + 0.55]);
     default: {
@@ -239,6 +244,16 @@ export function resolveEndpoint(
   if (!walkable.length) {
     return { error: 'Draw a walkable zone on this floor before planning a route.' };
   }
+  const inGeneratedWashRackWalkable = (candidate: Point2) =>
+    floor.objects.some(
+      (object) =>
+        object.recipe === 'wash-rack' &&
+        object.washRackVariant &&
+        object.collidable &&
+        [washRackWalkableLocal(object), washRackApproachLocal(object)].some((polygon) =>
+          pointInPolygon(candidate, objectPoints(object, polygon)),
+        ),
+    );
   let point: Point2;
   let label: string;
   let warning: string | undefined;
@@ -256,7 +271,10 @@ export function resolveEndpoint(
     point = [...(endpoint.point ?? [0, 0])];
     label = `Point (${point[0].toFixed(1)}, ${point[1].toFixed(1)})`;
   }
-  if (!walkable.some((zone) => pointInPolygon(point, zone.polygon as Point2[]))) {
+  if (
+    !walkable.some((zone) => pointInPolygon(point, zone.polygon as Point2[])) &&
+    !inGeneratedWashRackWalkable(point)
+  ) {
     return { error: `${label} is outside a walkable zone.` };
   }
   const input = buildFloorNavInput(

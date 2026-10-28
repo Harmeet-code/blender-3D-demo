@@ -176,6 +176,12 @@ export const objectSchema = z.object({
   kioskQueueDepth: finiteNumberSchema.min(1.5).max(3.0).default(2.0),
   kioskMenu: text.default('ESPRESSO - $3.50 | LATTE - $4.50 | SANDWICH - $7.00'),
   exitOpen: z.boolean().default(false),
+  /** Wash rack fields stay optional so legacy flat-area records remain distinguishable. */
+  washRackVariant: z.enum(['equestrian', 'livestock', 'vehicle-bay']).optional(),
+  washRackWetness: finiteNumberSchema.min(0).max(1).optional(),
+  washRackRunning: z.boolean().optional(),
+  washRackBoomAngle: finiteNumberSchema.min(0).max(360).optional(),
+  washRackBoomArc: z.union([z.literal(180), z.literal(360)]).optional(),
   benchVariant: z.enum(['backed', 'backless']).default('backed'),
   tableVariant: z
     .enum(['cocktail-standing', 'standard-dining', 'cloth-draped'])
@@ -199,6 +205,19 @@ export const objectSchema = z.object({
   legacyRoom: z.boolean().optional(),
   legacyPoiId: text.optional(),
   legacyPortalLanding: z.boolean().optional(),
+}).superRefine((object, context) => {
+  if (
+    object.recipe === 'wash-rack' &&
+    object.washRackVariant !== undefined &&
+    object.washRackBoomAngle !== undefined &&
+    object.washRackBoomAngle > (object.washRackBoomArc ?? 180)
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['washRackBoomAngle'],
+      message: 'Boom angle must stay within the configured sweep arc.',
+    });
+  }
 });
 export type PlanObject = z.infer<typeof objectSchema>;
 export interface PlanZone {

@@ -12,6 +12,7 @@ import {
   type PlanObject,
   type RecipeId,
 } from './types.ts';
+import { washRackDefaultVariant, washRackDefaultWaterSettings } from './wash-rack.ts';
 
 const dimension = z.number().finite().min(0.1).max(1000);
 const dimensions = z.tuple([dimension, dimension, dimension]);
@@ -98,8 +99,8 @@ const definitions: Omit<
     id: 'wash-rack',
     name: 'Wash rack',
     category: 'Services',
-    dimensions: [4, 0.1, 3],
-    collidable: false,
+    dimensions: [3.6, 2.6, 5],
+    collidable: true,
     color: '#9fc6d8',
     documentType: 'area',
   },
@@ -416,6 +417,15 @@ export function createObject(
       boothNumber: documentType === 'booth' ? nextBoothNumber(others) : '',
       color: definition.color,
       gender: recipe === 'washroom-men' ? 'men' : recipe === 'washroom-women' ? 'women' : 'unisex',
+      ...(recipe === 'wash-rack'
+        ? {
+            washRackVariant: washRackDefaultVariant,
+            washRackWetness: washRackDefaultWaterSettings.wetness,
+            washRackRunning: washRackDefaultWaterSettings.running,
+            washRackBoomAngle: washRackDefaultWaterSettings.boomAngle,
+            washRackBoomArc: washRackDefaultWaterSettings.boomArc,
+          }
+        : {}),
       roughness: definition.id === 'barn-tent' ? 0.85 : 0.65,
       metalness: definition.category === 'Connectors' ? 0.15 : 0,
       colorMode: documentType === 'booth' ? 'surface' : 'explicit',

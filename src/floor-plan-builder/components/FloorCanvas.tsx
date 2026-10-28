@@ -6,9 +6,11 @@ import { Html, Line, OrbitControls, Environment, Lightformer } from '@react-thre
 import { ErrorBoundary } from 'react-error-boundary';
 import {
   DoubleSide,
+  Path,
   Plane,
   Raycaster,
   Shape,
+  ShapeGeometry,
   Vector2,
   Vector3,
   PerspectiveCamera,
@@ -67,6 +69,7 @@ import {
   type CameraViewport,
 } from '../model/camera-snapshots.ts';
 import { ProceduralObject } from './ProceduralObject.tsx';
+import { washRackRowConnections, type WashRackRowConnections } from '../model/wash-rack-spatial.ts';
 import { RouteVisuals } from '../wayfinding/rendering/RouteVisuals.tsx';
 import { GameScene } from '../wayfinding/game/GameScene.tsx';
 
@@ -121,6 +124,7 @@ interface ObjectEventDispatchRef {
 }
 interface ObjectLayerProps {
   object: PlanObject;
+  rowConnections: WashRackRowConnections;
   color: string;
   colorOverride: boolean;
   selected: boolean;
@@ -135,6 +139,7 @@ interface ObjectLayerProps {
 const ObjectLayer = memo(
   ({
     object,
+    rowConnections,
     color,
     colorOverride,
     selected,
@@ -164,6 +169,7 @@ const ObjectLayer = memo(
       <group onContextMenu={events.onContextMenu}>
         <ProceduralObject
           object={object}
+          rowConnections={rowConnections}
           color={color}
           colorOverride={colorOverride}
           selected={selected}
@@ -603,7 +609,7 @@ function StableFrame({ onStable, ready }: { onStable: () => void; ready: boolean
   }, -1);
   return null;
 }
-function FloorSurface({
+export function FloorSurface({
   floor,
   texture,
   imageSize,
@@ -623,9 +629,59 @@ function FloorSurface({
     const value = new Shape();
     floor.boundary.forEach(([x, z], i) => (i ? value.lineTo(x, -z) : value.moveTo(x, -z)));
     value.closePath();
+    const area = (points: [number, number][]) =>
+      points.reduce((sum, [x, z], index) => {
+        const next = points[(index + 1) % points.length]!;
+        return sum + x * next[1] - next[0] * z;
+      }, 0);
+    const outerArea = area(floor.boundary);
+    for (const object of floor.objects) {
+      if (object.recipe !== 'wash-rack' || !object.washRackVariant) continue;
+      // Earcut is undefined for touching holes. Keep a 2 cm floor land under the
+      // 8 cm shared rail so side-by-side rack apertures remain disjoint and stable.
+      const rackBounds = polygonBounds(object.polygon),
+        centerX = (rackBounds.minX + rackBounds.maxX) / 2,
+        centerZ = (rackBounds.minZ + rackBounds.maxZ) / 2,
+        inset = 0.02,
+        localInsetX = inset / Math.max(0.1, Math.abs(object.scale[0])),
+        localInsetZ = inset / Math.max(0.1, Math.abs(object.scale[2])),
+        factorX = Math.max(0.1, (rackBounds.maxX - rackBounds.minX - 2 * localInsetX) / (rackBounds.maxX - rackBounds.minX)),
+        factorZ = Math.max(0.1, (rackBounds.maxZ - rackBounds.minZ - 2 * localInsetZ) / (rackBounds.maxZ - rackBounds.minZ)),
+        insetPolygon = object.polygon.map(([x, z]) => [
+          centerX + (x - centerX) * factorX,
+          centerZ + (z - centerZ) * factorZ,
+        ] as [number, number]);
+      const world = objectPoints(object, insetPolygon);
+      const cutout = area(world) * outerArea > 0 ? [...world].reverse() : world;
+      const hole = new Path();
+      cutout.forEach(([x, z], index) =>
+        index ? hole.lineTo(x, -z) : hole.moveTo(x, -z),
+      );
+      hole.closePath();
+      value.holes.push(hole);
+    }
     return value;
-  }, [floor.boundary]);
-  const imageFit = imageSize ? fitFloorImage(floor.boundary, imageSize) : null;
+  }, [floor.boundary, floor.objects]);
+  const imageFit = useMemo(
+    () => (imageSize ? fitFloorImage(floor.boundary, imageSize) : null),
+    [floor.boundary, imageSize],
+  );
+  const imageGeometry = useMemo(() => {
+    if (!texture || !imageFit) return null;
+    const geometry = new ShapeGeometry(shape);
+    const positions = geometry.getAttribute('position'),
+      uv = geometry.getAttribute('uv'),
+      left = imageFit.center[0] - imageFit.width / 2,
+      top = imageFit.center[1] + imageFit.depth / 2;
+    for (let index = 0; index < positions.count; index++) {
+      const x = positions.getX(index),
+        z = -positions.getY(index);
+      uv.setXY(index, (x - left) / imageFit.width, (top - z) / imageFit.depth);
+    }
+    uv.needsUpdate = true;
+    return geometry;
+  }, [shape, texture, imageFit]);
+  useEffect(() => () => imageGeometry?.dispose(), [imageGeometry]);
   return (
     <group>
       <mesh
@@ -659,13 +715,13 @@ function FloorSurface({
         />
         <meshStandardMaterial color="#d7ddd7" roughness={0.94} side={DoubleSide} />
       </mesh>
-      {texture && imageFit && (
+      {texture && imageFit && imageGeometry && (
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[imageFit.center[0], 0.001, imageFit.center[1]]}
+          position={[0, 0.001, 0]}
           raycast={() => {}}
         >
-          <planeGeometry args={[imageFit.width, imageFit.depth]} />
+          <primitive object={imageGeometry} attach="geometry" />
           <meshBasicMaterial
             map={texture}
             toneMapped={false}
@@ -2264,6 +2320,12 @@ export function FloorCanvas({
                       <ObjectLayer
                         key={object.id}
                         object={displayed}
+                        rowConnections={washRackRowConnections(
+                          displayed,
+                          floor.objects.map((candidate) =>
+                            pendingMemberById.get(candidate.id) ?? candidate,
+                          ),
+                        )}
                         eventDispatch={objectEventDispatch}
                         colorOverride={
                           (isBooth(displayed) && view.display !== 'surface') ||
@@ -2567,6 +2629,7 @@ export function FloorCanvas({
                   <ProceduralObject
                     key={`ghost:${member.id}`}
                     object={member}
+                    rowConnections={washRackRowConnections(member, [...floor.objects, ...ghostMembers])}
                     color={ghostError ? '#d87572' : '#86c9ad'}
                     colorOverride
                     ghost
@@ -2597,6 +2660,7 @@ export function FloorCanvas({
                     <ProceduralObject
                       key={`drag-copy:${member.id}`}
                       object={member}
+                      rowConnections={washRackRowConnections(member, [...floor.objects, ...pendingMembers])}
                       color={ghostError ? '#d87572' : '#86c9ad'}
                       colorOverride
                       ghost

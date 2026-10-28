@@ -46,6 +46,11 @@ import {
   circulationHeight,
   fitCirculation,
 } from './circulation.ts';
+import {
+  washRackApproachLocal,
+  washRackObstacleLocal,
+  washRackRowConnections,
+} from './wash-rack-spatial.ts';
 
 export function staticBlockers(floor: PlanFloor, height = Infinity): [number, number][][] {
   const convert = (point: [number, number]) => referencePoint(floor, point);
@@ -162,7 +167,10 @@ export function footprint(object: PlanObject): [number, number][] {
 }
 
 /** Shared authored-object collision and navigation footprints in floor world coordinates. */
-export function objectObstaclePolygons(object: PlanObject): [number, number][][] {
+export function objectObstaclePolygons(
+  object: PlanObject,
+  siblings: readonly PlanObject[] = [object],
+): [number, number][][] {
   if (!object.collidable) {
     return [];
   }
@@ -172,6 +180,10 @@ export function objectObstaclePolygons(object: PlanObject): [number, number][][]
   const mapped = (local: [number, number][][]) =>
     local.map((polygon) => objectPoints(object, polygon));
   switch (object.recipe) {
+    case 'wash-rack':
+      return object.washRackVariant
+        ? mapped(washRackObstacleLocal(object, washRackRowConnections(object, siblings)))
+        : [footprint(object)];
     case 'barn-tent':
       return mapped(tentCollisionLocal(object));
     case 'entrance':
@@ -346,8 +358,11 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
     return 'Keep the whole object inside the floor boundary.';
   }
   // Reserve approaches in both placement orders. These are clear floor, not navmesh obstacles.
+  const placementObjects = [...floor.objects.filter((item) => item.id !== object.id), object];
   const reserved = (item: PlanObject) =>
-    item.recipe === 'food-kiosk'
+    item.recipe === 'wash-rack' && item.washRackVariant && item.collidable
+      ? [objectPoints(item, washRackApproachLocal(item))]
+      : item.recipe === 'food-kiosk'
       ? [objectPoints(item, kioskQueueLocal(item))]
       : item.recipe === 'exit'
         ? [objectPoints(item, exitClearLocal(item))]
@@ -355,7 +370,9 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
   const solids = (item: PlanObject) => [
     ...(isBooth(item) || isShellStructure(item)
       ? objectObstaclePolygons(item)
-      : [footprint(item)]),
+      : item.recipe === 'wash-rack'
+        ? objectObstaclePolygons(item, placementObjects)
+        : [footprint(item)]),
     ...(item.recipe === 'exit' && item.exitOpen
       ? exitCollisionFor(item).map((polygon) => objectPoints(item, polygon))
       : []),
@@ -372,7 +389,15 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
         others.some((other) => solids(other).some((obstacle) => overlaps(area, obstacle))),
     )
   ) {
-    return 'Keep the entire service queue or exit approach free of objects, blocked zones and walls.';
+    return object.recipe === 'wash-rack'
+      ? 'Keep the wash-rack entrance approach free of objects, blocked zones and walls.'
+      : 'Keep the entire service queue or exit approach free of objects, blocked zones and walls.';
+  }
+  if (
+    object.recipe === 'wash-rack' && object.washRackVariant && object.collidable &&
+    reserved(object).some((approach) => !insideBoundary(approach, floor.boundary))
+  ) {
+    return 'Keep the wash-rack entrance approach inside the floor boundary.';
   }
   if (
     object.collidable &&
