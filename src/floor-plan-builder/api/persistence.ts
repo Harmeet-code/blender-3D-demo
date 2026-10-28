@@ -115,7 +115,7 @@ export class StudioPersistence {
           return;
         }
         if (result.isOk() && result.value.saved) {
-          this.store.getState().markSaved(revision);
+          this.store.getState().markSaved(revision, decodeLayout(snapshot));
         } else {
           this.store.setState({
             saveState: 'Error',
@@ -256,7 +256,7 @@ export class StudioPersistence {
       return false;
     }
     // saveLayout owns version advancement. Never accept an old fetched snapshot here.
-    this.store.getState().markSaved(revision);
+    this.store.getState().markSaved(revision, decodeLayout(snapshot));
     this.store.getState().notify('Layout finalized.');
     return true;
   }

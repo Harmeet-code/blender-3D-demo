@@ -235,6 +235,7 @@ export type Tool =
   | 'move'
   | 'duplicate'
   | 'resize'
+  | 'edit-footprint'
   | 'remove'
   | 'zone-rectangle'
   | 'zone-polygon'

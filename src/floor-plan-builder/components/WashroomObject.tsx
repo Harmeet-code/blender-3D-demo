@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useMemo, useRef } from 'react';
 import { Line } from '@react-three/drei';
-import { CanvasTexture, DoubleSide, SRGBColorSpace, Vector3, type Group } from 'three';
+import { CanvasTexture, DoubleSide, SRGBColorSpace, type Group } from 'three';
 import { materials } from './materials.ts';
 import { washroomAccent, washroomLandingLocal, washroomOpeningOf } from '../model/washroom.ts';
 import type { PlanObject } from '../model/types.ts';
@@ -67,21 +66,7 @@ export function WashroomObject({
   const accent = washroomAccent(object);
   const wallColor = color.startsWith('#') ? color : materials.roofCanvas.color;
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (!root.current) {
-      return;
-    }
-    root.current.getWorldPosition(world);
-    const distance = camera.position.distanceTo(world);
-    const size = Math.max(w, h, d);
-    if (near && distance / size > 9) {
-      setNear(false);
-    } else if (!near && distance / size < 7) {
-      setNear(true);
-    }
-  });
+  const near: boolean = true;
 
   const pictogram = usePictogram(object.gender, accent);
   const roofPictogram = usePictogram(object.gender, accent, true);

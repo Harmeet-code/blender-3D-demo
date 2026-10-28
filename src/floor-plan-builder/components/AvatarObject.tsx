@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
-import { Vector3, type Group } from 'three';
+import { type Group } from 'three';
 import type { PlanObject } from '../model/types.ts';
 import { RouteLabel } from '../wayfinding/rendering/Beacon.tsx';
 
@@ -42,23 +42,13 @@ export function AvatarObject({
   const pose = poseAngles(object.avatarPose);
   const root = useRef<Group>(null);
   const upper = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
+  const near: boolean = true;
   const invalidate = useThree((state) => state.invalidate);
   const clock = useMemo(() => ({ elapsed: 0 }), []);
   const [sx, sy, sz] = object.scale;
   const lock: [number, number, number] = [1 / sx, 1 / sy, 1 / sz];
 
-  useFrame(({ camera }, delta) => {
-    if (root.current && !forceDetail) {
-      root.current.getWorldPosition(world);
-      const distance = camera.position.distanceTo(world);
-      if (near && distance > 16) {
-        setNear(false);
-      } else if (!near && distance < 13) {
-        setNear(true);
-      }
-    }
+  useFrame((_, delta) => {
     if (object.avatarAnimated && !ghost && !forceDetail && upper.current) {
       const reduced =
         typeof window !== 'undefined' &&

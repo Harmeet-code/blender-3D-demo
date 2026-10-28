@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useMemo, useRef } from 'react';
 import { Line } from '@react-three/drei';
-import { CanvasTexture, SRGBColorSpace, Vector3, type Group } from 'three';
+import { CanvasTexture, SRGBColorSpace, type Group } from 'three';
 import { binCompartments, binStreamColor } from '../model/bin.ts';
 import type { PlanObject } from '../model/types.ts';
 
@@ -117,21 +116,7 @@ export function BinObject({
   void color;
   const [w, h, d] = object.dimensions;
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (!root.current) {
-      return;
-    }
-    root.current.getWorldPosition(world);
-    const distance = camera.position.distanceTo(world);
-    const size = Math.max(w, h, d);
-    if (near && distance / size > 16) {
-      setNear(false);
-    } else if (!near && distance / size < 12) {
-      setNear(true);
-    }
-  });
+  const near: boolean = true;
 
   const mobius = useMobiusBadge();
   const organics = useOrganicsBadge({});

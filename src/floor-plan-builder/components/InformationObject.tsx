@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useMemo, useRef } from 'react';
 import { Line } from '@react-three/drei';
 import type { BufferGeometry } from 'three';
 import {
@@ -69,21 +68,7 @@ export function InformationObject({
   const [w, h, d] = object.dimensions;
   const signY = object.infoSignHeight;
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (!root.current) {
-      return;
-    }
-    root.current.getWorldPosition(world);
-    const distance = camera.position.distanceTo(world);
-    const size = Math.max(w, h, d);
-    if (near && distance / size > 9) {
-      setNear(false);
-    } else if (!near && distance / size < 7) {
-      setNear(true);
-    }
-  });
+  const near: boolean = true;
 
   const badge = useInfoBadge();
   const rack = useMemo(() => {

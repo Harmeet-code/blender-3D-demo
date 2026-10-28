@@ -12,6 +12,7 @@ export interface FloorSetupDraftController {
   invalid: boolean;
   apply: () => boolean;
   focusInvalid: () => void;
+  discard: () => void;
 }
 
 export function FloorSetupPanel({ store, onDraftController }: {
@@ -63,7 +64,13 @@ export function FloorSetupPanel({ store, onDraftController }: {
     invalid: !valid,
     apply: applyDraft,
     focusInvalid,
-  }), [applyDraft, focusInvalid, hasDimensionDraft, state.pendingFloor, valid]);
+    discard: () => {
+      const committed = activeFloor(store.getState()).boundary;
+      const committedBounds = polygonBounds(committed);
+      setWidthDraft(String(committedBounds.maxX - committedBounds.minX));
+      setDepthDraft(String(committedBounds.maxZ - committedBounds.minZ));
+    },
+  }), [applyDraft, focusInvalid, hasDimensionDraft, state.pendingFloor, store, valid]);
   useLayoutEffect(() => {
     onDraftController?.(controller);
     return () => onDraftController?.(null);
@@ -110,7 +117,7 @@ export function FloorSetupPanel({ store, onDraftController }: {
         if (!accepted) state.notify(store.getState().message || 'The image could not be removed.');
       }}>Remove floor image</Button>}
       <p className="fp-muted">Floor image is fitted proportionally inside the floor. Resizing the floor updates its fit; legacy floor coordinates remain readable.</p>
-      <div className="fp-row"><Button size="sm" disabled={!valid} onClick={applyDraft}>Apply floor setup</Button><Button size="sm" variant="outline" onClick={() => { store.getState().cancel(); setWidthDraft(String(polygonBounds(activeFloor(store.getState()).boundary).maxX - polygonBounds(activeFloor(store.getState()).boundary).minX)); setDepthDraft(String(polygonBounds(activeFloor(store.getState()).boundary).maxZ - polygonBounds(activeFloor(store.getState()).boundary).minZ)); }}>Cancel</Button></div>
+      <p className="fp-muted">Floor setup changes stay in the shared draft until you use Save in the top-right corner.</p>
     </div>
   );
 }

@@ -1,5 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Line } from '@react-three/drei';
 import { CatmullRomCurve3, Color, Object3D, Vector3, type Group, type InstancedMesh } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -73,21 +72,7 @@ export function BenchObject({
   const [w, , d] = object.dimensions;
   const backed = object.benchVariant === 'backed';
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (!root.current) {
-      return;
-    }
-    root.current.getWorldPosition(world);
-    const distance = camera.position.distanceTo(world);
-    const size = Math.max(w, d);
-    if (near && distance / size > 12) {
-      setNear(false);
-    } else if (!near && distance / size < 9) {
-      setNear(true);
-    }
-  });
+  const near: boolean = true;
 
   const opacity = ghost ? 0.45 : 1;
   const slatLen = w - 0.1;

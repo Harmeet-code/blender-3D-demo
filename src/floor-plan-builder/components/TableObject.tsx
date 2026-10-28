@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useRef } from 'react';
 import { Line } from '@react-three/drei';
-import { DoubleSide, Vector3, type Group } from 'three';
+import { DoubleSide, type Group } from 'three';
 import { tableChairNodes, tableHeight } from '../model/table.ts';
 import { ChairMesh } from './ChairObject.tsx';
 import type { PlanObject } from '../model/types.ts';
@@ -23,21 +22,7 @@ export function TableObject({
   const round = object.tableTop === 'round';
   const h = tableHeight(object);
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (!root.current) {
-      return;
-    }
-    root.current.getWorldPosition(world);
-    const distance = camera.position.distanceTo(world);
-    const size = Math.max(w, h, d);
-    if (near && distance / size > 12) {
-      setNear(false);
-    } else if (!near && distance / size < 9) {
-      setNear(true);
-    }
-  });
+  const near: boolean = true;
 
   const opacity = ghost ? 0.45 : 1;
   const radius = Math.min(w, d) / 2;

@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import {
   CanvasTexture,
   DoubleSide,
   SRGBColorSpace,
-  Vector3,
   type Group,
   type MeshStandardMaterial,
 } from 'three';
@@ -52,25 +51,14 @@ export function FirstAidObject({
   const [w, h, d] = object.dimensions;
   const root = useRef<Group>(null);
   const beacon = useRef<MeshStandardMaterial>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
+  const near: boolean = true;
   const pulse = useMemo(() => ({ t: 0 }), []);
   const { animate, visible, invalidate } = useServiceMotion(
-    !ghost && near && !topDown,
+    !ghost && !topDown,
     root,
     Math.max(w, h + 0.6, d),
   );
-  useFrame(({ camera }, delta) => {
-    if (root.current) {
-      root.current.getWorldPosition(world);
-      const distance = camera.position.distanceTo(world);
-      const size = Math.max(w, h, d);
-      if (near && distance / size > 9) {
-        setNear(false);
-      } else if (!near && distance / size < 7) {
-        setNear(true);
-      }
-    }
+  useFrame((_, delta) => {
     if (!ghost && beacon.current) {
       if (animate && visible.current) {
         pulse.t += Math.min(delta, 0.05);

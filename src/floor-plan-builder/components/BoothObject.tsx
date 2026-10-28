@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { BufferGeometry, Mesh } from 'three';
 import {
@@ -10,14 +10,12 @@ import {
   NoColorSpace,
   RepeatWrapping,
   Shape,
-  ShapeUtils,
   SRGBColorSpace,
   Vector2,
-  Vector3,
   ExtrudeGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { pointInPolygon, polygonBounds, signedArea } from '@/utils/geometry/polygon.ts';
+import { polygonBounds, signedArea } from '@/utils/geometry/polygon.ts';
 import {
   boothDesign,
   boothEdges,
@@ -31,7 +29,6 @@ import {
   type BoothPoint,
 } from '../model/booth.ts';
 import type { PlanObject } from '../model/types.ts';
-import { insideBoundary } from '../model/geometry.ts';
 
 type Batch =
   | 'carpet'
@@ -140,7 +137,6 @@ function buildBooth(
   designOptions: PlanObject['boothDesign'],
   gate: PlanObject['gate'],
   floorColor: string,
-  near: boolean,
   colorOverride: boolean,
 ) {
   const object = { polygon, dimensions, boothDesign: designOptions, gate };
@@ -227,7 +223,7 @@ function buildBooth(
       );
       beam('aluminum', edge, from, to, 0.04, 0.08, 0.05, aluminum);
       beam('aluminum', edge, from, to, h - 0.025, 0.05, 0.055, aluminum);
-      if (near) {
+      {
         for (let distance = from + 1; distance < to - 0.05; distance += 1) {
           const p = edgePoint(edge, distance, 0.04);
           const post = new CylinderGeometry(0.025, 0.025, h, 8);
@@ -259,7 +255,7 @@ function buildBooth(
         0.06,
         surface(`header-${edge.index}`, '#1E2022'),
       );
-      if (near) {
+      {
         beam('light', edge, from, to, h - 0.36, 0.018, 0.04, '#E6ECEF');
       }
       if (edge.mode === 'entrance') {
@@ -277,7 +273,7 @@ function buildBooth(
     if (Math.abs(signedArea(cap)) > 1e-7) {
       add('aluminum', polygonSolid(cap, h, 0), aluminum);
     }
-    if (near) {
+    {
       const foot = new CylinderGeometry(0.015, 0.015, 0.022, 8);
       foot.translate(corner[0], 0.011, corner[1]);
       add('rubber', foot, '#20252A');
@@ -288,12 +284,12 @@ function buildBooth(
       beam('plan', edge, from, to, h + 0.006, 0.008, 0.045, '#1E2022');
     }
     if (edge.mode !== 'wall') {
-      for (let s = 0; s < edge.opening; s += near ? 0.3 : 1) {
+      for (let s = 0; s < edge.opening; s += 0.3) {
         beam(
           'plan',
           edge,
           (edge.length - edge.opening) / 2 + s,
-          (edge.length - edge.opening) / 2 + Math.min(s + (near ? 0.17 : 0.45), edge.opening),
+          (edge.length - edge.opening) / 2 + Math.min(s + 0.17, edge.opening),
           h + 0.009,
           0.008,
           0.025,
@@ -448,29 +444,6 @@ export function BoothObject({
   colorOverride?: boolean;
   ghost?: boolean;
 }) {
-  const [near, setNear] = useState(true),
-    anchor = useRef<Mesh>(null),
-    title = useRef<Mesh>(null),
-    position = useMemo(() => new Vector3(), []),
-    direction = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (!anchor.current) {
-      return;
-    }
-    anchor.current.getWorldPosition(position);
-    if (title.current) {
-      camera.getWorldDirection(direction);
-      title.current.visible = direction.y < -0.9;
-    }
-    const relative =
-      camera.position.distanceTo(position) /
-      Math.max(...object.dimensions.map((value, axis) => value * object.scale[axis]!));
-    if (near && relative > 9) {
-      setNear(false);
-    } else if (!near && relative < 7) {
-      setNear(true);
-    }
-  });
   const batches = useMemo(
     () =>
       buildBooth(
@@ -479,7 +452,6 @@ export function BoothObject({
         object.boothDesign,
         object.gate,
         color,
-        near && !ghost,
         colorOverride,
       ),
     [
@@ -488,7 +460,6 @@ export function BoothObject({
       object.boothDesign,
       object.gate,
       color,
-      near,
       ghost,
       colorOverride,
     ],
@@ -496,55 +467,13 @@ export function BoothObject({
   useEffect(() => () => batches.forEach(({ geometry }) => geometry.dispose()), [batches]);
   const text = useSignTexture(object.company, object.boothNumber),
     bump = useCarpetBump();
-  const edges = boothEdges(object),
-    bounds = polygonBounds(object.polygon);
-  const center: BoothPoint = [(bounds.minX + bounds.maxX) / 2, (bounds.minZ + bounds.maxZ) / 2];
-  const label = useMemo(() => {
-    const triangles = ShapeUtils.triangulateShape(
-      object.polygon.map(([x, z]) => new Vector2(x, z)),
-      [],
-    );
-    const centers = triangles.map((face) =>
-      face.reduce<BoothPoint>(
-        (sum, index) => [
-          sum[0] + object.polygon[index]![0] / 3,
-          sum[1] + object.polygon[index]![1] / 3,
-        ],
-        [0, 0],
-      ),
-    );
-    if (pointInPolygon(center, object.polygon)) {
-      centers.unshift(center);
-    }
-    let best = { point: center, width: 0, height: 0 };
-    for (const point of centers) {
-      let width = Math.min(2.2, (bounds.maxX - bounds.minX) * 0.65);
-      for (let i = 0; i < 16; i++) {
-        const height = width / 8;
-        const rectangle: BoothPoint[] = [
-          [point[0] - width / 2, point[1] - height / 2],
-          [point[0] + width / 2, point[1] - height / 2],
-          [point[0] + width / 2, point[1] + height / 2],
-          [point[0] - width / 2, point[1] + height / 2],
-        ];
-        if (insideBoundary(rectangle, object.polygon)) {
-          if (width > best.width) {
-            best = { point, width, height };
-          }
-          break;
-        }
-        width *= 0.85;
-      }
-    }
-    return best;
-  }, [object.polygon, center[0], center[1]]);
+  const edges = boothEdges(object);
   return (
     <group name="ModularBooth">
-      {batches.map(({ kind, geometry }, index) => (
+      {batches.map(({ kind, geometry }) => (
         <mesh
           key={kind}
           userData={{ routeOccluder: kind === 'roof' || kind === 'roofMetal' }}
-          ref={index === 0 ? anchor : undefined}
           geometry={geometry}
           castShadow={!ghost && kind !== 'plan'}
           receiveShadow={!ghost}
@@ -555,7 +484,7 @@ export function BoothObject({
             transparent={ghost}
             opacity={ghost ? 0.45 : 1}
             depthWrite={!ghost}
-            bumpMap={kind === 'carpet' && near && !ghost ? bump : null}
+            bumpMap={kind === 'carpet' && !ghost ? bump : null}
             bumpScale={0.0015}
             emissive={kind === 'light' ? '#E6ECEF' : '#000000'}
             emissiveIntensity={0.5}
@@ -565,7 +494,7 @@ export function BoothObject({
       {!ghost &&
         text &&
         edges
-          .filter((edge) => edge.mode !== 'wall' && edge.opening > 1.5 && near)
+          .filter((edge) => edge.mode !== 'wall' && edge.opening > 1.5)
           .map((edge) => {
             const p = edgePoint(edge, edge.length / 2, -0.001);
             const orientation = Math.atan2(-edge.inward[0], -edge.inward[1]);
@@ -581,18 +510,6 @@ export function BoothObject({
               </mesh>
             );
           })}
-      {!ghost && text && label.width > 0.1 && (
-        <mesh
-          ref={title}
-          visible={false}
-          name="PlanCompanyTitle"
-          position={[label.point[0], object.dimensions[1] + 0.025, label.point[1]]}
-          rotation={[-Math.PI / 2, 0, 0]}
-        >
-          <planeGeometry args={[label.width, label.height]} />
-          <meshBasicMaterial map={text} toneMapped={false} transparent opacity={0.95} />
-        </mesh>
-      )}
       {boothDesign(object).storage && <Closet object={object} ghost={ghost} />}
     </group>
   );

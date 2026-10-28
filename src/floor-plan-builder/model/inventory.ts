@@ -299,7 +299,9 @@ const definitions: Omit<
     color: '#9ba8b0',
   },
 ];
-export const inventory: InventoryRecipe[] = definitions.map((definition) =>
+export const inventory: InventoryRecipe[] = definitions
+  .filter((definition) => definition.id !== 'booth' && definition.id !== 'polygon-booth')
+  .map((definition) =>
   inventoryRecipeSchema.parse(
     Object.assign({}, definition, {
       renderer: definition.id,
@@ -384,7 +386,7 @@ export function createObject(
   others: PlanObject[] = [],
   names = others.map((object) => object.name),
 ): PlanObject {
-  const definition = inventory.find((item) => item.id === recipe) ?? inventory[0]!;
+  const definition = definitions.find((item) => item.id === recipe) ?? inventory[0]!;
   const [width, , depth] = definition.dimensions;
   const polygon = rectangle(width, depth);
   const documentType: PlanDocumentType = definition.documentType ?? 'asset';
@@ -414,8 +416,8 @@ export function createObject(
       boothNumber: documentType === 'booth' ? nextBoothNumber(others) : '',
       color: definition.color,
       gender: recipe === 'washroom-men' ? 'men' : recipe === 'washroom-women' ? 'women' : 'unisex',
-      roughness: definition.material.roughness,
-      metalness: definition.material.metalness,
+      roughness: definition.id === 'barn-tent' ? 0.85 : 0.65,
+      metalness: definition.category === 'Connectors' ? 0.15 : 0,
       colorMode: documentType === 'booth' ? 'surface' : 'explicit',
     }),
   );

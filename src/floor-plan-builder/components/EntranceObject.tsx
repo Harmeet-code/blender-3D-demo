@@ -1,9 +1,9 @@
-import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { TraversalMotionContext } from '../wayfinding/walkthrough/motion-context.tsx';
 import { proximityDoors } from '../wayfinding/game/door-state.ts';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
-import { CanvasTexture, MathUtils, SRGBColorSpace, Vector3, type Group } from 'three';
+import { CanvasTexture, MathUtils, SRGBColorSpace, type Group } from 'three';
 import { materials } from './materials.ts';
 import { entranceClearWidth, entranceNavigation } from '../model/entrance.ts';
 import type { PlanObject } from '../model/types.ts';
@@ -74,25 +74,14 @@ export function EntranceObject({
   const open = gate === 'open-arch' ? true : object.entranceOpen;
   const opening = entranceClearWidth(object);
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
+  const near: boolean = true;
   const leftDoor = useRef<Group>(null);
   const rightDoor = useRef<Group>(null);
   const arms = useRef<Group>(null);
   const slide = useRef({ value: open ? 1 : 0 });
   const opacity = ghost ? 0.45 : 1;
 
-  useFrame(({ camera, invalidate }, delta) => {
-    if (root.current) {
-      root.current.getWorldPosition(world);
-      const distance = camera.position.distanceTo(world);
-      const size = Math.max(w, h, d);
-      if (near && distance / size > 9) {
-        setNear(false);
-      } else if (!near && distance / size < 7) {
-        setNear(true);
-      }
-    }
+  useFrame(({ invalidate }, delta) => {
     const target =
       playback && gate === 'arch-sliding-doors' && object.entranceOpen
         ? proximityDoors.has(object.id)

@@ -1,5 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Line } from '@react-three/drei';
 import {
   BoxGeometry,
@@ -189,21 +188,7 @@ export function PlanterObject({
   const [w, h, d] = object.dimensions;
   const variant = object.planterVariant;
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (!root.current) {
-      return;
-    }
-    root.current.getWorldPosition(world);
-    const distance = camera.position.distanceTo(world);
-    const size = Math.max(w, h, d);
-    if (near && distance / size > 14) {
-      setNear(false);
-    } else if (!near && distance / size < 10) {
-      setNear(true);
-    }
-  });
+  const near: boolean = true;
 
   const leafMap = useLeafTexture();
   const opacity = ghost ? 0.45 : 1;

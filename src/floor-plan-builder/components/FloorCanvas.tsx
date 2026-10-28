@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from 'zustand';
@@ -21,7 +21,7 @@ import { metresToSource } from '@/features/building/model/floor-coordinates.ts';
 import { useFloorImage } from '../hooks/use-floor-image.ts';
 import { fitFloorImage } from '../model/floor-image.ts';
 import { sampleSurfaceColor } from '../model/surface-color.ts';
-import { activeFloor, selectionPivot, unfinished, type StudioStore } from '../model/store.ts';
+import { activeFloor, unfinished, type StudioStore } from '../model/store.ts';
 import { createObject } from '../model/inventory.ts';
 import { withPreset } from '../model/presets.ts';
 import { transformGroup } from '../model/grouping.ts';
@@ -39,8 +39,17 @@ import {
   objectFromDrawing,
   visualHeight,
 } from '../model/geometry.ts';
-import { placementError, resizeFromPointer, resizeObjectSafely, insideBoundary } from '../model/geometry.ts';
-import { isStructuralRecipe, nearestScreenAlignment, snapStructuralAngle, type ScreenAlignmentCandidate } from '../model/alignment.ts';
+import {
+  placementError,
+  resizeFromPointer,
+  resizeObjectSafely,
+  insideBoundary,
+} from '../model/geometry.ts';
+import {
+  isStructuralRecipe,
+  nearestScreenAlignment,
+  type ScreenAlignmentCandidate,
+} from '../model/alignment.ts';
 import { referencePoint } from '../model/coordinates.ts';
 import {
   isBooth,
@@ -67,6 +76,16 @@ import { usePlaybackStore } from '../wayfinding/store/playback-store.ts';
 import { toast } from 'sonner';
 import { WalkthroughLayer } from '../wayfinding/walkthrough/WalkthroughLayer.tsx';
 import { PlaybackMotionProvider } from '../wayfinding/walkthrough/motion-context.tsx';
+import { BoothScreenLabelLayer } from './BoothScreenLabel.tsx';
+import { frameCameraToBounds } from '../model/camera-framing.ts';
+import {
+  POLYGON_CLOSE_RADIUS_PX,
+  insertPolygonVertex,
+  isPrimaryCanvasClick,
+  isWithinScreenRadius,
+  movePolygonVertex,
+  removePolygonVertex,
+} from '../model/viewport-interactions.ts';
 
 interface Bridge {
   camera: Camera | null;
@@ -95,6 +114,7 @@ interface ObjectEventDispatch {
   onPointerDown: (id: string, event: ThreeEvent<PointerEvent>) => void;
   onPointerMove: (id: string, event: ThreeEvent<PointerEvent>) => void;
   onPointerUp: (id: string, event: ThreeEvent<PointerEvent>) => void;
+  onContextMenu: (id: string, event: ThreeEvent<MouseEvent>) => void;
 }
 interface ObjectEventDispatchRef {
   current: ObjectEventDispatch;
@@ -112,40 +132,49 @@ interface ObjectLayerProps {
  * Keep the per-object event props stable while FloorCanvas refreshes its latest-state dispatch.
  * This lets memoized object layers skip pointer/sidebar-only updates without capturing stale state.
  */
-const ObjectLayer = memo(function ObjectLayer({
-  object,
-  color,
-  colorOverride,
-  selected,
-  topDown,
-  routeCutaway,
-  eventDispatch,
-}: ObjectLayerProps) {
-  const events = useMemo(() => ({
-    onPointerOver: (event: ThreeEvent<PointerEvent>) =>
-      eventDispatch.current.onPointerOver(object.id, event),
-    onPointerOut: () => eventDispatch.current.onPointerOut(object.id),
-    onClick: (event: ThreeEvent<MouseEvent>) => eventDispatch.current.onClick(object.id, event),
-    onPointerDown: (event: ThreeEvent<PointerEvent>) =>
-      eventDispatch.current.onPointerDown(object.id, event),
-    onPointerMove: (event: ThreeEvent<PointerEvent>) =>
-      eventDispatch.current.onPointerMove(object.id, event),
-    onPointerUp: (event: ThreeEvent<PointerEvent>) =>
-      eventDispatch.current.onPointerUp(object.id, event),
-  }), [eventDispatch, object.id]);
+const ObjectLayer = memo(
+  ({
+    object,
+    color,
+    colorOverride,
+    selected,
+    topDown,
+    routeCutaway,
+    eventDispatch,
+  }: ObjectLayerProps) => {
+    const events = useMemo(
+      () => ({
+        onPointerOver: (event: ThreeEvent<PointerEvent>) =>
+          eventDispatch.current.onPointerOver(object.id, event),
+        onPointerOut: () => eventDispatch.current.onPointerOut(object.id),
+        onClick: (event: ThreeEvent<MouseEvent>) => eventDispatch.current.onClick(object.id, event),
+        onPointerDown: (event: ThreeEvent<PointerEvent>) =>
+          eventDispatch.current.onPointerDown(object.id, event),
+        onPointerMove: (event: ThreeEvent<PointerEvent>) =>
+          eventDispatch.current.onPointerMove(object.id, event),
+        onPointerUp: (event: ThreeEvent<PointerEvent>) =>
+          eventDispatch.current.onPointerUp(object.id, event),
+        onContextMenu: (event: ThreeEvent<MouseEvent>) =>
+          eventDispatch.current.onContextMenu(object.id, event),
+      }),
+      [eventDispatch, object.id],
+    );
 
-  return (
-    <ProceduralObject
-      object={object}
-      color={color}
-      colorOverride={colorOverride}
-      selected={selected}
-      topDown={topDown}
-      routeCutaway={routeCutaway}
-      {...events}
-    />
-  );
-});
+    return (
+      <group onContextMenu={events.onContextMenu}>
+        <ProceduralObject
+          object={object}
+          color={color}
+          colorOverride={colorOverride}
+          selected={selected}
+          topDown={topDown}
+          routeCutaway={routeCutaway}
+          {...events}
+        />
+      </group>
+    );
+  },
+);
 /**
  * World distance covered by the snap threshold. The camera scale is evaluated at the pointer
  * and at the far corner of the floor, so a candidate that sits further from the camera than
@@ -172,6 +201,43 @@ function snapWorldRadius(
   const worldPerPixel = (orthographic.top - orthographic.bottom) / viewportHeight;
   return worldPerPixel * 12;
 }
+interface CameraClipBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  minZ: number;
+  maxZ: number;
+}
+function updateCameraClipPlanes(camera: Camera, bounds: CameraClipBounds) {
+  if (!(camera instanceof PerspectiveCamera)) {
+    return;
+  }
+  const axisDistance = (value: number, minimum: number, maximum: number) =>
+    value < minimum ? minimum - value : value > maximum ? value - maximum : 0;
+  const axisFarthest = (value: number, minimum: number, maximum: number) =>
+    Math.max(Math.abs(value - minimum), Math.abs(value - maximum));
+  const nearest = Math.hypot(
+    axisDistance(camera.position.x, bounds.minX, bounds.maxX),
+    axisDistance(camera.position.y, bounds.minY, bounds.maxY),
+    axisDistance(camera.position.z, bounds.minZ, bounds.maxZ),
+  );
+  const farthest = Math.hypot(
+    axisFarthest(camera.position.x, bounds.minX, bounds.maxX),
+    axisFarthest(camera.position.y, bounds.minY, bounds.maxY),
+    axisFarthest(camera.position.z, bounds.minZ, bounds.maxZ),
+  );
+  const near = Math.max(0.005, nearest > 0.02 ? nearest * 0.25 : 0.005);
+  const far = Math.max(near + 10, farthest * 1.2 + 2);
+  if (
+    Math.abs(camera.near - near) > Math.max(0.0001, near * 0.03) ||
+    Math.abs(camera.far - far) > Math.max(0.01, far * 0.03)
+  ) {
+    camera.near = near;
+    camera.far = far;
+    camera.updateProjectionMatrix();
+  }
+}
 function CameraBridge({
   bridge,
   element,
@@ -180,6 +246,10 @@ function CameraBridge({
   frozen = false,
   viewport = 'builder',
   snapshotFloorId,
+  focusId,
+  focusTick,
+  interactionLocked,
+  onCameraGestureChange,
 }: {
   bridge: React.RefObject<Bridge>;
   element: React.RefObject<HTMLDivElement | null>;
@@ -188,9 +258,15 @@ function CameraBridge({
   frozen?: boolean;
   viewport?: CameraViewport;
   snapshotFloorId?: string;
+  focusId: string | null;
+  focusTick: number;
+  interactionLocked: boolean;
+  onCameraGestureChange: (active: boolean) => void;
 }) {
   const { camera, invalidate, gl, size } = useThree();
   const controls = useRef<Controls>(null);
+  const focusAnimation = useRef<number | null>(null);
+  const lastFocusTick = useRef(0);
   const restoration = useRef({ frozen: false, pending: false, camera });
   const lastApplied = useRef<{
     viewport: CameraViewport;
@@ -199,10 +275,21 @@ function CameraBridge({
     cameraRevision: number;
   } | null>(null);
   const storageFloorId = snapshotFloorId ?? floor.source.id;
-  const bounds = polygonBounds(floor.boundary),
+  const bounds = useMemo(() => polygonBounds(floor.boundary), [floor.boundary]),
     cx = (bounds.minX + bounds.maxX) / 2,
     cz = (bounds.minZ + bounds.maxZ) / 2;
-  const height = Math.max(0, ...floor.objects.map(visualHeight));
+  const height = useMemo(() => Math.max(0, ...floor.objects.map(visualHeight)), [floor.objects]);
+  const clipBounds = useMemo<CameraClipBounds>(
+    () => ({
+      minX: bounds.minX,
+      maxX: bounds.maxX,
+      minY: floor.source.heightOffset - 0.05,
+      maxY: floor.source.heightOffset + height + 1,
+      minZ: bounds.minZ,
+      maxZ: bounds.maxZ,
+    }),
+    [bounds.maxX, bounds.maxZ, bounds.minX, bounds.minZ, floor.source.heightOffset, height],
+  );
   useEffect(() => {
     if (frozen) {
       restoration.current.frozen = true;
@@ -264,9 +351,7 @@ function CameraBridge({
     distance *= 1.15;
     camera.position.copy(target).addScaledVector(direction, distance);
     if (camera instanceof PerspectiveCamera) {
-      camera.near = Math.min(0.1, distance / 100);
-      camera.far = Math.max(5000, distance * 8);
-      camera.updateProjectionMatrix();
+      updateCameraClipPlanes(camera, clipBounds);
     }
     controls.current?.target.copy(target);
     controls.current?.update();
@@ -295,20 +380,90 @@ function CameraBridge({
     view.camera,
     view.cameraRevision,
     frozen,
+    clipBounds,
   ]);
   useEffect(() => {
     const orbit = controls.current;
-    if (!orbit) return;
-    const save = () =>
+    if (!orbit) {
+      return;
+    }
+    const save = () => {
+      updateCameraClipPlanes(camera, clipBounds);
       saveViewportCameraSnapshot(
         viewport,
         storageFloorId,
         captureViewportCameraSnapshot(camera as PerspectiveCamera, orbit.target),
       );
+    };
+    const start = () => onCameraGestureChange(true);
+    const end = () => onCameraGestureChange(false);
     orbit.addEventListener('change', save);
+    orbit.addEventListener('start', start);
+    orbit.addEventListener('end', end);
     save();
-    return () => orbit.removeEventListener('change', save);
-  }, [camera, storageFloorId, viewport]);
+    return () => {
+      orbit.removeEventListener('change', save);
+      orbit.removeEventListener('start', start);
+      orbit.removeEventListener('end', end);
+      onCameraGestureChange(false);
+    };
+  }, [camera, clipBounds, onCameraGestureChange, storageFloorId, viewport]);
+  useEffect(() => {
+    const orbit = controls.current;
+    const object = focusId ? floor.objects.find((item) => item.id === focusId) : undefined;
+    if (!orbit || !object || !isBooth(object) || focusTick <= lastFocusTick.current) {
+      return;
+    }
+    lastFocusTick.current = focusTick;
+    if (focusAnimation.current !== null) {
+      cancelAnimationFrame(focusAnimation.current);
+    }
+    const focusBounds = polygonBounds(object.polygon);
+    const objectHeight = visualHeight(object);
+    const frame = frameCameraToBounds(
+      camera,
+      orbit.target,
+      {
+        minX: focusBounds.minX,
+        maxX: focusBounds.maxX,
+        minY: floor.source.heightOffset,
+        maxY: floor.source.heightOffset + objectHeight,
+        minZ: focusBounds.minZ,
+        maxZ: focusBounds.maxZ,
+      },
+      1.22,
+    );
+    const fromPosition = camera.position.clone();
+    const fromTarget = orbit.target.clone();
+    const toPosition = new Vector3(...frame.position);
+    const toTarget = new Vector3(...frame.target);
+    const started = performance.now();
+    const stop = () => {
+      if (focusAnimation.current !== null) {
+        cancelAnimationFrame(focusAnimation.current);
+        focusAnimation.current = null;
+      }
+    };
+    const animate = (now: number) => {
+      const linear = Math.min(1, (now - started) / 420);
+      const eased = 1 - (1 - linear) ** 3;
+      camera.position.lerpVectors(fromPosition, toPosition, eased);
+      orbit.target.lerpVectors(fromTarget, toTarget, eased);
+      orbit.update();
+      invalidate();
+      if (linear < 1) {
+        focusAnimation.current = requestAnimationFrame(animate);
+      } else {
+        focusAnimation.current = null;
+      }
+    };
+    orbit.addEventListener('start', stop);
+    focusAnimation.current = requestAnimationFrame(animate);
+    return () => {
+      orbit.removeEventListener('start', stop);
+      stop();
+    };
+  }, [camera, floor.objects, floor.source.heightOffset, focusId, focusTick, invalidate]);
   useEffect(() => {
     const raycaster = new Raycaster(),
       ndc = new Vector2(),
@@ -317,10 +472,17 @@ function CameraBridge({
     bridge.current.camera = camera;
     bridge.current.projectWorld = (world) => {
       const rect = element.current?.getBoundingClientRect();
-      if (!rect) return null;
+      if (!rect) {
+        return null;
+      }
       const projected = new Vector3(world[0], floor.source.heightOffset, world[1]).project(camera);
-      if (projected.z < -1 || projected.z > 1) return null;
-      return [rect.left + (projected.x + 1) * rect.width / 2, rect.top + (1 - projected.y) * rect.height / 2];
+      if (projected.z < -1 || projected.z > 1) {
+        return null;
+      }
+      return [
+        rect.left + ((projected.x + 1) * rect.width) / 2,
+        rect.top + ((1 - projected.y) * rect.height) / 2,
+      ];
     };
     bridge.current.project = (x, y) => {
       const rect = element.current?.getBoundingClientRect();
@@ -343,7 +505,8 @@ function CameraBridge({
       ref={controls}
       makeDefault
       enableDamping={false}
-      enableRotate={!view.orbitLocked}
+      enableRotate={!view.orbitLocked && !interactionLocked}
+      enablePan={!interactionLocked}
       maxPolarAngle={Math.PI / 2.05}
       minDistance={Math.max(
         0.05,
@@ -384,11 +547,17 @@ function SelectionAnchor({
   const point = useMemo(() => new Vector3(), []);
   useFrame(() => {
     const bounds = element.current?.getBoundingClientRect();
-    if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
+    if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+      return;
+    }
     point.set(...position).project(camera);
     const x = (point.x + 1) * 0.5 * bounds.width;
     const y = (1 - point.y) * 0.5 * bounds.height;
-    if (point.z < -1 || point.z > 1) { onAnchor(null); previous.current = null; return; }
+    if (point.z < -1 || point.z > 1) {
+      onAnchor(null);
+      previous.current = null;
+      return;
+    }
     const old = previous.current;
     if (!old || Math.abs(old[0] - x) > 1 || Math.abs(old[1] - y) > 1) {
       previous.current = [x, y];
@@ -398,65 +567,7 @@ function SelectionAnchor({
   return null;
 }
 
-function RotationRing({
-  object,
-  floor,
-  store,
-  bridge,
-  pivot,
-  onExit,
-}: {
-  object?: PlanObject;
-  floor: PlanFloor;
-  store: StudioStore;
-  bridge: React.RefObject<Bridge>;
-  pivot: [number, number];
-  onExit: () => void;
-}) {
-  const gesture = useRef<{ pointerId: number; startYaw: number; startAngle: number; pivot: [number, number]; changed: boolean } | null>(null);
-  const position: [number, number, number] = [pivot[0], floor.source.heightOffset + 0.12, pivot[1]];
-  const start = (event: React.PointerEvent<HTMLButtonElement>) => {
-    event.preventDefault(); event.stopPropagation();
-    if (object?.locked) { toast.error(`${object.name} is locked. Unlock it before rotating.`); onExit(); return; }
-    if (unfinished(store.getState())) { toast.error('Finish or cancel the current action before rotating.'); onExit(); return; }
-    const point = bridge.current.project(event.clientX, event.clientY);
-    if (!point) return;
-    gesture.current = { pointerId: event.pointerId, startYaw: object?.yawRadians ?? 0, startAngle: Math.atan2(point[1] - pivot[1], point[0] - pivot[0]), pivot: [...pivot], changed: false };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const move = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const current = gesture.current;
-    if (!current || current.pointerId !== event.pointerId) return;
-    const point = bridge.current.project(event.clientX, event.clientY);
-    if (!point) return;
-    const angle = Math.atan2(point[1] - current.pivot[1], point[0] - current.pivot[0]);
-    const delta = Math.atan2(Math.sin(angle - current.startAngle), Math.cos(angle - current.startAngle));
-    const yawRadians = object && isStructuralRecipe(object.recipe)
-      ? snapStructuralAngle(current.startYaw + delta, event.altKey)
-      : current.startYaw + delta;
-    const yawDelta = yawRadians - current.startYaw;
-    if (Math.abs(yawDelta) < 1e-8) return;
-    if (store.getState().rotateSelection(yawDelta, true)) current.changed = true;
-  };
-  const finish = (event?: React.PointerEvent<HTMLButtonElement>, cancel = false) => {
-    const current = gesture.current;
-    if (!current) return;
-    gesture.current = null;
-    if (cancel) store.getState().cancel();
-    else if (current.changed) {
-      const warning = store.getState().message;
-      if (!store.getState().apply()) toast.error(store.getState().message || 'Selected items could not be rotated.');
-      else if (warning.includes('stayed locked')) toast.warning(warning);
-    }
-    if (event && event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    onExit();
-  };
-  return <Html position={position} center zIndexRange={[30, 0]} style={{ pointerEvents: 'auto' }}>
-    <button className="fp-rotation-ring" type="button" aria-label="Drag to rotate selected item; hold Alt for free rotation" title="Drag to rotate · Alt for free angle" onPointerDown={start} onPointerMove={move} onPointerUp={(event) => finish(event)} onPointerCancel={(event) => finish(event, true)} onLostPointerCapture={(event) => finish(event, true)} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); finish(undefined, true); } }} />
-  </Html>;
-}
-
-function StableFrame({ onStable }: { onStable: () => void }) {
+function StableFrame({ onStable, ready }: { onStable: () => void; ready: boolean }) {
   const completed = useRef(false);
   const callback = useRef(onStable);
   callback.current = onStable;
@@ -467,23 +578,29 @@ function StableFrame({ onStable }: { onStable: () => void }) {
     // lets a canceled readiness check retry after effect cleanup/remount.
     invalidate();
     return () => {
-      if (frame.current !== null) cancelAnimationFrame(frame.current);
+      if (frame.current !== null) {
+        cancelAnimationFrame(frame.current);
+      }
       frame.current = null;
     };
-  }, [invalidate]);
+  }, [invalidate, ready]);
   useFrame(() => {
-    if (completed.current || frame.current !== null) return;
+    if (!ready || completed.current || frame.current !== null) {
+      return;
+    }
     // useFrame runs before R3F submits this frame; defer until the browser has
     // advanced past it so BuilderLoading never dismisses on a pre-render signal.
     frame.current = requestAnimationFrame(() => {
       frame.current = requestAnimationFrame(() => {
         frame.current = null;
-        if (completed.current) return;
+        if (completed.current) {
+          return;
+        }
         completed.current = true;
         callback.current();
       });
     });
-  });
+  }, -1);
   return null;
 }
 function FloorSurface({
@@ -556,6 +673,7 @@ function FloorSurface({
             depthWrite={false}
             polygonOffset
             polygonOffsetFactor={-1}
+            polygonOffsetUnits={-1}
             side={DoubleSide}
           />
         </mesh>
@@ -597,7 +715,12 @@ function ZoneMesh({
   outline.push(outline[0]!);
   return (
     <group>
-      <mesh position={[0, 0.025, 0]} rotation={[-Math.PI / 2, 0, 0]} onClick={onClick} onPointerDown={onPointerDown}>
+      <mesh
+        position={[0, 0.025, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        onClick={onClick}
+        onPointerDown={onPointerDown}
+      >
         <shapeGeometry args={[shape]} />
         <meshBasicMaterial
           color={color}
@@ -616,8 +739,7 @@ export function FloorCanvas({
   view,
   onInteract,
   onSelectionAnchor,
-  rotationActive = false,
-  onRotationActiveChange,
+  onCustomizeObject,
   onStableFrame,
   readinessGeneration = 0,
   showRouteLabels = true,
@@ -625,9 +747,10 @@ export function FloorCanvas({
   store: StudioStore;
   view: StudioView;
   onInteract: () => void;
-  onSelectionAnchor?: (anchor: { x: number; y: number; width: number; height: number } | null) => void;
-  rotationActive?: boolean;
-  onRotationActiveChange?: (active: boolean) => void;
+  onSelectionAnchor?: (
+    anchor: { x: number; y: number; width: number; height: number } | null,
+  ) => void;
+  onCustomizeObject?: (id: string) => void;
   onStableFrame?: () => void;
   readinessGeneration?: number;
   showRouteLabels?: boolean;
@@ -642,6 +765,8 @@ export function FloorCanvas({
       floorId: value.floorId,
       selection: value.selection,
       selectionSet: value.selectionSet,
+      focusId: value.focusId,
+      focusTick: value.focusTick,
       tool: value.tool,
       recipe: value.recipe,
       presetId: value.presetId,
@@ -658,8 +783,27 @@ export function FloorCanvas({
   );
   const floor = activeFloor(state),
     image = useFloorImage(floor);
+  const boothLabels = useMemo(() => floor.objects.filter(isBooth), [floor.objects]);
+  const floorImageReady =
+    !image.url ||
+    image.url !== (floor.source.authoring?.originalImage ?? floor.source.image) ||
+    !!image.texture ||
+    !!image.error;
   useEffect(() => {
-    if (!state.selection) onSelectionAnchor?.(null);
+    const id = `floor-image-${floor.source.id}`;
+    if (image.error) {
+      toast.warning(image.error, { id });
+    } else {
+      toast.dismiss(id);
+    }
+    return () => {
+      toast.dismiss(id);
+    };
+  }, [floor.source.id, image.error]);
+  useEffect(() => {
+    if (!state.selection) {
+      onSelectionAnchor?.(null);
+    }
   }, [state.selection?.id, state.selection?.kind, onSelectionAnchor]);
   const debug = studioDebugEnabled();
   const imageUrl = floor.source.authoring?.originalImage ?? floor.source.image;
@@ -685,7 +829,17 @@ export function FloorCanvas({
     pointerId: number;
     startScreen: [number, number];
     moved: boolean;
+    invalidMessage?: string;
     handle?: [number, number];
+  } | null>(null);
+  const vertexDrag = useRef<{
+    id: string;
+    original: PlanObject;
+    vertexIndex: number;
+    pointerId: number;
+    startScreen: [number, number];
+    moved: boolean;
+    invalidMessage?: string;
   } | null>(null);
   const objectEventDispatch = useRef<ObjectEventDispatch>({
     onPointerOver: () => {},
@@ -694,12 +848,29 @@ export function FloorCanvas({
     onPointerDown: () => {},
     onPointerMove: () => {},
     onPointerUp: () => {},
+    onContextMenu: () => {},
   });
   const [dragging, setDragging] = useState(false),
+    [orbiting, setOrbiting] = useState(false),
     [contextLost, setContextLost] = useState(false);
-  const marquee = useRef<{ pointerId: number; startWorld: [number, number]; endWorld: [number, number]; startScreen: [number, number]; endScreen: [number, number]; shiftKey: boolean; moved: boolean } | null>(null);
-  const [marqueeFrame, setMarqueeFrame] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
-  const [alignmentGuide, setAlignmentGuide] = useState<[number, number, number, number] | null>(null);
+  const marquee = useRef<{
+    pointerId: number;
+    startWorld: [number, number];
+    endWorld: [number, number];
+    startScreen: [number, number];
+    endScreen: [number, number];
+    shiftKey: boolean;
+    moved: boolean;
+  } | null>(null);
+  const [marqueeFrame, setMarqueeFrame] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [alignmentGuide, setAlignmentGuide] = useState<[number, number, number, number] | null>(
+    null,
+  );
   /**
    * Structural alignment geometry is scanned once per applied document, not once per pointer
    * move. The cached targets are world-space, so they stay valid while the camera orbits.
@@ -714,7 +885,9 @@ export function FloorCanvas({
     }
     const targets: AlignTarget[] = [];
     for (const object of floor.objects) {
-      if (!isStructuralRecipe(object.recipe)) continue;
+      if (!isStructuralRecipe(object.recipe)) {
+        continue;
+      }
       targets.push({ kind: 'endpoint', points: footprint(object), id: object.id });
     }
     for (const [index, wall] of (floor.source.authoring?.walls ?? []).entries()) {
@@ -726,7 +899,9 @@ export function FloorCanvas({
     }
     for (const [index, room] of (floor.referenceRooms ?? []).entries()) {
       const polygon = room.polygon.map((point) => referencePoint(floor, point));
-      if (polygon.length >= 2) targets.push({ kind: 'wall', points: polygon, id: `room-wall-${index}` });
+      if (polygon.length >= 2) {
+        targets.push({ kind: 'wall', points: polygon, id: `room-wall-${index}` });
+      }
     }
     for (const [index, a] of floor.boundary.entries()) {
       const end = floor.boundary[(index + 1) % floor.boundary.length]!;
@@ -737,9 +912,10 @@ export function FloorCanvas({
       const edgeCount = target.points.length > 2 ? target.points.length : 1;
       for (let edgeIndex = 0; edgeIndex < edgeCount; edgeIndex++) {
         const a = target.points[edgeIndex]!;
-        const b = target.points.length > 2
-          ? target.points[(edgeIndex + 1) % target.points.length]!
-          : target.points[1]!;
+        const b =
+          target.points.length > 2
+            ? target.points[(edgeIndex + 1) % target.points.length]!
+            : target.points[1]!;
         edges.push({ target, edgeIndex, a, b });
       }
     }
@@ -762,10 +938,39 @@ export function FloorCanvas({
    * the tree. That effect could re-arm itself against a moving pointer and
    * exceed React's nested update limit.
    */
-  const hoverContext = `${state.floorId}:${state.revision}:${state.tool}:${view.cameraRevision}:${view.touring}`;
+  const hoverContext = `${state.floorId}:${state.revision}:${state.tool}:${state.focusTick}:${view.cameraRevision}:${view.touring}`;
   const activeHover = hover && hover.context === hoverContext ? hover : null;
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearHover = useCallback(() => {
+    if (hoverTimer.current !== null) {
+      clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+    setHover(null);
+  }, []);
+  const onCameraGestureChange = useCallback(
+    (active: boolean) => {
+      setOrbiting(active);
+      if (active) {
+        clearHover();
+      }
+    },
+    [clearHover],
+  );
+  useEffect(() => {
+    clearHover();
+  }, [clearHover, hoverContext]);
+  useEffect(
+    () => () => {
+      if (hoverTimer.current !== null) {
+        clearTimeout(hoverTimer.current);
+        hoverTimer.current = null;
+      }
+    },
+    [],
+  );
   const hovered =
-    !dragging && state.tool === 'select'
+    !dragging && !orbiting && state.tool === 'select'
       ? floor.objects.find(
           (object) =>
             object.id === activeHover?.id &&
@@ -789,15 +994,6 @@ export function FloorCanvas({
   const selectedObject = floor.objects.find(
     (object) => object.id === state.selection?.id && object.id !== state.pendingRemoval?.id,
   );
-  const rotationObject = state.selection?.kind === 'object'
-    ? selectedObject
-    : state.selectionSet
-        .filter((selection) => selection.kind === 'object')
-        .map((selection) => floor.objects.find((object) => object.id === selection.id))
-        .find((object) => object && !object.locked);
-  const rotationAllowed = state.selection?.kind === 'object'
-    ? !!selectedObject && !selectedObject.locked
-    : !!floor.zones.find((zone) => zone.id === state.selection?.id && !zone.locked);
   const ghost =
     state.pointer &&
     ['place', 'move', 'duplicate'].includes(state.tool) &&
@@ -811,7 +1007,11 @@ export function FloorCanvas({
   const selectedZone = floor.zones.find((zone) => zone.id === state.selection?.id);
   const zoneBounds = selectedZone ? polygonBounds(selectedZone.polygon) : null;
   const zoneGhost =
-    selectedZone && !selectedZone.locked && zoneBounds && state.pointer && ['move', 'duplicate'].includes(state.tool)
+    selectedZone &&
+    !selectedZone.locked &&
+    zoneBounds &&
+    state.pointer &&
+    ['move', 'duplicate'].includes(state.tool)
       ? selectedZone.polygon.map(([x, z]): [number, number] => [
           x + state.pointer![0] - (zoneBounds.minX + zoneBounds.maxX) / 2,
           z + state.pointer![1] - (zoneBounds.minZ + zoneBounds.maxZ) / 2,
@@ -821,7 +1021,9 @@ export function FloorCanvas({
     () =>
       state.pendingObjects?.length
         ? state.pendingObjects
-        : state.pendingObject && selectedObject && objectSchema.safeParse(state.pendingObject).success
+        : state.pendingObject &&
+            selectedObject &&
+            objectSchema.safeParse(state.pendingObject).success
           ? transformGroup(floor, selectedObject, state.pendingObject)
           : [],
     [floor, selectedObject, state.pendingObject, state.pendingObjects],
@@ -829,7 +1031,9 @@ export function FloorCanvas({
   const pendingMemberById = useMemo(() => {
     const members = new Map<string, PlanObject>();
     for (const member of pendingMembers) {
-      if (!members.has(member.id)) members.set(member.id, member);
+      if (!members.has(member.id)) {
+        members.set(member.id, member);
+      }
     }
     return members;
   }, [pendingMembers]);
@@ -841,7 +1045,9 @@ export function FloorCanvas({
     );
     if (selectedObject?.groupId) {
       for (const object of floor.objects) {
-        if (object.groupId === selectedObject.groupId) ids.add(object.id);
+        if (object.groupId === selectedObject.groupId) {
+          ids.add(object.id);
+        }
       }
     }
     return ids;
@@ -856,24 +1062,42 @@ export function FloorCanvas({
   const candidates = (state.pendingObject ? pendingMembers : ghostMembers).map((object) =>
     duplicateMode ? Object.assign({}, object, { id: `ghost-copy:${object.id}` }) : object,
   );
-  const alignPointer = (point: [number, number] | null, clientX: number, clientY: number, altKey: boolean) => {
-    if (!point || altKey) { setAlignmentGuide(null); return point; }
+  const alignPointer = (
+    point: [number, number] | null,
+    clientX: number,
+    clientY: number,
+    altKey: boolean,
+  ) => {
+    if (!point || altKey) {
+      setAlignmentGuide(null);
+      return point;
+    }
     const current = store.getState();
     const moving = current.tool === 'place' ? definition : selectedObject;
-    if (!moving || !['place', 'move', 'duplicate'].includes(current.tool)) { setAlignmentGuide(null); return point; }
+    if (!moving || !['place', 'move', 'duplicate'].includes(current.tool)) {
+      setAlignmentGuide(null);
+      return point;
+    }
     const movingAtPointer = { ...moving, position: point };
     const movingPoints = footprint(movingAtPointer);
     const rect = element.current?.getBoundingClientRect();
-    const camera = bridge.current.camera;
+    const { camera } = bridge.current;
     if (!rect || !camera) {
       setAlignmentGuide(null);
       return point;
     }
     const bounds = polygonBounds(floor.boundary);
-    const farCorner: [number, number] = camera.position.x > bounds.minX ? [bounds.maxX, bounds.maxZ] : [bounds.minX, bounds.minZ];
+    const farCorner: [number, number] =
+      camera.position.x > bounds.minX ? [bounds.maxX, bounds.maxZ] : [bounds.minX, bounds.minZ];
     // Only candidates within the snap threshold can win, so they are pruned in world space
     // before the far more expensive screen projection runs.
-    const worldRadius = snapWorldRadius(camera, point, rect.height, floor.source.heightOffset, farCorner);
+    const worldRadius = snapWorldRadius(
+      camera,
+      point,
+      rect.height,
+      floor.source.heightOffset,
+      farCorner,
+    );
     const movingBounds = bounds2FromPoints(movingPoints);
     let nearbyEdges = alignCandidateScratch.current;
     const coordinateScale = movingBounds
@@ -887,9 +1111,7 @@ export function FloorCanvas({
         )
       : 1;
     const broadphaseRadius =
-      worldRadius >= 0
-        ? worldRadius + Number.EPSILON * coordinateScale * 8
-        : worldRadius;
+      worldRadius >= 0 ? worldRadius + Number.EPSILON * coordinateScale * 8 : worldRadius;
     const queryBounds: Bounds2 = movingBounds
       ? {
           minX: movingBounds.minX - broadphaseRadius,
@@ -902,21 +1124,32 @@ export function FloorCanvas({
     const projected = new Vector3();
     const project = (world: [number, number]): [number, number] | null => {
       projected.set(world[0], floor.source.heightOffset, world[1]).project(camera);
-      if (projected.z < -1 || projected.z > 1) return null;
+      if (projected.z < -1 || projected.z > 1) {
+        return null;
+      }
       return [
         rect.left + ((projected.x + 1) * rect.width) / 2,
         rect.top + ((1 - projected.y) * rect.height) / 2,
       ];
     };
     const screenCandidates: ScreenAlignmentCandidate[] = [];
-    const pushCandidate = (kind: ScreenAlignmentCandidate['kind'], id: string, target: [number, number], offset: [number, number]) => {
+    const pushCandidate = (
+      kind: ScreenAlignmentCandidate['kind'],
+      id: string,
+      target: [number, number],
+      offset: [number, number],
+    ) => {
       const center: [number, number] = [target[0] - offset[0], target[1] - offset[1]];
       const screenPoint = project(center);
-      if (screenPoint) screenCandidates.push({ id, kind, screenPoint, worldPoint: center });
+      if (screenPoint) {
+        screenCandidates.push({ id, kind, screenPoint, worldPoint: center });
+      }
     };
     for (const edge of nearbyEdges) {
       const { target, edgeIndex, a, b } = edge;
-      if (target.kind === 'endpoint' && target.id === moving.id) continue;
+      if (target.kind === 'endpoint' && target.id === moving.id) {
+        continue;
+      }
       for (const vertex of movingPoints) {
         const offset: [number, number] = [vertex[0] - point[0], vertex[1] - point[1]];
         if (target.kind === 'endpoint') {
@@ -924,17 +1157,35 @@ export function FloorCanvas({
             pushCandidate('endpoint', `${target.id}-v${edgeIndex}`, a, offset);
           }
         }
-        const t = Math.max(0, Math.min(1, ((vertex[0] - a[0]) * (b[0] - a[0]) + (vertex[1] - a[1]) * (b[1] - a[1])) / Math.max(1e-8, (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2)));
+        const t = Math.max(
+          0,
+          Math.min(
+            1,
+            ((vertex[0] - a[0]) * (b[0] - a[0]) + (vertex[1] - a[1]) * (b[1] - a[1])) /
+              Math.max(1e-8, (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2),
+          ),
+        );
         const nearest: [number, number] = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
         if (Math.hypot(nearest[0] - vertex[0], nearest[1] - vertex[1]) > worldRadius) {
           continue;
         }
-        pushCandidate(target.kind === 'endpoint' ? 'edge' : 'wall', `${target.id}-e${edgeIndex}`, nearest, offset);
+        pushCandidate(
+          target.kind === 'endpoint' ? 'edge' : 'wall',
+          `${target.id}-e${edgeIndex}`,
+          nearest,
+          offset,
+        );
       }
     }
     const pointer = [clientX, clientY] as [number, number];
-    const nearest = nearestScreenAlignment(pointer, screenCandidates, 12, { recipe: moving.recipe, alt: altKey });
-    if (!nearest) { setAlignmentGuide(null); return point; }
+    const nearest = nearestScreenAlignment(pointer, screenCandidates, 12, {
+      recipe: moving.recipe,
+      alt: altKey,
+    });
+    if (!nearest) {
+      setAlignmentGuide(null);
+      return point;
+    }
     setAlignmentGuide([point[0], point[1], nearest.worldPoint[0], nearest.worldPoint[1]]);
     return nearest.worldPoint;
   };
@@ -1021,8 +1272,9 @@ export function FloorCanvas({
     }
     const current = store.getState(),
       rawPoint: [number, number] = [event.point.x, event.point.z],
-      point = alignPointer(rawPoint, event.clientX, event.clientY, event.nativeEvent.altKey) ?? rawPoint;
-    if (event.delta > 3 || drag.current) {
+      point =
+        alignPointer(rawPoint, event.clientX, event.clientY, event.nativeEvent.altKey) ?? rawPoint;
+    if (!isPrimaryCanvasClick(event.nativeEvent.button, event.delta) || drag.current) {
       return;
     }
     if (current.tool === 'route-start' || current.tool === 'route-dest') {
@@ -1046,15 +1298,24 @@ export function FloorCanvas({
         current.tool,
       )
     ) {
-      if (event.nativeEvent.detail > 1) {
-        return;
-      }
       if (
-        current.tool === 'polygon' &&
+        ['polygon', 'zone-polygon'].includes(current.tool) &&
         current.drawing.length >= 3 &&
-        Math.hypot(point[0] - current.drawing[0]![0], point[1] - current.drawing[0]![1]) < 0.3
+        (() => {
+          const startScreen = bridge.current.projectWorld(current.drawing[0]!);
+          return (
+            !!startScreen &&
+            isWithinScreenRadius(
+              [event.clientX, event.clientY],
+              startScreen,
+              POLYGON_CLOSE_RADIUS_PX,
+            )
+          );
+        })()
       ) {
-        if (!current.apply()) toast.error(current.message || 'Polygon could not be created.');
+        if (!current.apply()) {
+          toast.error(current.message || 'Polygon could not be created.');
+        }
         return;
       }
       current.addPoint(point);
@@ -1068,19 +1329,31 @@ export function FloorCanvas({
         toast.warning(store.getState().message);
       }
       setAlignmentGuide(null);
-    } else {
-      if (!event.nativeEvent.shiftKey) current.select(null);
+    } else if (current.tool !== 'edit-footprint') {
+      if (!event.nativeEvent.shiftKey) {
+        current.select(null);
+      }
     }
   };
   const beginMarquee = (event: ThreeEvent<PointerEvent>) => {
     const current = store.getState();
-    if (current.tool !== 'select' || view.camera !== 'top' || event.button !== 0 || unfinished(current)) return;
+    if (
+      current.tool !== 'select' ||
+      view.camera !== 'top' ||
+      event.button !== 0 ||
+      !event.nativeEvent.shiftKey ||
+      unfinished(current)
+    ) {
+      return;
+    }
     event.stopPropagation();
     // R3F registers its pointer listeners passively, so preventDefault is not allowed here.
     // The canvas disables text selection instead.
     event.nativeEvent.stopImmediatePropagation();
     const rect = element.current?.getBoundingClientRect();
-    if (!rect) return;
+    if (!rect) {
+      return;
+    }
     const local: [number, number] = [event.clientX - rect.left, event.clientY - rect.top];
     marquee.current = {
       pointerId: event.pointerId,
@@ -1093,12 +1366,26 @@ export function FloorCanvas({
     };
     setDragging(true);
   };
-  const finish = () => {
-    if (store.getState().drawing.length >= 3) {
-      const current = store.getState();
-      if (!current.apply()) toast.error(current.message || 'Polygon could not be created.');
-    }
-  };
+  const pointerScreen = state.pointer ? bridge.current.projectWorld(state.pointer) : null;
+  const startScreen = state.drawing.length ? bridge.current.projectWorld(state.drawing[0]!) : null;
+  const polygonCanClose =
+    state.drawing.length >= 3 &&
+    polygonSchema.safeParse(state.drawing).success &&
+    insideBoundary(state.drawing, floor.boundary) &&
+    (state.tool !== 'polygon' ||
+      !placementError(
+        objectFromDrawing(
+          state.drawing,
+          withPreset(createObject('polygon-booth', [0, 0]), state.presetId),
+        ),
+        floor,
+      ));
+  const polygonSnapPreview =
+    ['polygon', 'zone-polygon'].includes(state.tool) &&
+    polygonCanClose &&
+    !!pointerScreen &&
+    !!startScreen &&
+    isWithinScreenRadius(pointerScreen, startScreen, POLYGON_CLOSE_RADIUS_PX);
   const drawing = [...state.drawing];
   if (state.pointer && drawing.length) {
     if (state.tool.includes('rectangle')) {
@@ -1113,7 +1400,7 @@ export function FloorCanvas({
         first,
       );
     } else {
-      drawing.push(state.pointer);
+      drawing.push(polygonSnapPreview ? drawing[0]! : state.pointer);
     }
   }
   const drawingPolygon = [...drawing];
@@ -1123,24 +1410,37 @@ export function FloorCanvas({
   ) {
     drawingPolygon.pop();
   }
+  const drawingValidation =
+    drawingPolygon.length >= 3 ? polygonSchema.safeParse(drawingPolygon) : null;
+  const drawingOutsideBoundary =
+    drawingPolygon.length >= 3 && !insideBoundary(drawingPolygon, floor.boundary);
+  const drawingPlacementError =
+    drawingValidation?.success &&
+    !drawingOutsideBoundary &&
+    (state.tool === 'polygon' || state.tool === 'rectangle')
+      ? placementError(
+          objectFromDrawing(
+            drawingPolygon,
+            withPreset(
+              createObject(state.tool === 'polygon' ? 'polygon-booth' : 'booth', [0, 0]),
+              state.presetId,
+            ),
+          ),
+          floor,
+        )
+      : null;
+  const drawingInvalid =
+    drawingPolygon.length >= 3 &&
+    (!drawingValidation?.success || drawingOutsideBoundary || !!drawingPlacementError);
   if (drawingPolygon.length >= 3) {
-    const result = polygonSchema.safeParse(drawingPolygon);
-    if (!result.success) {
-      validationMessages.push(...result.error.issues.map((issue) => `Drawing: ${issue.message}`));
-    } else if (!insideBoundary(drawingPolygon, floor.boundary)) {
-      validationMessages.push('Keep the whole drawing inside the floor boundary.');
-    } else if (state.tool === 'polygon' || state.tool === 'rectangle') {
-      const candidate = objectFromDrawing(
-        drawingPolygon,
-        withPreset(
-          createObject(state.tool === 'polygon' ? 'polygon-booth' : 'booth', [0, 0]),
-          state.presetId,
-        ),
+    if (drawingValidation && !drawingValidation.success) {
+      validationMessages.push(
+        ...drawingValidation.error.issues.map((issue) => `Drawing: ${issue.message}`),
       );
-      const error = placementError(candidate, floor);
-      if (error) {
-        validationMessages.push(error);
-      }
+    } else if (drawingOutsideBoundary) {
+      validationMessages.push('Keep the whole drawing inside the floor boundary.');
+    } else if (drawingPlacementError) {
+      validationMessages.push(drawingPlacementError);
     }
   }
   const endDrag = (event?: ThreeEvent<PointerEvent>, cancel = false) => {
@@ -1163,31 +1463,169 @@ export function FloorCanvas({
     if (cancel) {
       store.getState().cancel();
     } else {
-      store.getState().apply();
+      const applied = store.getState().apply();
+      if (!applied) {
+        toast.error(
+          active.invalidMessage || store.getState().message || 'That edit could not be applied.',
+        );
+      } else if (active.invalidMessage) {
+        toast.error(active.invalidMessage);
+      }
       store.setState({ tool: 'select' });
     }
     setAlignmentGuide(null);
+  };
+  const placementErrorForCandidate = (candidate: PlanObject) => {
+    const current = store.getState();
+    const selected = current.selectionSet.length
+      ? current.selectionSet
+      : current.selection
+        ? [current.selection]
+        : [];
+    const ignored = new Set(
+      selected.filter((item) => item.kind === 'object').map((item) => item.id),
+    );
+    ignored.add(candidate.id);
+    if (candidate.groupId) {
+      for (const item of floor.objects) {
+        if (item.groupId === candidate.groupId) {
+          ignored.add(item.id);
+        }
+      }
+    }
+    return placementError(candidate, {
+      ...floor,
+      objects: floor.objects.filter((item) => !ignored.has(item.id)),
+      zones: floor.zones.filter(
+        (zone) => !selected.some((item) => item.kind === 'zone' && item.id === zone.id),
+      ),
+    });
+  };
+  const stageFootprint = (object: PlanObject, polygon: [number, number][]) => {
+    if (!polygonSchema.safeParse(polygon).success || !insideBoundary(polygon, floor.boundary)) {
+      return false;
+    }
+    const bounds = polygonBounds(polygon);
+    const candidate: PlanObject = {
+      ...object,
+      polygon,
+      dimensions: [bounds.maxX - bounds.minX, object.dimensions[1], bounds.maxZ - bounds.minZ],
+    };
+    if (placementErrorForCandidate(candidate)) {
+      return false;
+    }
+    store.getState().patchObject({ polygon, dimensions: candidate.dimensions });
+    return true;
+  };
+  const beginVertexDrag = (
+    object: PlanObject,
+    vertexIndex: number,
+    event: React.PointerEvent<HTMLButtonElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.button !== 0 || object.locked || unfinished(store.getState())) {
+      return;
+    }
+    vertexDrag.current = {
+      id: object.id,
+      original: object,
+      vertexIndex,
+      pointerId: event.pointerId,
+      startScreen: [event.clientX, event.clientY],
+      moved: false,
+    };
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveVertexDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const active = vertexDrag.current;
+    if (!active || active.pointerId !== event.pointerId) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (
+      !active.moved &&
+      Math.hypot(event.clientX - active.startScreen[0], event.clientY - active.startScreen[1]) < 3
+    ) {
+      return;
+    }
+    active.moved = true;
+    const point = bridge.current.project(event.clientX, event.clientY);
+    if (!point) {
+      return;
+    }
+    const polygon = movePolygonVertex(active.original.polygon, active.vertexIndex, point);
+    if (polygon && !stageFootprint(active.original, polygon)) {
+      active.invalidMessage = 'Corner kept at its last valid position.';
+    } else {
+      active.invalidMessage = undefined;
+    }
+  };
+  const finishVertexDrag = (event: React.PointerEvent<HTMLButtonElement>, cancel = false) => {
+    const active = vertexDrag.current;
+    if (!active || active.pointerId !== event.pointerId) {
+      return;
+    }
+    vertexDrag.current = null;
+    setDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (!active.moved) {
+      return;
+    }
+    if (cancel) {
+      store.getState().cancel();
+      return;
+    }
+    const { invalidMessage } = active;
+    if (!store.getState().apply()) {
+      toast.error(
+        invalidMessage || store.getState().message || 'That footprint edit is not valid.',
+      );
+    } else if (invalidMessage) {
+      toast.error(invalidMessage);
+    }
+  };
+  const applyFootprintShape = (object: PlanObject, polygon: [number, number][]) => {
+    if (!stageFootprint(object, polygon)) {
+      toast.error('Keep the footprint inside the floor with at least three valid corners.');
+      return;
+    }
+    if (!store.getState().apply()) {
+      toast.error(store.getState().message || 'That footprint edit is not valid.');
+    }
   };
   // Refresh a single latest-state dispatch object instead of building six inline closures for
   // every object. ObjectLayer callbacks stay stable and resolve the current scene state here.
   const latestObjectEventDispatch: ObjectEventDispatch = {
     onPointerOver: (id, event) => {
       const object = floor.objects.find((item) => item.id === id);
-      if (state.tool !== 'select' || dragging || !object || !isBooth(object)) {
+      if (state.tool !== 'select' || dragging || orbiting || !object || !isBooth(object)) {
         return;
       }
       event.stopPropagation();
       const rect = element.current?.getBoundingClientRect();
       if (rect) {
-        setHover({
+        if (hoverTimer.current !== null) {
+          clearTimeout(hoverTimer.current);
+        }
+        setHover(null);
+        const next = {
           id,
           x: Math.max(8, Math.min(rect.width - 180, event.clientX - rect.left + 12)),
           y: Math.max(8, Math.min(rect.height - 90, event.clientY - rect.top + 12)),
           context: hoverContext,
-        });
+        };
+        hoverTimer.current = setTimeout(() => {
+          hoverTimer.current = null;
+          setHover(next);
+        }, 500);
       }
     },
-    onPointerOut: () => setHover(null),
+    onPointerOut: clearHover,
     onClick: (id, event) => {
       event.stopPropagation();
       const object = floor.objects.find((item) => item.id === id);
@@ -1198,14 +1636,19 @@ export function FloorCanvas({
         return;
       }
       if (state.tool === 'remove') {
-        const current = store.getState(), before = current.revision;
+        const current = store.getState(),
+          before = current.revision;
         current.remove({ kind: 'object', id });
         const latest = store.getState();
-        if (latest.revision === before && latest.message.includes('locked')) toast.error(latest.message);
-      } else if (['select', 'move', 'duplicate', 'resize'].includes(state.tool)) {
+        if (latest.revision === before && latest.message.includes('locked')) {
+          toast.error(latest.message);
+        }
+      } else if (['select', 'move', 'duplicate', 'resize', 'edit-footprint'].includes(state.tool)) {
         if (state.tool === 'select' && event.nativeEvent.shiftKey) {
           const current = store.getState();
-          if (!current.toggleSelection({ kind: 'object', id })) toast.error(store.getState().message);
+          if (!current.toggleSelection({ kind: 'object', id })) {
+            toast.error(store.getState().message);
+          }
         } else {
           store.getState().select({ kind: 'object', id });
         }
@@ -1272,6 +1715,25 @@ export function FloorCanvas({
       }
       if (!active || active.id !== id || active.handle || active.pointerId !== event.pointerId) {
         if (state.tool === 'select' && isBooth(object)) {
+          if (!dragging && !orbiting) {
+            if (hoverTimer.current !== null) {
+              clearTimeout(hoverTimer.current);
+            }
+            setHover(null);
+            const rect = element.current?.getBoundingClientRect();
+            if (rect) {
+              const next = {
+                id,
+                x: Math.max(8, Math.min(rect.width - 180, event.clientX - rect.left + 12)),
+                y: Math.max(8, Math.min(rect.height - 90, event.clientY - rect.top + 12)),
+                context: hoverContext,
+              };
+              hoverTimer.current = setTimeout(() => {
+                hoverTimer.current = null;
+                setHover(next);
+              }, 500);
+            }
+          }
           event.stopPropagation();
         }
         return;
@@ -1290,15 +1752,18 @@ export function FloorCanvas({
       }
       const next =
         state.tool === 'resize'
-          ? resizeObjectSafely(active.original, ...resizeFromPointer(
+          ? resizeObjectSafely(
               active.original,
-              active.start,
-              point,
-              [1, 1],
-              false,
-              event.shiftKey || view.resizeAspect,
-              view.resizeSnap,
-            ).dimensions)
+              ...resizeFromPointer(
+                active.original,
+                active.start,
+                point,
+                [1, 1],
+                false,
+                event.shiftKey || view.resizeAspect,
+                view.resizeSnap,
+              ).dimensions,
+            )
           : {
               ...active.original,
               position: [
@@ -1306,6 +1771,12 @@ export function FloorCanvas({
                 active.original.position[1] + point[1] - active.start[1],
               ] as [number, number],
             };
+      const invalidMessage = placementErrorForCandidate(next);
+      if (invalidMessage) {
+        active.invalidMessage = invalidMessage;
+        return;
+      }
+      active.invalidMessage = undefined;
       store.getState().patchObject(next);
     },
     onPointerUp: (_id, event) => {
@@ -1320,7 +1791,8 @@ export function FloorCanvas({
         return;
       }
       if (!bridge.current.project(event.clientX, event.clientY)) {
-        endDrag(event, true);
+        drag.current.invalidMessage ??= 'Keep the whole object inside the floor boundary.';
+        endDrag(event);
         return;
       }
       if (drag.current.duplicate && state.tool === 'move') {
@@ -1344,6 +1816,14 @@ export function FloorCanvas({
         endDrag(event);
       }
     },
+    onContextMenu: (id, event) => {
+      event.nativeEvent.preventDefault();
+      event.stopPropagation();
+      if (event.delta > 3 || (playback && playbackMode !== 'overview')) {
+        return;
+      }
+      onCustomizeObject?.(id);
+    },
   };
   useLayoutEffect(() => {
     objectEventDispatch.current = latestObjectEventDispatch;
@@ -1361,6 +1841,11 @@ export function FloorCanvas({
         setMarqueeFrame(null);
         setDragging(false);
       }
+      if (vertexDrag.current) {
+        vertexDrag.current = null;
+        setDragging(false);
+        store.getState().cancel();
+      }
       if (!drag.current) {
         return;
       }
@@ -1377,14 +1862,22 @@ export function FloorCanvas({
     const move = (event: PointerEvent) => {
       const active = marquee.current;
       const rect = element.current?.getBoundingClientRect();
-      if (!active || active.pointerId !== event.pointerId || !rect) return;
+      if (!active || active.pointerId !== event.pointerId || !rect) {
+        return;
+      }
       const x = Math.max(rect.left, Math.min(rect.right, event.clientX));
       const y = Math.max(rect.top, Math.min(rect.bottom, event.clientY));
       const point = bridge.current.project(x, y);
-      if (!point) return;
+      if (!point) {
+        return;
+      }
       active.endWorld = point;
       active.endScreen = [x - rect.left, y - rect.top];
-      active.moved ||= Math.hypot(active.endScreen[0] - active.startScreen[0], active.endScreen[1] - active.startScreen[1]) > 5;
+      active.moved ||=
+        Math.hypot(
+          active.endScreen[0] - active.startScreen[0],
+          active.endScreen[1] - active.startScreen[1],
+        ) > 5;
       if (active.moved) {
         setMarqueeFrame({
           left: Math.min(active.startScreen[0], active.endScreen[0]),
@@ -1396,18 +1889,34 @@ export function FloorCanvas({
     };
     const finish = (event: PointerEvent, cancel = false) => {
       const active = marquee.current;
-      if (!active || active.pointerId !== event.pointerId) return;
+      if (!active || active.pointerId !== event.pointerId) {
+        return;
+      }
       marquee.current = null;
       setMarqueeFrame(null);
       setDragging(false);
-      if (cancel || !active.moved) return;
+      if (cancel || !active.moved) {
+        return;
+      }
       const current = store.getState();
       const currentFloor = activeFloor(current);
       const box: [number, number][] = [
-        [Math.min(active.startWorld[0], active.endWorld[0]), Math.min(active.startWorld[1], active.endWorld[1])],
-        [Math.max(active.startWorld[0], active.endWorld[0]), Math.min(active.startWorld[1], active.endWorld[1])],
-        [Math.max(active.startWorld[0], active.endWorld[0]), Math.max(active.startWorld[1], active.endWorld[1])],
-        [Math.min(active.startWorld[0], active.endWorld[0]), Math.max(active.startWorld[1], active.endWorld[1])],
+        [
+          Math.min(active.startWorld[0], active.endWorld[0]),
+          Math.min(active.startWorld[1], active.endWorld[1]),
+        ],
+        [
+          Math.max(active.startWorld[0], active.endWorld[0]),
+          Math.min(active.startWorld[1], active.endWorld[1]),
+        ],
+        [
+          Math.max(active.startWorld[0], active.endWorld[0]),
+          Math.max(active.startWorld[1], active.endWorld[1]),
+        ],
+        [
+          Math.min(active.startWorld[0], active.endWorld[0]),
+          Math.max(active.startWorld[1], active.endWorld[1]),
+        ],
       ];
       const hits = currentFloor.objects
         .filter((object) => object.managed && !object.locked && overlaps(footprint(object), box))
@@ -1419,7 +1928,14 @@ export function FloorCanvas({
       const previous = active.shiftKey ? current.selectionSet : [];
       const allHits = [...hits, ...zoneHits];
       const next = active.shiftKey
-        ? [...previous.filter((item) => !allHits.some((hit) => hit.kind === item.kind && hit.id === item.id)), ...allHits.filter((hit) => !previous.some((item) => item.kind === hit.kind && item.id === hit.id))]
+        ? [
+            ...previous.filter(
+              (item) => !allHits.some((hit) => hit.kind === item.kind && hit.id === item.id),
+            ),
+            ...allHits.filter(
+              (hit) => !previous.some((item) => item.kind === hit.kind && item.id === hit.id),
+            ),
+          ]
         : allHits;
       current.setSelectionSet(next);
     };
@@ -1439,22 +1955,29 @@ export function FloorCanvas({
       className="fp-canvas"
       aria-label="Interactive floor plan"
       data-testid="floor-plan-viewport"
-      onPointerDownCapture={(event) => {
-        setHover(null);
+      onPointerDownCapture={() => {
+        clearHover();
         onInteract();
-        if (rotationActive && !(event.target as HTMLElement).closest?.('.fp-rotation-ring')) onRotationActiveChange?.(false);
       }}
-      onPointerLeave={() => setHover(null)}
+      onPointerLeave={clearHover}
       onWheel={() => {
-        setHover(null);
+        clearHover();
         onInteract();
       }}
-      onDoubleClick={finish}
       onContextMenu={(event) => {
         event.preventDefault();
-        if (unfinished(store.getState())) store.getState().cancel();
+        clearHover();
       }}
       onPointerCancel={(event) => {
+        clearHover();
+        if (event.pointerId === vertexDrag.current?.pointerId) {
+          const active = vertexDrag.current;
+          vertexDrag.current = null;
+          setDragging(false);
+          if (active?.moved) {
+            store.getState().cancel();
+          }
+        }
         if (event.pointerId === drag.current?.pointerId) {
           endDrag(undefined, true);
         }
@@ -1468,7 +1991,9 @@ export function FloorCanvas({
         if (event.dataTransfer.types.includes('application/x-floor-plan-recipe')) {
           event.preventDefault();
           const point = bridge.current.project(event.clientX, event.clientY);
-          store.getState().setPointer(alignPointer(point, event.clientX, event.clientY, event.altKey));
+          store
+            .getState()
+            .setPointer(alignPointer(point, event.clientX, event.clientY, event.altKey));
         }
       }}
       onDragLeave={(event) => {
@@ -1569,30 +2094,62 @@ export function FloorCanvas({
               frozen={!!playback}
               viewport={view.preview ? 'preview' : 'builder'}
               snapshotFloorId={`${state.document.baseline.buildingId}:${floor.source.id}`}
+              focusId={state.focusId}
+              focusTick={state.focusTick}
+              interactionLocked={dragging}
+              onCameraGestureChange={onCameraGestureChange}
+            />
+            <BoothScreenLabelLayer
+              booths={boothLabels}
+              heightOffset={floor.source.heightOffset}
+              container={element}
+              enabled={!playback}
+              selectedId={selectedObject && isBooth(selectedObject) ? selectedObject.id : null}
             />
             {/* The authored floor image is optional enhancement: a failed or slow image request
                 must not hold the canvas readiness gate forever when the fallback floor rendered. */}
             {onStableFrame && (
               <StableFrame
-                key={`${floor.source.id}:${readinessGeneration}`}
+                key={`${floor.source.id}:${image.url}:${readinessGeneration}`}
                 onStable={onStableFrame}
+                ready={floorImageReady}
               />
             )}
-            {onSelectionAnchor && state.selection && (() => {
-              const object = state.selection.kind === 'object' ? floor.objects.find((item) => item.id === state.selection!.id) : null;
-              const zone = state.selection.kind === 'zone' ? floor.zones.find((item) => item.id === state.selection!.id) : null;
-              const center = zone ? polygonBounds(zone.polygon) : null;
-              const position: [number, number, number] | null = object
-                ? [object.position[0], floor.source.heightOffset + Math.max(0.6, object.dimensions[1] * object.scale[1] + 0.35), object.position[1]]
-                : center ? [(center.minX + center.maxX) / 2, floor.source.heightOffset + 0.6, (center.minZ + center.maxZ) / 2] : null;
-              return position ? <SelectionAnchor position={position} element={element} onAnchor={onSelectionAnchor} /> : null;
-            })()}
-            {rotationActive && rotationAllowed && <RotationRing object={rotationObject ?? undefined} floor={floor} store={store} bridge={bridge} pivot={selectionPivot(floor, state.selectionSet)} onExit={() => onRotationActiveChange?.(false)} />}
-            <ControlsPolicy
-              enabled={
-                state.tool === 'select' && !dragging && !rotationActive && (!playback || playbackMode === 'overview')
-              }
-            />
+            {onSelectionAnchor &&
+              state.selection &&
+              (() => {
+                const object =
+                  state.selection.kind === 'object'
+                    ? floor.objects.find((item) => item.id === state.selection!.id)
+                    : null;
+                const zone =
+                  state.selection.kind === 'zone'
+                    ? floor.zones.find((item) => item.id === state.selection!.id)
+                    : null;
+                const center = zone ? polygonBounds(zone.polygon) : null;
+                const position: [number, number, number] | null = object
+                  ? [
+                      object.position[0],
+                      floor.source.heightOffset +
+                        Math.max(0.6, object.dimensions[1] * object.scale[1] + 0.35),
+                      object.position[1],
+                    ]
+                  : center
+                    ? [
+                        (center.minX + center.maxX) / 2,
+                        floor.source.heightOffset + 0.6,
+                        (center.minZ + center.maxZ) / 2,
+                      ]
+                    : null;
+                return position ? (
+                  <SelectionAnchor
+                    position={position}
+                    element={element}
+                    onAnchor={onSelectionAnchor}
+                  />
+                ) : null;
+              })()}
+            <ControlsPolicy enabled={!playback || playbackMode === 'overview'} />
             <PlaybackMotionProvider>
               <group position={[0, floor.source.heightOffset, 0]}>
                 <FloorSurface
@@ -1605,7 +2162,16 @@ export function FloorCanvas({
                   move={(event) => {
                     setHover(null);
                     if (state.tool !== 'select' || debug) {
-                      store.getState().setPointer(alignPointer([event.point.x, event.point.z], event.clientX, event.clientY, event.nativeEvent.altKey));
+                      store
+                        .getState()
+                        .setPointer(
+                          alignPointer(
+                            [event.point.x, event.point.z],
+                            event.clientX,
+                            event.clientY,
+                            event.nativeEvent.altKey,
+                          ),
+                        );
                     }
                   }}
                 />
@@ -1648,9 +2214,13 @@ export function FloorCanvas({
                             ? '#c97571'
                             : '#5ba89b'
                       }
-                      selected={state.selectionSet.some((selection) => selection.kind === 'zone' && selection.id === zone.id)}
+                      selected={state.selectionSet.some(
+                        (selection) => selection.kind === 'zone' && selection.id === zone.id,
+                      )}
                       onPointerDown={(event) => {
-                        if (state.tool === 'select' || state.tool === 'remove') event.stopPropagation();
+                        if (state.tool === 'select' || state.tool === 'remove') {
+                          event.stopPropagation();
+                        }
                       }}
                       onClick={(event) => {
                         if (event.delta > 3) {
@@ -1659,15 +2229,22 @@ export function FloorCanvas({
                         if (state.tool === 'select' || state.tool === 'remove') {
                           event.stopPropagation();
                           if (state.tool === 'remove') {
-                            const current = store.getState(), before = current.revision;
+                            const current = store.getState(),
+                              before = current.revision;
                             current.remove({ kind: 'zone', id: zone.id });
                             const latest = store.getState();
-                            if (latest.revision === before && latest.message.includes('locked')) toast.error(latest.message);
+                            if (latest.revision === before && latest.message.includes('locked')) {
+                              toast.error(latest.message);
+                            }
                           } else {
                             if (event.nativeEvent.shiftKey) {
                               const current = store.getState();
-                              if (!current.toggleSelection({ kind: 'zone', id: zone.id })) toast.error(store.getState().message);
-                            } else store.getState().select({ kind: 'zone', id: zone.id });
+                              if (!current.toggleSelection({ kind: 'zone', id: zone.id })) {
+                                toast.error(store.getState().message);
+                              }
+                            } else {
+                              store.getState().select({ kind: 'zone', id: zone.id });
+                            }
                           }
                         }
                       }}
@@ -1691,19 +2268,11 @@ export function FloorCanvas({
                         colorOverride={
                           (isBooth(displayed) && view.display !== 'surface') ||
                           conflictIds.has(object.id) ||
-                          !!(
-                            ghostError &&
-                            state.pendingObject &&
-                            pendingMemberById.has(object.id)
-                          )
+                          !!(ghostError && state.pendingObject && pendingMemberById.has(object.id))
                         }
                         color={
                           conflictIds.has(object.id) ||
-                          !!(
-                            ghostError &&
-                            state.pendingObject &&
-                              pendingMemberById.has(object.id)
-                          )
+                          !!(ghostError && state.pendingObject && pendingMemberById.has(object.id))
                             ? '#d87572'
                             : isBooth(displayed) && view.display === 'availability'
                               ? statusColors[displayed.status]
@@ -1800,24 +2369,34 @@ export function FloorCanvas({
                           active.moved = true;
                           const point = bridge.current.project(event.clientX, event.clientY);
                           if (point) {
-                            store
-                              .getState()
-                              .patchObject(
-                                resizeObjectSafely(active.original, ...resizeFromPointer(
-                                  active.original,
-                                  active.start,
-                                  point,
-                                  active.handle,
-                                  true,
-                                  event.shiftKey || view.resizeAspect,
-                                  view.resizeSnap,
-                                ).dimensions),
-                              );
+                            const next = resizeObjectSafely(
+                              active.original,
+                              ...resizeFromPointer(
+                                active.original,
+                                active.start,
+                                point,
+                                active.handle,
+                                true,
+                                event.shiftKey || view.resizeAspect,
+                                view.resizeSnap,
+                              ).dimensions,
+                            );
+                            const invalidMessage = placementErrorForCandidate(next);
+                            if (invalidMessage) {
+                              active.invalidMessage = invalidMessage;
+                              return;
+                            }
+                            active.invalidMessage = undefined;
+                            store.getState().patchObject(next);
                           }
                         }}
                         onPointerUp={(event) => {
                           if (event.pointerId === drag.current?.pointerId) {
-                            endDrag(event, !bridge.current.project(event.clientX, event.clientY));
+                            if (!bridge.current.project(event.clientX, event.clientY)) {
+                              drag.current.invalidMessage ??=
+                                'Keep the whole object inside the floor boundary.';
+                            }
+                            endDrag(event);
                           }
                         }}
                       >
@@ -1826,6 +2405,164 @@ export function FloorCanvas({
                       </mesh>
                     ));
                   })()}
+                {state.tool === 'edit-footprint' &&
+                  selectedObject?.recipe === 'polygon-booth' &&
+                  !selectedObject.locked &&
+                  (() => {
+                    const footprintObject = state.pendingObject ?? selectedObject;
+                    const { polygon } = footprintObject;
+                    const height = visualHeight(footprintObject) + 0.22;
+                    return (
+                      <>
+                        {polygon.map(([x, z], index) => (
+                          <Html
+                            key={`vertex:${index}`}
+                            center
+                            position={[x, height, z]}
+                            style={{ pointerEvents: 'auto' }}
+                          >
+                            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                aria-label={`Move corner ${index + 1}`}
+                                title={`Drag corner ${index + 1}`}
+                                onPointerDown={(event) =>
+                                  beginVertexDrag(footprintObject, index, event)
+                                }
+                                onPointerMove={moveVertexDrag}
+                                onPointerUp={finishVertexDrag}
+                                onPointerCancel={(event) => finishVertexDrag(event, true)}
+                                onLostPointerCapture={(event) => finishVertexDrag(event, true)}
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  padding: 0,
+                                  border: '2px solid white',
+                                  borderRadius: '50%',
+                                  background: '#257e72',
+                                  color: 'white',
+                                  cursor: 'move',
+                                  touchAction: 'none',
+                                }}
+                              />
+                              <button
+                                type="button"
+                                aria-label={`Remove corner ${index + 1}`}
+                                title={`Remove corner ${index + 1}`}
+                                disabled={polygon.length <= 3}
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                }}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  const next = removePolygonVertex(polygon, index);
+                                  if (next) {
+                                    applyFootprintShape(footprintObject, next);
+                                  }
+                                }}
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  padding: 0,
+                                  border: 0,
+                                  borderRadius: '50%',
+                                  background: '#702f34',
+                                  color: 'white',
+                                  cursor: polygon.length <= 3 ? 'not-allowed' : 'pointer',
+                                  opacity: polygon.length <= 3 ? 0.5 : 1,
+                                  touchAction: 'none',
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </Html>
+                        ))}
+                        {polygon.map((point, index) => {
+                          const next = polygon[(index + 1) % polygon.length]!;
+                          return (
+                            <Html
+                              key={`edge:${index}`}
+                              center
+                              position={[
+                                (point[0] + next[0]) / 2,
+                                height,
+                                (point[1] + next[1]) / 2,
+                              ]}
+                              style={{ pointerEvents: 'auto' }}
+                            >
+                              <button
+                                type="button"
+                                aria-label={`Add corner on edge ${index + 1}`}
+                                title={`Add corner on edge ${index + 1}`}
+                                disabled={polygon.length >= 256}
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                }}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  const location: [number, number] = [
+                                    (point[0] + next[0]) / 2,
+                                    (point[1] + next[1]) / 2,
+                                  ];
+                                  const updated = insertPolygonVertex(polygon, index, location);
+                                  if (updated) {
+                                    applyFootprintShape(footprintObject, updated);
+                                  }
+                                }}
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  padding: 0,
+                                  border: '1px solid white',
+                                  borderRadius: '50%',
+                                  background: '#142f35',
+                                  color: 'white',
+                                  cursor: polygon.length >= 256 ? 'not-allowed' : 'pointer',
+                                  opacity: polygon.length >= 256 ? 0.5 : 1,
+                                  touchAction: 'none',
+                                }}
+                              >
+                                +
+                              </button>
+                            </Html>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                {state.tool === 'resize' && dragging && selectedObject && state.pendingObject && (
+                  <Html
+                    center
+                    position={[
+                      state.pendingObject.position[0],
+                      visualHeight(state.pendingObject) + 0.55,
+                      state.pendingObject.position[1],
+                    ]}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    <span
+                      className="fp-resize-measurement"
+                      aria-live="polite"
+                      style={{
+                        display: 'block',
+                        padding: '5px 8px',
+                        borderRadius: 5,
+                        background: 'rgba(0, 0, 0, 0.9)',
+                        color: '#fff',
+                        font: '600 13px/1.2 system-ui, sans-serif',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 1px 5px rgba(0, 0, 0, 0.45)',
+                      }}
+                    >
+                      {`${(state.pendingObject.dimensions[0] * state.pendingObject.scale[0]).toFixed(2)} × ${(state.pendingObject.dimensions[2] * state.pendingObject.scale[2]).toFixed(2)} m`}
+                    </span>
+                  </Html>
+                )}
                 {ghostMembers.map((member) => (
                   <ProceduralObject
                     key={`ghost:${member.id}`}
@@ -1835,7 +2572,19 @@ export function FloorCanvas({
                     ghost
                   />
                 ))}
-                {alignmentGuide && <Line points={[[alignmentGuide[0], 0.09, alignmentGuide[1]], [alignmentGuide[2], 0.09, alignmentGuide[3]]]} color="#74d5e8" lineWidth={1.5} dashed dashSize={0.16} gapSize={0.08} />}
+                {alignmentGuide && (
+                  <Line
+                    points={[
+                      [alignmentGuide[0], 0.09, alignmentGuide[1]],
+                      [alignmentGuide[2], 0.09, alignmentGuide[3]],
+                    ]}
+                    color="#74d5e8"
+                    lineWidth={1.5}
+                    dashed
+                    dashSize={0.16}
+                    gapSize={0.08}
+                  />
+                )}
                 {zoneGhost && (
                   <ZoneMesh
                     polygon={zoneGhost}
@@ -1871,14 +2620,30 @@ export function FloorCanvas({
                     lineWidth={3}
                   />
                 )}
+                {polygonSnapPreview && state.drawing[0] && (
+                  <Html
+                    center
+                    position={[state.drawing[0]![0], 0.14, state.drawing[0]![1]]}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        display: 'block',
+                        width: 22,
+                        height: 22,
+                        border: '3px solid #75e3c1',
+                        borderRadius: '50%',
+                        background: 'rgba(11, 46, 39, 0.72)',
+                        boxShadow: '0 0 0 3px rgba(117, 227, 193, 0.24)',
+                      }}
+                    />
+                  </Html>
+                )}
                 {drawing.length >= 2 && (
                   <Line
                     points={drawing.map(([x, z]) => [x, 0.08, z])}
-                    color={
-                      state.drawing.length >= 3 && !polygonSchema.safeParse(state.drawing).success
-                        ? '#ff7777'
-                        : '#e3bf81'
-                    }
+                    color={drawingInvalid ? '#ff7777' : '#e3bf81'}
                     lineWidth={2}
                   />
                 )}
@@ -1899,6 +2664,7 @@ export function FloorCanvas({
                 </mesh>
                 {selectedObject && (
                   <Html
+                    transform={false}
                     position={[
                       selectedObject.position[0],
                       visualHeight(selectedObject) + 0.6,
@@ -1924,7 +2690,7 @@ export function FloorCanvas({
         <div
           className="fp-hover-tooltip"
           role="tooltip"
-          style={{ left: activeHover.x, top: activeHover.y }}
+          style={{ left: activeHover.x, top: activeHover.y, pointerEvents: 'none' }}
         >
           <strong>
             {hovered.boothNumber || '—'} · {hovered.name || 'Unnamed booth'}
@@ -1961,17 +2727,24 @@ export function FloorCanvas({
         <div
           className="fp-marquee-selection"
           aria-hidden="true"
-          style={{ left: marqueeFrame.left, top: marqueeFrame.top, width: marqueeFrame.width, height: marqueeFrame.height }}
+          style={{
+            left: marqueeFrame.left,
+            top: marqueeFrame.top,
+            width: marqueeFrame.width,
+            height: marqueeFrame.height,
+          }}
         />
       )}
-      {!playback && <div className="fp-canvas-caption">
-        <span>{floor.source.name} · meters</span>
-        <span>
-          {state.tool === 'select'
-            ? 'Drag to orbit · Scroll to zoom'
-            : 'Click to author · Escape to cancel'}
-        </span>
-      </div>}
+      {!playback && (
+        <div className="fp-canvas-caption">
+          <span>{floor.source.name} · meters</span>
+          <span>
+            {state.tool === 'select'
+              ? 'Drag to orbit · Scroll to zoom'
+              : 'Click to author · Escape to cancel'}
+          </span>
+        </div>
+      )}
       {!playback && image.error && (
         <p className="fp-image-notice" role="status">
           {image.error}

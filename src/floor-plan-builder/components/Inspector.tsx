@@ -61,8 +61,7 @@ function NumberInput({
     <Field label={label}>
       <Input
         aria-label={label}
-        title="Enter to apply · Escape to discard"
-        aria-keyshortcuts="Enter Escape"
+        title="Changes preview live; use Save in the top-right corner to persist"
         disabled={disabled}
         type="number"
         step={step}
@@ -200,7 +199,7 @@ function Vertices({
     </div>
   );
 }
-function ObjectFields({ store, object }: { store: StudioStore; object: PlanObject }) {
+function ObjectFields({ store, object, onChangeFloor }: { store: StudioStore; object: PlanObject; onChangeFloor?: (floorId: string) => boolean }) {
   const landing = object.targetLanding ?? [5, 5];
   const shellDesign = isBooth(object) || isShellStructure(object);
   // The object form only reacts to the fields it edits, not to the pointer preview.
@@ -216,8 +215,6 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
       pendingFloor: value.pendingFloor,
       pendingRemoval: value.pendingRemoval,
       drawing: value.drawing,
-      apply: value.apply,
-      cancel: value.cancel,
       patchObject: value.patchObject,
       patchZone: value.patchZone,
       focus: value.focus,
@@ -230,12 +227,17 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
     })),
   );
   const patch = state.patchObject;
+  const commitPendingObject = () => {
+    const latest = store.getState();
+    if (latest.pendingObject || latest.pendingObjects?.length) { latest.apply(); }
+  };
   const validation = objectSchema.safeParse(object);
   const safeConnectorPreset = ['stairs', 'elevator', 'escalator'].includes(object.recipe);
   const isRamp = object.recipe === 'ramp';
   const rampLimits = isRamp ? rampResizeLimits(object) : null;
   const wallLike = /wall|barrier|fence/i.test(object.recipe);
   const dimensionLabels = wallLike ? ['Length (m)', 'Height (m)', 'Thickness (m)'] : ['Width (m)', 'Height (m)', 'Depth (m)'];
+  const rotationDegrees = ((object.yawRadians * 180 / Math.PI) % 360 + 360) % 360;
   const dimension = (axis: number, value: number) => {
     const dimensions = [...object.dimensions] as [number, number, number];
     dimensions[axis] = value;
@@ -272,7 +274,21 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
       {!object.managed && (
         <p className="fp-muted">Imported reference objects cannot be locked in this editor.</p>
       )}
-      <fieldset disabled={object.locked} className="contents" aria-label="Object properties">
+      <fieldset
+        disabled={object.locked}
+        className="contents"
+        aria-label="Object properties"
+        onClick={commitPendingObject}
+        onBlurCapture={(event) => {
+          const target = event.target;
+          if (
+            target instanceof HTMLElement &&
+            ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
+          ) {
+            commitPendingObject();
+          }
+        }}
+      >
       <Field label="Name">
         <Input
           aria-label="Object name"
@@ -290,27 +306,7 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
           />
         </Field>
       )}
-      <div className="fp-two">
-        {isBooth(object) && (
-          <Field label="Size label">
-            <Input
-              aria-label="Booth size label"
-              value={object.boothSize}
-              onChange={(event) => patch({ boothSize: event.target.value })}
-            />
-          </Field>
-        )}
-        <NumberInput
-          label="Position X (m)"
-          value={object.position[0]}
-          onChange={(x) => patch({ position: [x, object.position[1]] })}
-        />
-        <NumberInput
-          label="Position Z (m)"
-          value={object.position[1]}
-          onChange={(z) => patch({ position: [object.position[0], z] })}
-        />
-      </div>
+      {isBooth(object) && <Field label="Size label"><Input aria-label="Booth size label" value={object.boothSize} onChange={(event) => patch({ boothSize: event.target.value })} /></Field>}
       <div className="fp-three">
         {dimensionLabels.map((label, axis) => (
           <NumberInput
@@ -349,11 +345,16 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
           />
         ))}
       </div>
+      <Field label="Rotation (degrees)">
+        <Input aria-label="Rotation slider" type="range" min={0} max={359} step={1} value={rotationDegrees} onChange={(event) => patch({ yawRadians: (Number(event.target.value) * Math.PI) / 180 })} onPointerUp={commitPendingObject} onKeyUp={commitPendingObject} />
+      </Field>
       <NumberInput
-        label="Rotation (degrees)"
-        value={Math.round(((object.yawRadians * 180) / Math.PI) * 100) / 100}
+        label="Rotation value (degrees)"
+        value={Math.round(rotationDegrees * 100) / 100}
+        min={0}
+        max={360}
+        step={0.1}
         onChange={(degrees) => patch({ yawRadians: (degrees * Math.PI) / 180 })}
-        step={15}
       />
       {isBooth(object) && (
         <div className="fp-preset-palette" aria-label="Apply booth preset">
@@ -372,34 +373,26 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
       {safeConnectorPreset && <p className="fp-muted">Connector footprints use safe width/depth presets; height follows the floor rise.</p>}
       {isRamp && <p className="fp-muted">Ramps keep an accessible slope: {rampLimits?.width[0]}–{rampLimits?.width[1]} m clear width and a 1:12–1:20 run. The rise follows the floor it connects.</p>}
       {!object.circulationDesign && !isConnector(object.recipe) && (
-        <div className="fp-three">
-          {['Scale X', 'Scale Y', 'Scale Z'].map((label, axis) => (
-            <NumberInput
-              key={label}
-              label={label}
-              value={object.scale[axis]!}
-              disabled={axis === 1 && ['information', 'water'].includes(object.recipe)}
-              min={0.01}
-              onChange={(value) => {
-                const scale = [...object.scale] as [number, number, number];
-                scale[axis] = value;
-                patch({ scale });
-              }}
-            />
-          ))}
-        </div>
+        <details className="fp-settings-group">
+          <summary>Advanced scale</summary>
+          <div className="fp-three">
+            {['Scale X', 'Scale Y', 'Scale Z'].map((label, axis) => (
+              <NumberInput
+                key={label}
+                label={label}
+                value={object.scale[axis]!}
+                disabled={axis === 1 && ['information', 'water'].includes(object.recipe)}
+                min={0.01}
+                onChange={(value) => {
+                  const scale = [...object.scale] as [number, number, number];
+                  scale[axis] = value;
+                  patch({ scale });
+                }}
+              />
+            ))}
+          </div>
+        </details>
       )}
-      <div className="fp-row">
-        <Button variant="outline" size="sm" onClick={() => patch({ yawRadians: 0 })}>
-          0°
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => patch({ yawRadians: Math.PI / 2 })}>
-          90°
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => patch({ yawRadians: Math.PI })}>
-          180°
-        </Button>
-      </div>
       {!isCirculation(object.recipe) && (
         <>
           <Field label="Color mode">
@@ -424,40 +417,21 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
           </Field>
         </>
       )}
-      <Field label="Collision">
+      <Field label="Blocks walking routes">
         <select
-          aria-label="Collision"
+          aria-label="Blocks walking routes"
           value={object.collidable ? 'solid' : 'reference'}
           onChange={(event) => patch({ collidable: event.target.value === 'solid' })}
         >
-          <option value="solid">Solid obstacle</option>
+          <option value="solid">Yes, blocks routes</option>
           <option value="reference">
-            {isCirculation(object.recipe)
-              ? 'Non-blocking reference (no 3D routing)'
-              : 'Walkable reference'}
+            {isCirculation(object.recipe) ? 'No, non-blocking reference' : 'No, visitors can walk through'}
           </option>
         </select>
       </Field>
-      {!isBooth(object) && !isCirculation(object.recipe) && (
-        <div className="fp-two">
-          <NumberInput
-            label="Material roughness"
-            value={object.roughness}
-            min={0}
-            max={1}
-            step={0.05}
-            onChange={(roughness) => patch({ roughness })}
-          />
-          <NumberInput
-            label="Material metalness"
-            value={object.metalness}
-            min={0}
-            max={1}
-            step={0.05}
-            onChange={(metalness) => patch({ metalness })}
-          />
-        </div>
-      )}
+      <p className="fp-muted">Turn this off for a visual reference visitors can walk through.</p>
+      <details className="fp-settings-group">
+        <summary>{isBooth(object) ? 'Booth details' : `${object.name} options`}</summary>
       {object.recipe.startsWith('washroom') && (
         <Field label="Washroom signage">
           <select
@@ -664,11 +638,6 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
       )}
       {isBooth(object) && (
         <>
-          <Vertices
-            key={`${object.id}:vertices`}
-            value={object.polygon}
-            onChange={(polygon) => patch({ polygon })}
-          />
           <NumberInput
             label="Price"
             min={0}
@@ -956,22 +925,6 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
       {isCirculation(object.recipe) && <CirculationFields object={object} patch={patch} />}
       {isConnector(object.recipe) && (
         <>
-          <div className="fp-two">
-            <NumberInput
-              label="Target landing X (m)"
-              value={landing[0]}
-              onChange={(x) => {
-                patch({ targetLanding: [x, landing[1]] });
-              }}
-            />
-            <NumberInput
-              label="Target landing Z (m)"
-              value={landing[1]}
-              onChange={(z) => {
-                patch({ targetLanding: [landing[0], z] });
-              }}
-            />
-          </div>
           {!object.circulationDesign && (
             <>
               <NumberInput
@@ -1010,7 +963,7 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
             </>
           )}
           <p className="fp-muted">
-            Apply properties before linking floors. Each landing can then be moved independently.
+            Save connector changes from the top-right button. Each landing can then be moved independently.
           </p>
           {state.document.floors
             .filter(
@@ -1023,7 +976,6 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
                 key={floor.source.id}
                 variant="outline"
                 size="sm"
-                disabled={!!state.pendingObject}
                 onClick={() => state.linkConnector(floor.source.id, landing)}
               >
                 Connect to {floor.source.name}
@@ -1042,7 +994,7 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
                           variant="outline"
                           disabled={unfinished(state)}
                           onClick={() => {
-                            if (state.setFloor(floor.source.id)) {
+                            if ((onChangeFloor ?? state.setFloor)(floor.source.id)) {
                               store.getState().select({ kind: 'object', id: target.id });
                             }
                           }}
@@ -1066,12 +1018,17 @@ function ObjectFields({ store, object }: { store: StudioStore; object: PlanObjec
           )}
         </>
       )}
-      <div className="fp-row">
-        <Button onClick={() => state.apply()}>Apply changes</Button>
-        <Button variant="outline" onClick={state.cancel}>
-          Discard
-        </Button>
-      </div>
+      </details>
+      {isBooth(object) && (
+        <details className="fp-settings-group">
+          <summary>Advanced geometry</summary>
+          <Vertices
+            key={`${object.id}:vertices`}
+            value={object.polygon}
+            onChange={(polygon) => patch({ polygon })}
+          />
+        </details>
+      )}
       </fieldset>
     </div>
   );
@@ -1092,8 +1049,6 @@ export function FloorProperties({ store }: { store: StudioStore }) {
       revision: value.revision,
       imageSizes: value.imageSizes,
       patchFloor: value.patchFloor,
-      apply: value.apply,
-      cancel: value.cancel,
       notify: value.notify,
       updateFloor: value.updateFloor,
       reorderFloor: value.reorderFloor,
@@ -1150,12 +1105,6 @@ export function FloorProperties({ store }: { store: StudioStore }) {
         onChange={(heightOffset) => patchSource({ heightOffset })}
       />
       <div className="fp-row">
-        <Button size="sm" onClick={() => state.apply()}>
-          Apply floor properties
-        </Button>
-        <Button size="sm" variant="outline" onClick={state.cancel}>
-          Discard floor edit
-        </Button>
         <Button size="sm" variant="outline" onClick={() => state.reorderFloor(-1)}>
           Move up
         </Button>
@@ -1389,7 +1338,7 @@ export function FloorProperties({ store }: { store: StudioStore }) {
     </div>
   );
 }
-export function Inspector({ store }: { store: StudioStore }) {
+export function Inspector({ store, onChangeFloor }: { store: StudioStore; onChangeFloor?: (floorId: string) => boolean }) {
   const state = useStore(
     store,
     useShallow((value) => ({
@@ -1405,8 +1354,6 @@ export function Inspector({ store }: { store: StudioStore }) {
       drawing: value.drawing,
       revision: value.revision,
       imageSizes: value.imageSizes,
-      apply: value.apply,
-      cancel: value.cancel,
       notify: value.notify,
       patchFloor: value.patchFloor,
       patchObject: value.patchObject,
@@ -1428,11 +1375,7 @@ export function Inspector({ store }: { store: StudioStore }) {
   if (state.pendingRemoval) {
     return (
       <div className="fp-form">
-        <p>Removal preview. Apply to save this deletion, or discard to restore the item.</p>
-        <Button onClick={() => state.apply()}>Apply removal</Button>
-        <Button variant="outline" onClick={state.cancel}>
-          Discard removal
-        </Button>
+        <p>Removal is in the shared draft. Use the top-right Save button to persist it, or Undo to restore the item.</p>
       </div>
     );
   }
@@ -1443,7 +1386,7 @@ export function Inspector({ store }: { store: StudioStore }) {
     state.pendingZone ??
     floor.zones.find((item) => selection?.kind === 'zone' && item.id === selection.id);
   if (object) {
-    return <ObjectFields key={object.id} store={store} object={object} />;
+    return <ObjectFields key={object.id} store={store} object={object} onChangeFloor={onChangeFloor} />;
   }
   if (zone) {
     return (
@@ -1478,23 +1421,20 @@ export function Inspector({ store }: { store: StudioStore }) {
             <option value="display">Display</option>
           </select>
         </Field>
-        <Vertices
-          key={zone.id}
-          value={zone.polygon}
-          label="Zone vertices (world meters)"
-          onChange={(polygon) => state.patchZone({ polygon })}
-        />
-        <div className="fp-row">
-          <Button onClick={() => state.apply()}>Apply zone</Button>
-          <Button variant="outline" onClick={state.cancel}>
-            Discard
-          </Button>
-        </div>
+        <details className="fp-settings-group">
+          <summary>Advanced geometry</summary>
+          <Vertices
+            key={zone.id}
+            value={zone.polygon}
+            label="Zone vertices (world meters)"
+            onChange={(polygon) => state.patchZone({ polygon })}
+          />
+        </details>
         <div className="fp-row">
           <Button variant="outline" onClick={() => state.setTool('move')}>
             Move zone
           </Button>
-          <Button variant="outline" onClick={() => { if (!state.beginDuplicate()) toast.error(store.getState().message); }}>
+           <Button variant="outline" onClick={() => { if (!state.beginDuplicate()) { toast.error(store.getState().message); } }}>
             Duplicate zone
           </Button>
           <Button variant="outline" onClick={() => state.remove()}>

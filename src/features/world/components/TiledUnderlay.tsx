@@ -120,6 +120,7 @@ function Tile({
         depthWrite={false}
         polygonOffset
         polygonOffsetFactor={-1}
+        polygonOffsetUnits={-1}
       />
     </mesh>
   ) : null;

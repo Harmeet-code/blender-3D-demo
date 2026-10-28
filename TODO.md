@@ -8,29 +8,29 @@
 2. remove all unnecessary skills    DONE
 4. check if all the new items are in admin inventory  DONE
 3. need to refine admin authoring UX first then make new assets  
-5. the adjustments to inventory items are coming in a spearate page. i should be able to customise them while placing them on the scene by right clicking on the scene with a game like scene overlay on top of it for this page Procedural services preview
-6. admin authoring needs to be a little simpler
-7. clciking on save shouldnt zoom out view should remain fixed 
-8. zooming in shouldnt make it animate and of high quality. it should remain in its default view as high quality
+5. [x] the adjustments to inventory items are coming in a spearate page. i should be able to customise them while placing them on the scene by right clicking on the scene with a game like scene overlay on top of it for this page Procedural services preview
+6. [x] admin authoring needs to be a little simpler
+7. [x] clciking on save shouldnt zoom out view should remain fixed 
+8. [x] zooming in shouldnt make it animate and of high quality. it should remain in its default view as high quality
 9. image upload is not working. if the image is bigger then the floor width and depth then it should automatically adjust. need to remove calibration coordinates
-10. polygon booth add isnt working as in demo.
+10. [x] polygon booth add isnt working as in demo.
 11. route should be formed only if we have walking zone defined and there should be a avatar walking around not from the top/iso view, it should walk around the scene from the avatar POV
 12. remove sign in as it is not needed for now
-13. right and left sidebar have a lot of unnecessary things that are not needed and should be hideable
+13. [x] right and left sidebar have a lot of unnecessary things that are not needed and should be hideable
 14. zoom works perfectly when there is no item. but when there are items it kinda works slowly. 
 15. when placing an item into the scene it is currently stuck right there after placing it on the scene. after an item have been placed once it should go back to the state of empty. if the user wants to place the same thing then user will use shift + D shortcut which can then be dragged to any place and then click on the desired place to settle it right there
-16. no need of this need as we should geta  shadcn notification only if the item cannot be placed there. Placement needs attention
+16. [x] no need of this need as we should geta  shadcn notification only if the item cannot be placed there. Placement needs attention
 Floor edge: 0.00 m · Nearest blocked geometry: 23.50 m
 
 Keep the whole object inside the floor boundary
 17. need to have a little bit of automatic alignemnt for things like walls etc 
 18. need to fix shimmering of all the objects
-19. need to make a good interactive loading screen while the scene is being loaded
-20. zoom in and out should work will in admin authoring 
-21. what are all the pages in the new - wayfindingPreview, eventId=floor-plan-studio, ?furniturePreview=1
-22. KRRP QUALITY PERMANENTLY HIGH and it shouldnt get into high quality once i zoom in. 
+19. [x] need to make a good interactive loading screen while the scene is being loaded
+20. [x] zoom in and out should work will in admin authoring 
+21. [x] what are all the pages in the new - wayfindingPreview, eventId=floor-plan-studio, ?furniturePreview=1
+22. [x] KRRP QUALITY PERMANENTLY HIGH and it shouldnt get into high quality once i zoom in. 
 23. need to fix the necessary ports for Frontend and backend 
-24. need customise button along with move, rotate, duplicate, delete. need to have a resize to resize it dynamically. with live preview. 
+24. [x] need customise button along with move, rotate, duplicate, delete. need to have a resize to resize it dynamically. with live preview. 
 25. remove night lighting feature(maybe), where is the information being stored regardingplacement of booths 
 26. walking modal should live in sidebar and not on the screen itself
 27. need to have the admin sidebar things like walkable zones and other things collasible and visible at all times 
@@ -49,16 +49,20 @@ Keep the whole object inside the floor boundary
 
 32. move should display an overlau where that object is being placed DONE
 33. need to have auto increamenting names for all inventory objwects as well even if they are duplicate DONE
-34. what is colision and need to remove material roughness, metalness, position X/Y
+34. [x] what is colision and need to remove material roughness, metalness, position X/Y
 35. some of the booths required to be placed next to each other so preveting the user from place it there isnt the right behaviour DONE
 36. need to have stairs and escalators connected visually ie at a height distnace with stairs, escalator, lift connecting the 2 with animation. DONE
-37. i should get a slider for rotation instead of just number
-38. why do i get a red line while placing a polygone walkable zone 
-39. should be able to zoom in and out while placing polygon booth, polygon booth have 2 separate behaviour one is above the vuew finder and one is in inventory
-40. focus booth button doesnt work
-41. apply changes and save arent working in sync. 
-42. label on top of booth is quite small. it needs to get bigger and smaller in size as i zoom out and in 
-43. resizing men booth and other things doesnt persist the change nor does saving it works 
-44. selecting a object locks the rotation of the screen as well as zoom in out
-45. placing rectangle is not working alway, neither is double clicking, 
-46. need to think about the tooltip as it is quiet irrtating at times, including sometimes placing just alongside some booth
+37. [x] i should get a slider for rotation instead of just number
+38. [x] why do i get a red line while placing a polygone walkable zone 
+39. [x] should be able to zoom in and out while placing polygon booth, polygon booth have 2 separate behaviour one is above the vuew finder and one is in inventory
+40. [x] focus booth button doesnt work
+41. [x] apply changes and save arent working in sync. 
+42. [x] label on top of booth is quite small. it needs to get bigger and smaller in size as i zoom out and in 
+43. [x] resizing men booth and other things doesnt persist the change nor does saving it works 
+44. [x] selecting a object locks the rotation of the screen as well as zoom in out
+45. [x] placing rectangle is not working alway, neither is double clicking, 
+46. [x] need to think about the tooltip as it is quiet irrtating at times, including sometimes placing just alongside some booth
+47. [x] if no walking zone defined then give me a error toast for the same
+49. [x] interactive loading screen should come in opening the floor plan
+- [ ] Review remaining polygon/resize helper copy for stale double-click or right-click finish directions and Enter/Esc Apply/Discard wording.
+- [ ] Interactive polygon/edit-footprint and resize Save/reload confirmation remains pending; see `src/admin-authoring-implementation-status.md`.

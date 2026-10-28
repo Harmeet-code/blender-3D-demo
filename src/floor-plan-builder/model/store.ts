@@ -62,6 +62,7 @@ const draftSnapshot = (state: DraftSnapshot): DraftSnapshot => ({
 });
 export interface StudioState {
   document: PlanDocument;
+  savedDocument: PlanDocument;
   floorId: string;
   selection: Selection | null;
   selectionSet: Selection[];
@@ -102,6 +103,7 @@ export interface StudioState {
   commitFloor: (floor: PlanFloor) => boolean;
   commitFloors: (floors: PlanFloor[]) => boolean;
   load: (document: PlanDocument, dirty?: boolean) => void;
+  discardUnsaved: () => boolean;
   select: (selection: Selection | null) => boolean;
   setSelectionSet: (selections: Selection[]) => boolean;
   toggleSelection: (selection: Selection) => boolean;
@@ -128,7 +130,7 @@ export interface StudioState {
   updateFloor: (updates: Partial<PlanFloor>) => boolean;
   linkConnector: (targetFloor: string, position?: [number, number]) => boolean;
   unlinkConnector: (targetFloor: string) => boolean;
-  markSaved: (revision: number) => void;
+  markSaved: (revision: number, savedDocument?: PlanDocument) => void;
   notify: (message: string) => void;
 }
 export function activeFloor(state: Pick<StudioState, 'document' | 'floorId'>): PlanFloor {
@@ -231,6 +233,17 @@ export function unfinished(
     !!state.pendingRemoval
   );
 }
+function commitPendingForm(state: StudioState): boolean {
+  const hasPendingForm =
+    !!state.pendingObject ||
+    !!state.pendingObjects?.length ||
+    !!state.pendingZone ||
+    !!state.pendingZones?.length ||
+    !!state.pendingFloor;
+  if (!hasPendingForm) { return !unfinished(state); }
+  if (state.drawing.length || state.pendingRemoval) { return false; }
+  return state.apply();
+}
 function restoreSavedStep(state: StudioState, direction: 'undo' | 'redo'): Partial<StudioState> {
   const history = state.history[state.floorId],
     step = history?.[direction].at(-1);
@@ -282,14 +295,17 @@ function restoreSavedStep(state: StudioState, direction: 'undo' | 'redo'): Parti
 export function createStudioStore(eventId: string, initial = blankDocument(eventId)) {
   return create<StudioState>((set, get) => ({
     document: initial,
+    savedDocument: initial,
     floorId: initial.floors[0]!.source.id,
     selection: null,
     selectionSet: [],
     selectionHistory: {},
     navigateSelection: (delta) => {
-      const state = get(),
-        trail = state.selectionHistory[state.floorId];
-      if (unfinished(state) || !trail || !Number.isInteger(delta) || delta === 0) {
+      let state = get();
+      if (unfinished(state) && !commitPendingForm(state)) { return; }
+      state = get();
+      const trail = state.selectionHistory[state.floorId];
+      if (!trail || !Number.isInteger(delta) || delta === 0) {
         return;
       }
       const floor = activeFloor(state);
@@ -308,7 +324,6 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
             selection,
             selectionSet: [selection],
             focusId: selection.id,
-            focusTick: state.focusTick + 1,
             selectionHistory: { ...state.selectionHistory, [state.floorId]: { ...trail, cursor } },
           });
           return;
@@ -488,6 +503,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
     load: (document, dirty = false) =>
       set((state) => ({
         document,
+        savedDocument: dirty ? state.savedDocument : document,
         documentEpoch: state.documentEpoch + 1,
         publicationIssues: null,
         imageSizes: {},
@@ -513,9 +529,40 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           ? 'Draft restored. Review and finalize when ready.'
           : 'Published layout loaded.',
       })),
+    discardUnsaved: () => {
+      const state = get();
+      if (state.saveState === 'Saving') {
+        state.notify('Wait for the current save to finish before discarding changes.');
+        return false;
+      }
+      const revision = state.revision + 1;
+      set({
+        document: state.savedDocument,
+        revision,
+        savedRevision: revision,
+        documentEpoch: state.documentEpoch + 1,
+        saveState: 'Saved',
+        selection: null,
+        selectionSet: [],
+        pendingObject: null,
+        pendingObjects: null,
+        pendingZone: null,
+        pendingZones: null,
+        pendingFloor: null,
+        pendingRemoval: null,
+        drawing: [],
+        pointer: null,
+        draftHistory: {},
+        history: {},
+        publicationIssues: null,
+        message: 'Unsaved changes discarded.',
+      });
+      return true;
+    },
     select: (selection) => {
-      if (unfinished(get())) {
-        set({ message: 'Apply or discard the unfinished edit before selecting another item.' });
+      const current = get();
+      if (unfinished(current) && !commitPendingForm(current)) {
+        set({ message: get().message || 'Finish or correct this edit before selecting another item.' });
         return false;
       }
       set((state) => {
@@ -532,7 +579,6 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           selection,
           selectionSet: selection ? [selection] : [],
           focusId: selection?.id ?? null,
-          focusTick: state.focusTick + 1,
           selectionHistory: {
             ...state.selectionHistory,
             [state.floorId]: { entries, cursor: entries.length - 1 },
@@ -542,8 +588,9 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       return true;
     },
     setSelectionSet: (selections) => {
-      const state = get();
-      if (unfinished(state)) return false;
+      let state = get();
+      if (unfinished(state) && !commitPendingForm(state)) { return false; }
+      state = get();
       const floor = activeFloor(state);
       const locked = selections.filter((selection) => isLockedSelection(floor, selection));
       const unique = selections.filter((selection, index) => {
@@ -558,12 +605,13 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       // Mixed selections need an object anchor for the rotation ring and numeric
       // transform controls; keep zone-only selections usable as before.
       const selection = unique.findLast((item) => item.kind === 'object') ?? unique.at(-1) ?? null;
-      set({ selection, selectionSet: unique, focusId: selection?.id ?? null, focusTick: state.focusTick + 1 });
+      set({ selection, selectionSet: unique, focusId: selection?.id ?? null });
       return true;
     },
     toggleSelection: (selection) => {
-      const state = get();
-      if (unfinished(state)) return false;
+      let state = get();
+      if (unfinished(state) && !commitPendingForm(state)) { return false; }
+      state = get();
       const current = state.selectionSet.length ? state.selectionSet : state.selection ? [state.selection] : [];
       const selected = current.some((item) => item.kind === selection.kind && item.id === selection.id);
       const floor = activeFloor(state);
@@ -577,25 +625,28 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       return get().setSelectionSet(next);
     },
     setFloor: (id) => {
-      if (id === get().floorId) {
+      let state = get();
+      if (id === state.floorId) {
         return true;
       }
-      if (unfinished(get())) {
-        set({ message: 'Draft changes pending. Apply or discard before changing floor.' });
+      if (unfinished(state) && !commitPendingForm(state)) {
+        set({ message: get().message || 'Finish or correct this edit before changing floors.' });
         return false;
       }
-      if (!get().document.floors.some((floor) => floor.source.id === id)) {
+      state = get();
+      if (!state.document.floors.some((floor) => floor.source.id === id)) {
         return false;
       }
       set({ floorId: id, selection: null, selectionSet: [], tool: 'select', pointer: null, focusId: null });
       return true;
     },
     setTool: (tool, recipe) => {
-      if (unfinished(get())) {
-        set({ message: 'Apply or discard the unfinished edit before changing tool.' });
+      let state = get();
+      if (unfinished(state) && !commitPendingForm(state)) {
+        set({ message: get().message || 'Finish or correct this edit before changing tools.' });
         return;
       }
-      const state = get();
+      state = get();
       const lockedSelection = state.selection && isLockedSelection(activeFloor(state), state.selection)
         ? state.selection
         : null;
@@ -616,11 +667,12 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       });
     },
     beginPlacement: (recipe) => {
-      const state = get();
-      if (unfinished(state)) {
-        state.notify('Apply or discard the unfinished edit before placing another item.');
+      let state = get();
+      if (unfinished(state) && !commitPendingForm(state)) {
+        get().notify(get().message || 'Finish or correct this edit before placing another item.');
         return false;
       }
+      state = get();
       if (!inventory.some((item) => item.id === recipe)) {
         state.notify('That item is unavailable.');
         return false;
@@ -638,11 +690,12 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       return true;
     },
     beginDuplicate: () => {
-      const state = get();
-      if (unfinished(state)) {
-        state.notify('Apply or discard the unfinished edit before duplicating.');
+      let state = get();
+      if (unfinished(state) && !commitPendingForm(state)) {
+        get().notify(get().message || 'Finish or correct this edit before duplicating.');
         return false;
       }
+      state = get();
       const floor = activeFloor(state);
       const requested = state.selectionSet.length
         ? state.selectionSet
@@ -1066,7 +1119,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
             names.push(name);
             if (boothNumber) reservedNumbers.push(boothNumber);
             return {
-              ...member,
+              ...structuredClone(member),
               id: crypto.randomUUID(),
               name,
               boothNumber,
@@ -1081,7 +1134,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           const zoneCopies: PlanZone[] = movedZones.map((zone) => {
             const label = uniqueName(`${zone.label} Copy`, names);
             names.push(label);
-            return { ...zone, id: crypto.randomUUID(), label };
+            return { ...structuredClone(zone), id: crypto.randomUUID(), label };
           });
           if (zoneCopies.some((zone) => !insideBoundary(zone.polygon, floor.boundary))) {
             set({ message: 'Keep the zone inside the floor.' });
@@ -1627,8 +1680,10 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       return state.commitFloor({ ...(state.pendingFloor ?? activeFloor(state)), ...updates });
     },
     linkConnector: (targetFloor, position) => {
-      const state = get(),
-        current = activeFloor(state),
+      let state = get();
+      if (unfinished(state) && !commitPendingForm(state)) { return false; }
+      state = get();
+      const current = activeFloor(state),
         object = current.objects.find((o) => o.id === state.selection?.id),
         target = state.document.floors.find((floor) => floor.source.id === targetFloor);
       if (
@@ -1740,10 +1795,12 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       return true;
     },
     unlinkConnector: (targetFloor) => {
-      const state = get(),
-        floor = activeFloor(state),
+      let state = get();
+      if (unfinished(state) && !commitPendingForm(state)) { return false; }
+      state = get();
+      const floor = activeFloor(state),
         object = floor.objects.find((item) => item.id === state.selection?.id);
-      if (unfinished(state) || !object?.portalId || targetFloor === state.floorId) {
+      if (!object?.portalId || targetFloor === state.floorId) {
         return false;
       }
       const floors = state.document.floors.map((item) =>
@@ -1766,9 +1823,10 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       );
       return true;
     },
-    markSaved: (revision) =>
+    markSaved: (revision, savedDocument) =>
       set((state) => ({
         savedRevision: Math.max(state.savedRevision, revision),
+        savedDocument: savedDocument ?? (state.revision === revision ? state.document : state.savedDocument),
         saveState: state.revision === revision ? 'Saved' : 'Unsynced',
       })),
   }));

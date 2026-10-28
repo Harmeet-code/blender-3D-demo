@@ -17,26 +17,46 @@ export function useFloorImage(floor: PlanFloor) {
   useEffect(() => {
     // Blank floors need no image work. Keep the passive setup free of state
     // writes for an empty URL; Strict Mode intentionally replays this setup.
-    if (!url) return;
+    if (!url) {
+      return;
+    }
     let alive = true;
+    let settled = false;
     let texture: CanvasTexture | null = null;
     setImage((current) =>
       current.url === url && !current.texture && !current.pixels && !current.error
         ? current
         : { url, texture: null, pixels: null, size: null, error: '' },
     );
+    const timeout = window.setTimeout(() => {
+      if (alive && !settled) {
+        setImage({
+          url,
+          texture: null,
+          pixels: null,
+          size: null,
+          error:
+            'The floor image is taking longer than expected. The fallback surface is ready while it continues loading.',
+        });
+      }
+    }, 5000);
     const source = new Image();
     source.crossOrigin = 'anonymous';
     source.onload = () => {
       if (!alive) {
         return;
       }
+      settled = true;
+      window.clearTimeout(timeout);
       try {
         const canvas = document.createElement('canvas');
         const decodedSize = decodedImageSize(source.naturalWidth, source.naturalHeight);
-        if (!decodedSize) throw new Error('Invalid floor image dimensions.');
-        canvas.width = decodedSize[0];
-        canvas.height = decodedSize[1];
+        if (!decodedSize) {
+          throw new Error('Invalid floor image dimensions.');
+        }
+        const [width, height] = decodedSize;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) {
           throw new Error('Image pixels unavailable.');
@@ -69,6 +89,8 @@ export function useFloorImage(floor: PlanFloor) {
     };
     source.onerror = () => {
       if (alive) {
+        settled = true;
+        window.clearTimeout(timeout);
         setImage({
           url,
           texture: null,
@@ -81,6 +103,7 @@ export function useFloorImage(floor: PlanFloor) {
     source.src = mediaUrl(url);
     return () => {
       alive = false;
+      window.clearTimeout(timeout);
       source.onload = null;
       source.onerror = null;
       texture?.dispose();
@@ -88,7 +111,5 @@ export function useFloorImage(floor: PlanFloor) {
   }, [url]);
   // A prior floor's decoded image is retained only until its request cleanup
   // runs; never expose it while the selected floor has a different URL.
-  return image.url === url
-    ? image
-    : { url, texture: null, pixels: null, size: null, error: '' };
+  return image.url === url ? image : { url, texture: null, pixels: null, size: null, error: '' };
 }

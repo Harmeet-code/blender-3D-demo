@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import {
@@ -171,22 +171,11 @@ export function TentObject({
   const variant = object.tentStyle;
   const indoors = object.tentIndoors;
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
+  const near: boolean = true;
   const time = useMemo(() => ({ value: 0 }), []);
   const shaderRef = useRef<WindShader | null>(null);
 
-  useFrame(({ camera }, delta) => {
-    if (root.current) {
-      root.current.getWorldPosition(world);
-      const distance = camera.position.distanceTo(world);
-      const size = Math.max(w, h, d);
-      if (near && distance / size > 9) {
-        setNear(false);
-      } else if (!near && distance / size < 7) {
-        setNear(true);
-      }
-    }
+  useFrame((_, delta) => {
     if (windSway && !ghost && shaderRef.current) {
       time.value += Math.min(delta, 0.05);
       shaderRef.current.uniforms.uTime!.value = time.value;

@@ -1,12 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Line } from '@react-three/drei';
 import {
   CanvasTexture,
   Color,
   Object3D,
   SRGBColorSpace,
-  Vector3,
   type Group,
   type InstancedMesh,
 } from 'three';
@@ -280,21 +278,7 @@ export function KidsZoneObject({
   const [w, , d] = object.dimensions;
   const density = object.kidsDensity;
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (!root.current) {
-      return;
-    }
-    root.current.getWorldPosition(world);
-    const distance = camera.position.distanceTo(world);
-    const size = Math.max(w, d);
-    if (near && distance / size > 9) {
-      setNear(false);
-    } else if (!near && distance / size < 7) {
-      setNear(true);
-    }
-  });
+  const near: boolean = true;
 
   const opacity = ghost ? 0.45 : 1;
   const hw = w / 2;

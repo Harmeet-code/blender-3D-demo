@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
-import { CanvasTexture, DoubleSide, SRGBColorSpace, Vector3, type Group } from 'three';
+import { CanvasTexture, DoubleSide, SRGBColorSpace, type Group } from 'three';
 import { exitOpening, exitSinkLocal } from '../model/exit.ts';
 import { useServiceMotion } from './use-service-motion.ts';
 import type { PlanObject } from '../model/types.ts';
@@ -104,20 +104,9 @@ export function ExitObject({
   const root = useRef<Group>(null);
   const leaf = useRef<Group>(null);
   const swing = useRef({ value: open ? 1 : 0, from: open ? 1 : 0, started: 0 });
-  const [near, setNear] = useState(true);
+  const near: boolean = true;
   const { animate, invalidate } = useServiceMotion(!ghost);
-  const world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (root.current) {
-      root.current.getWorldPosition(world);
-      const distance = camera.position.distanceTo(world);
-      const size = Math.max(w, h, d);
-      if (near && distance / size > 12) {
-        setNear(false);
-      } else if (!near && distance / size < 9) {
-        setNear(true);
-      }
-    }
+  useFrame(() => {
     const target = open ? 1 : 0;
     const state = swing.current;
     if (state.value !== target) {

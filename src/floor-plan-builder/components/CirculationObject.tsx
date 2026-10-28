@@ -1,8 +1,8 @@
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { TraversalMotionContext } from '../wayfinding/walkthrough/motion-context.tsx';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { Group, InstancedMesh } from 'three';
-import { Object3D, Vector3 } from 'three';
+import { Object3D } from 'three';
 import type { PlanObject } from '../model/types.ts';
 import { CirculationFar } from './CirculationFar.tsx';
 import {
@@ -790,21 +790,8 @@ export function CirculationObject({
   colorOverride?: string;
 }) {
   const playback = useContext(TraversalMotionContext);
-  const root = useRef<Group>(null),
-    [near, setNear] = useState(true),
-    world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (ghost || !root.current) {
-      return;
-    }
-    root.current.getWorldPosition(world);
-    const distance = camera.position.distanceTo(world);
-    if (near && distance > 28) {
-      setNear(false);
-    } else if (!near && distance < 24) {
-      setNear(true);
-    }
-  });
+  const root = useRef<Group>(null);
+  const near: boolean = true;
   const m = circulationMetrics(object);
   const unsafe =
     object.dimensions.some((value) => !Number.isFinite(value) || value <= 0) ||

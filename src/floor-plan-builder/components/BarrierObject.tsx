@@ -1,11 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Line } from '@react-three/drei';
 import {
   BufferGeometry,
   Float32BufferAttribute,
   Object3D,
-  Vector3,
   type Group,
   type InstancedMesh,
 } from 'three';
@@ -87,20 +85,7 @@ export function BarrierObject({
   void color;
   const [w] = object.dimensions;
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
-  const world = useMemo(() => new Vector3(), []);
-  useFrame(({ camera }) => {
-    if (!root.current) {
-      return;
-    }
-    root.current.getWorldPosition(world);
-    const distance = camera.position.distanceTo(world);
-    if (near && distance > 14) {
-      setNear(false);
-    } else if (!near && distance < 11) {
-      setNear(true);
-    }
-  });
+  const near: boolean = true;
 
   const beltColor = barrierBeltColor(object);
   const belt = useMemo(() => beltGeometry(w, 0.9, object.barrierSag), [w, object.barrierSag]);

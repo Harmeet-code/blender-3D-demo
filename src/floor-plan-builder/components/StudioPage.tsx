@@ -9,7 +9,6 @@ import {
   Plus,
   Trash2,
   Search,
-  RotateCw,
   X,
   ChevronLeft,
   ChevronRight,
@@ -27,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { StudioPersistence, localDraftKey } from '../api/persistence.ts';
 import { activeFloor, createStudioStore, unfinished, type StudioStore } from '../model/store.ts';
 import { decodeLayout, encodeLayout } from '../model/adapter.ts';
@@ -36,7 +36,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore } from 'zustand';
 import { isBooth, isConnector } from '../model/types.ts';
 import type { PlanDocument } from '../model/types.ts';
-import { isStructuralRecipe, snapStructuralAngle } from '../model/alignment.ts';
 import type { BuildingLayout } from '@/features/building/model/building-schema.ts';
 import { Inspector } from './Inspector.tsx';
 import { FloorSetupPanel, type FloorSetupDraftController } from './FloorSetupPanel.tsx';
@@ -49,7 +48,8 @@ import { BoothDetails, CameraHud, ViewOptions, useBoothTour } from './ViewerPane
 import { initialView } from '../model/view.ts';
 import { useStudioDebug } from '../hooks/use-studio-debug.ts';
 import { useBuilderRouter } from '../shell/router.tsx';
-import { BuilderLoading, type BuilderLoadingPhase } from './BuilderLoading.tsx';
+import type { BuilderRoute } from '../shell/routes.ts';
+import { MiniatureVenueLoading, type BuilderLoadingPhase } from './BuilderLoading.tsx';
 import { PlaybackHUD } from '../wayfinding/ui/PlaybackHUD.tsx';
 import { Minimap } from '../wayfinding/rendering/Minimap.tsx';
 import { toast } from 'sonner';
@@ -183,7 +183,7 @@ function InventoryPanel({ store, search, setSearch, navigationMode, manageOnly =
   );
 }
 
-function SelectionActions({ store, anchor, rotationActive, onRotate, onCustomize, navigationMode }: { store: StudioStore; anchor: { x: number; y: number; width: number; height: number } | null; rotationActive: boolean; onRotate: () => void; onCustomize: () => void; navigationMode: boolean }) {
+function SelectionActions({ store, anchor, onCustomize, navigationMode }: { store: StudioStore; anchor: { x: number; y: number; width: number; height: number } | null; onCustomize: () => void; navigationMode: boolean }) {
   const actionRef = useRef<HTMLDivElement>(null);
   const [actionSize, setActionSize] = useState<[number, number]>([0, 0]);
   // The floating toolbar only reacts to the current selection, not to the pointer preview.
@@ -253,8 +253,8 @@ function SelectionActions({ store, anchor, rotationActive, onRotate, onCustomize
   return (
     <div ref={actionRef} className="fp-selection-actions" style={style} role="toolbar" aria-label="Selected item actions">
       <Button size="sm" variant="ghost" title={selectedLocked ? 'Unlock the selected item before moving · Shift+M' : 'Move selected items · Shift+M'} aria-label="Move selected items" disabled={selectedLocked} onClick={() => state.setTool('move')}><Move size={15} />Move</Button>
-      <Button size="sm" variant={rotationActive ? 'secondary' : 'ghost'} title={selectedLocked ? 'Unlock the selected item before rotating · Q/E' : 'Rotate selected items around their shared center · Q/E'} aria-label="Rotate selected items" aria-pressed={rotationActive} disabled={selectedLocked} onClick={onRotate}><RotateCw size={15} />Rotate</Button>
-      <Button size="sm" variant="ghost" title={selectedLocked ? 'Unlock the selected item before duplicating · Shift+D' : 'Duplicate selected items · Shift+D'} aria-label="Duplicate selected items" disabled={selectedLocked} onClick={() => { if (!state.beginDuplicate()) toast.error(store.getState().message); }}><Copy size={15} />Duplicate</Button>
+      {selectedObject && <Button size="sm" variant="ghost" title={selectedLocked ? 'Unlock the selected item before resizing' : 'Resize selected item'} aria-label="Resize selected item" disabled={selectedLocked || selectedObject.recipe === 'avatar' || state.selectionSet.length > 1} onClick={() => state.setTool('resize')}><Maximize2 size={15} />Resize</Button>}
+       <Button size="sm" variant="ghost" title={selectedLocked ? 'Unlock the selected item before duplicating · Shift+D' : 'Duplicate selected items · Shift+D'} aria-label="Duplicate selected items" disabled={selectedLocked} onClick={() => { if (!state.beginDuplicate()) { toast.error(store.getState().message); } }}><Copy size={15} />Duplicate</Button>
       {(selection.kind === 'zone' || selectedObject) && (
         <Button
           size="sm"
@@ -319,7 +319,7 @@ function NavigationRouteControls({ document, floorId, canWalk, blocked, notify }
     const result = usePlaybackStore.getState();
     if (!result.session && result.message) notify(result.message);
   };
-  if (!canWalk) return <div className="fp-route-test" aria-label="Route test"><strong>Test a route</strong><p className="fp-muted">Add a valid walkable area on this floor to enable route testing.</p></div>;
+   if (!canWalk) { return <div className="fp-route-test" aria-label="Route test"><strong>Test a route</strong><p className="fp-muted">This floor has no walkable zone yet.</p><Button size="sm" variant="outline" onClick={() => notify('Draw a walkable zone before generating a route.')}>Test route</Button></div>; }
   return <div className="fp-route-test" aria-label="Route test">
     <strong>Test a route</strong>
     <label>Start<select aria-label="Route start" value={startKey} onChange={(event) => commit('start', event.target.value)}><option value="">Choose a start…</option>{choices.map((choice) => <option key={choice.key} value={choice.key}>{choice.label}</option>)}</select></label>
@@ -329,6 +329,31 @@ function NavigationRouteControls({ document, floorId, canWalk, blocked, notify }
     {session && <Button size="sm" variant="outline" onClick={() => usePlaybackStore.getState().exit()}>Stop walkthrough</Button>}
     {(request || session) && <Button size="sm" variant="ghost" onClick={clear}>Clear route</Button>}
   </div>;
+}
+
+function UnsavedNavigationDialog({ route, saveInProgress, onStay, onDiscard }: {
+  route: BuilderRoute | null;
+  saveInProgress: boolean;
+  onStay: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+     <Dialog open={!!route} onOpenChange={(open) => { if (!open) { onStay(); } }}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>Unsaved changes</DialogTitle>
+          <DialogDescription>
+            Stay in the editor to keep working, or discard the draft and leave this page.
+            {saveInProgress ? ' Save is still in progress.' : ''}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onStay}>Stay</Button>
+          <Button variant="destructive" disabled={saveInProgress} onClick={onDiscard}>Discard and leave</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function StudioPage() {
@@ -382,6 +407,7 @@ export default function StudioPage() {
   const [search, setSearch] = useState('');
   const [deleteFloor, setDeleteFloor] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(() => localStorage.getItem('fp-inventory-open') !== 'false');
+  const [inspectorOpen, setInspectorOpen] = useState(() => localStorage.getItem('fp-inspector-open') !== 'false');
   const [sectionsOpen, setSectionsOpen] = useState<Record<SidebarSectionId, boolean>>(() =>
     Object.fromEntries(sidebarSectionIds.map((id) => {
       const remembered = localStorage.getItem(`fp-sidebar:${id}:open`);
@@ -401,6 +427,7 @@ export default function StudioPage() {
     setFloorDraftDirty(!!controller?.hasDraft);
   }, []);
   const [navigationMode, setNavigationMode] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<BuilderRoute | null>(null);
   const [showFloorSetup, setShowFloorSetup] = useState(false);
   const [restoredFloorEvent, setRestoredFloorEvent] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
@@ -408,11 +435,20 @@ export default function StudioPage() {
   const [hasStableFrame, setHasStableFrame] = useState(false);
   const [readinessGeneration, setReadinessGeneration] = useState(0);
   const [actionAnchor, setActionAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [rotationActive, setRotationActive] = useState(false);
-  useEffect(() => setRotationActive(false), [state.selection?.id, state.floorId, router.route, navigationMode]);
   const playbackActive = usePlaybackStore((playbackState) => !!playbackState.session);
   const wayfindingZones = useMemo<WalkableZone[]>(() => state.document.floors.flatMap((planFloor) => planFloor.zones.filter((zone) => zone.type === 'walkable').map((zone) => ({ id: zone.id, floorId: planFloor.source.id, name: zone.label || 'Walkable zone', type: 'general' as const, polygon: zone.polygon as [number, number][], holes: [], revision: state.revision }))), [state.document, state.revision]);
-  const notifyRoute = useCallback((message: string) => { store.getState().notify(message); toast.error(message); }, [store]);
+  const notifyRoute = useCallback((message: string) => {
+    store.getState().notify(message);
+    toast.error(message, message.toLowerCase().includes('walkable zone') ? {
+      action: {
+        label: 'Draw walkable zone',
+        onClick: () => {
+          setNavigationMode(true);
+          store.getState().setTool('zone-rectangle');
+        },
+      },
+    } : undefined);
+  }, [store]);
   useWayfindingRoute(state.document, state.revision, wayfindingZones, notifyRoute);
   const saveExplicitly = useCallback(async () => {
     const draft = floorDraftController.current;
@@ -466,19 +502,43 @@ export default function StudioPage() {
         setLocalDraft(null);
       }
       toast.success('Floor plan saved.');
-    } else toast.error(latest.message || 'Could not save the floor plan. Your edits are still here.');
+    } else { toast.error(latest.message || 'Could not save the floor plan. Your edits are still here.'); }
   }, [eventId, persistence, setSectionOpen, store]);
+
+  const requestNavigation = useCallback((next: BuilderRoute) => {
+    if (next === router.route) { return; }
+    const current = store.getState();
+    if (unfinished(current) || floorDraftController.current?.hasDraft || current.revision !== current.savedRevision) {
+      setPendingNavigation(next);
+      return;
+    }
+    router.navigate(next);
+  }, [router, store]);
+  const discardAndNavigate = useCallback(() => {
+    const current = store.getState();
+    if (!current.discardUnsaved()) {
+      toast.error(store.getState().message || 'Wait for Save to finish before discarding.');
+      return;
+    }
+    floorDraftController.current?.discard();
+    localStorage.removeItem(localDraftKey(eventId));
+    setLocalDraft(null);
+    const next = pendingNavigation;
+    setPendingNavigation(null);
+    if (next) { router.navigate(next); }
+  }, [eventId, pendingNavigation, router, store]);
 
   useEffect(() => setView((current) => ({ ...current, preview: router.route === 'preview', touring: false })), [router.route]);
   useEffect(() => { localStorage.setItem('fp-inventory-open', String(inventoryOpen)); }, [inventoryOpen]);
-  useEffect(() => { for (const id of sidebarSectionIds) localStorage.setItem(`fp-sidebar:${id}:open`, String(sectionsOpen[id])); }, [sectionsOpen]);
+  useEffect(() => { localStorage.setItem('fp-inspector-open', String(inspectorOpen)); }, [inspectorOpen]);
+  useEffect(() => { for (const id of sidebarSectionIds) { localStorage.setItem(`fp-sidebar:${id}:open`, String(sectionsOpen[id])); } }, [sectionsOpen]);
   useEffect(() => {
-    if (loading || restoredFloorEvent === eventId) return;
+    if (loading || restoredFloorEvent === eventId) { return; }
     const remembered = localStorage.getItem(`fp-floor:${eventId}`);
-    if (remembered && state.document.floors.some((item) => item.source.id === remembered) && remembered !== state.floorId) state.setFloor(remembered);
+    if (remembered && state.document.floors.some((item) => item.source.id === remembered) && remembered !== state.floorId) { state.setFloor(remembered); }
     setRestoredFloorEvent(eventId);
   }, [eventId, loading, restoredFloorEvent, state.document.floors, state.floorId]);
-  useEffect(() => { if (!loading && restoredFloorEvent === eventId) localStorage.setItem(`fp-floor:${eventId}`, state.floorId); }, [eventId, loading, restoredFloorEvent, state.floorId]);
+  useEffect(() => { if (!loading && restoredFloorEvent === eventId) { localStorage.setItem(`fp-floor:${eventId}`, state.floorId); } }, [eventId, loading, restoredFloorEvent, state.floorId]);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setLoadError(null); setHasStableFrame(false); setPhase('floor');
@@ -487,7 +547,7 @@ export default function StudioPage() {
       const cached = localStorage.getItem(localDraftKey(eventId));
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed.eventId === eventId && parsed.layout) setLocalDraft(parsed.layout);
+        if (parsed.eventId === eventId && parsed.layout) { setLocalDraft(parsed.layout); }
       }
     } catch { toast.error('A local recovery draft could not be read.'); }
     void persistence.load(controller.signal).then((loaded) => {
@@ -508,19 +568,19 @@ export default function StudioPage() {
         }
       }
     }).catch((error: unknown) => {
-      if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : 'Could not load the floor plan.');
+      if (!controller.signal.aborted) { setLoadError(error instanceof Error ? error.message : 'Could not load the floor plan.'); }
     }).finally(() => {
       if (!controller.signal.aborted) { setLoading(false); setPhase('assets'); }
     });
     return () => controller.abort();
   }, [eventId, persistence, retry]);
   useEffect(() => {
-    if (loading || state.revision === state.savedRevision) return;
+    if (loading || state.revision === state.savedRevision) { return; }
     try { localStorage.setItem(localDraftKey(eventId), JSON.stringify({ eventId, layout: encodeLayout(state.document), updatedAt: Date.now() })); }
     catch { toast.error('Local recovery could not be written.'); }
   }, [eventId, loading, state.revision, state.savedRevision, state.document]);
   useEffect(() => {
-    if (loading || loadError) return;
+    if (loading || loadError) { return; }
     const empty = state.document.floors.length === 1 && state.document.floors[0]?.objects.length === 0 && state.document.floors[0]?.zones.length === 0;
     const dismissed = localStorage.getItem(`fp-floor-setup-dismissed:${eventId}`) === 'true';
     if (empty && !dismissed) { setShowFloorSetup(true); setSectionOpen('floor', true); }
@@ -528,14 +588,14 @@ export default function StudioPage() {
   useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => {
       const current = store.getState();
-      if (unfinished(current) || floorDraftController.current?.hasDraft || current.revision !== current.savedRevision) event.preventDefault();
+      if (unfinished(current) || floorDraftController.current?.hasDraft || current.revision !== current.savedRevision) { event.preventDefault(); }
     };
     window.addEventListener('beforeunload', guard);
     return () => window.removeEventListener('beforeunload', guard);
   }, [store]);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (router.route === 'inventory') return;
+      if (router.route === 'inventory') { return; }
       const command = resolveEditorShortcut(event, isEditableTarget(event.target));
       if (command === 'save') {
         event.preventDefault();
@@ -546,13 +606,13 @@ export default function StudioPage() {
         if (event.key === 'Escape' && !isEditableTarget(event.target)) {
           event.preventDefault();
           usePlaybackStore.getState().exit();
-          router.navigate('builder');
+          requestNavigation('builder');
         }
         return;
       }
       const current = store.getState();
-      if (!command) return;
-      if (command === 'finish' && !unfinished(current)) return;
+      if (!command) { return; }
+      if (command === 'finish' && !unfinished(current)) { return; }
       event.preventDefault();
       if (command === 'undo') { current.undo(); return; }
       if (command === 'redo') { current.redo(); return; }
@@ -569,51 +629,14 @@ export default function StudioPage() {
         }
         return;
       }
-      if (command === 'rotate-left' || command === 'rotate-right') {
-        if (current.selection) {
-          const floor = activeFloor(current);
-          const selectedObject = current.selection.kind === 'object'
-            ? floor.objects.find((object) => object.id === current.selection?.id)
-            : current.selectionSet
-                .filter((selection) => selection.kind === 'object')
-                .map((selection) => floor.objects.find((object) => object.id === selection.id))
-                .find((object) => object && !object.locked);
-          if (current.selection.kind === 'object' && selectedObject?.locked) {
-            toast.error(`${selectedObject.name} is locked. Unlock it before rotating.`);
-            return;
-          }
-          if (unfinished(current)) {
-            toast.error('Apply or discard the unfinished edit before rotating.');
-            return;
-          }
-          const step = command === 'rotate-left' ? -Math.PI / 36 : Math.PI / 36;
-          const nextYaw = selectedObject
-            ? selectedObject.yawRadians + step
-            : step;
-          const delta = selectedObject && isStructuralRecipe(selectedObject.recipe)
-            ? snapStructuralAngle(nextYaw, event.altKey) - selectedObject.yawRadians
-            : step;
-          if (!current.rotateSelection(delta)) {
-            toast.error(store.getState().message || 'Select an editable object or zone before rotating.');
-            return;
-          }
-          const message = store.getState().message;
-          if (!current.apply()) {
-            toast.error(store.getState().message || 'Selected items could not be rotated.');
-          } else if (message.includes('stayed locked')) {
-            toast.warning(message);
-          }
-        }
-        return;
-      }
-      if (command === 'cancel') { current.cancel(); setRotationActive(false); usePlaybackStore.getState().exit(); return; }
-      if (command === 'duplicate') { if (!current.beginDuplicate()) toast.error(store.getState().message); return; }
+      if (command === 'cancel') { current.cancel(); usePlaybackStore.getState().exit(); return; }
+       if (command === 'duplicate') { if (!current.beginDuplicate()) { toast.error(store.getState().message); } return; }
       if (command === 'finish' || command === 'apply') { current.apply(); return; }
       if (command === 'rectangle') { current.setTool(navigationMode ? 'zone-rectangle' : 'rectangle'); return; }
       if (command === 'polygon') { current.setTool(navigationMode ? 'zone-polygon' : 'polygon'); return; }
       if (command === 'preset') { current.choosePreset(); return; }
       if (command === 'poi') { current.cyclePoi(); return; }
-      if (command === 'resize' && (current.selection?.kind !== 'object' || current.selectionSet.length > 1)) return;
+      if (command === 'resize' && (current.selection?.kind !== 'object' || current.selectionSet.length > 1)) { return; }
       if (command === 'move' || command === 'resize') {
         const active = activeFloor(current);
         const locked = current.selection?.kind === 'object'
@@ -632,9 +655,23 @@ export default function StudioPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [store, view.preview, router.route, navigationMode, saveExplicitly]);
+  }, [store, view.preview, router.route, navigationMode, saveExplicitly, requestNavigation]);
 
   const save = () => void saveExplicitly();
+  const changeFloor = (id: string) => {
+    const draft = floorDraftController.current;
+    if (draft?.hasDraft && !draft.apply()) {
+      setSectionOpen('floor', true);
+      window.requestAnimationFrame(() => floorDraftController.current?.focusInvalid());
+      toast.error(store.getState().message || 'Correct floor setup before switching floors.');
+      return false;
+    }
+    if (!store.getState().setFloor(id)) {
+      toast.error(store.getState().message || 'Finish the active edit before switching floors.');
+      return false;
+    }
+    return true;
+  };
   const selectedObject = state.selection?.kind === 'object' ? floor.objects.find((object) => object.id === state.selection?.id) : null;
   const selectedZone = state.selection?.kind === 'zone' ? floor.zones.find((zone) => zone.id === state.selection?.id) : null;
   const selectedLocked = selectedObject?.locked === true || selectedZone?.locked === true;
@@ -644,15 +681,24 @@ export default function StudioPage() {
   const restore = (layout: BuildingLayout) => {
     try {
       const restored = decodeLayout(layout);
-      if (restored.baseline.buildingId !== eventId) throw new Error('This recovery draft belongs to a different project.');
+      if (restored.baseline.buildingId !== eventId) { throw new Error('This recovery draft belongs to a different project.'); }
       setHasStableFrame(false); setPhase('assets'); setReadinessGeneration((generation) => generation + 1);
       store.getState().load(restored, true); setLocalDraft(null); setServerDraft(null);
     } catch (error) { toast.error(error instanceof Error ? error.message : 'Draft invalid.'); }
   };
   const beginPolygon = () => store.getState().setTool(navigationMode ? 'zone-polygon' : 'polygon');
+  const openCustomize = (id?: string) => {
+    if (id && !store.getState().select({ kind: 'object', id })) {
+      toast.error(store.getState().message || 'This object cannot be customized.');
+      return;
+    }
+    setInspectorOpen(true);
+    setSectionOpen('selection', true);
+    window.requestAnimationFrame(() => document.getElementById('fp-sidebar-selection')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+  };
 
   if (router.route === 'inventory') {
-    return <main className="fp-studio fp-inventory-route"><header className="fp-header"><h1>Asset inventory</h1><Button variant="outline" onClick={() => router.navigate('builder')}>Back to builder</Button></header><InventoryPanel store={store} search={search} setSearch={setSearch} navigationMode={false} manageOnly /><p className="fp-muted">Reusable asset management is limited in this phase. No assets can be added here.</p></main>;
+    return <main className="fp-studio fp-inventory-route"><header className="fp-header"><h1>Asset inventory</h1><Button variant="outline" onClick={() => requestNavigation('builder')}>Back to builder</Button></header><InventoryPanel store={store} search={search} setSearch={setSearch} navigationMode={false} manageOnly /><p className="fp-muted">Reusable asset management is limited in this phase. No assets can be added here.</p><UnsavedNavigationDialog route={pendingNavigation} saveInProgress={state.saveState === 'Saving'} onStay={() => setPendingNavigation(null)} onDiscard={discardAndNavigate} /></main>;
   }
 
   return (
@@ -660,9 +706,9 @@ export default function StudioPage() {
       <header className="fp-header fp-header-compact">
         <div className="fp-brand"><span className="fp-mark"><Layers size={20} /></span><div><h1>Floor plan builder</h1><p>{eventId}</p></div></div>
         <div className="fp-header-actions">
-          <Button size="sm" variant={router.route === 'builder' ? 'secondary' : 'ghost'} onClick={() => router.navigate('builder')}>Builder</Button>
-          <Button size="sm" variant={router.route === 'preview' ? 'secondary' : 'ghost'} onClick={() => router.navigate('preview')}>Preview</Button>
-          <Label className="fp-floor-select-label">Floor<select aria-label="Select floor" value={state.floorId} onChange={(event) => { if (!state.setFloor(event.target.value)) toast.error('Finish or cancel the current action before switching floors.'); }}>{state.document.floors.map((item) => <option key={item.source.id} value={item.source.id}>{item.source.name}</option>)}</select></Label>
+          <Button size="sm" variant={router.route === 'builder' ? 'secondary' : 'ghost'} onClick={() => requestNavigation('builder')}>Builder</Button>
+          <Button size="sm" variant={router.route === 'preview' ? 'secondary' : 'ghost'} onClick={() => requestNavigation('preview')}>Preview</Button>
+          <Label className="fp-floor-select-label">Floor<select aria-label="Select floor" value={state.floorId} onChange={(event) => changeFloor(event.target.value)}>{state.document.floors.map((item) => <option key={item.source.id} value={item.source.id}>{item.source.name}</option>)}</select></Label>
           <Button size="sm" variant={navigationMode ? 'secondary' : 'outline'} aria-pressed={navigationMode} onClick={() => { setNavigationMode((value) => !value); state.setTool('select'); }}> <Navigation size={15} />Navigation</Button>
           <Button size="icon" variant="ghost" title={`Undo · ${commandModifier}+Z`} aria-label="Undo" disabled={!state.history[state.floorId]?.undo.length} onClick={state.undo}><Undo2 size={17} /></Button>
           <Button size="icon" variant="ghost" title={`Redo · ${commandModifier}+Shift+Z`} aria-label="Redo" disabled={!state.history[state.floorId]?.redo.length} onClick={state.redo}><Redo2 size={17} /></Button>
@@ -670,14 +716,14 @@ export default function StudioPage() {
           <Button size="sm" title={`Save · ${commandModifier}+S`} onClick={save} disabled={loading || state.saveState === 'Saving'}><Save size={15} />Save</Button>
         </div>
       </header>
-      <div className={`fp-workspace ${inventoryOpen ? '' : 'fp-inventory-collapsed'}`}>
+      <div className={`fp-workspace ${inventoryOpen ? '' : 'fp-inventory-collapsed'} ${inspectorOpen ? '' : 'fp-inspector-closed'}`}>
         <aside className="fp-library" aria-label="Asset inventory">
           <div className="fp-panel-heading"><div><span className="fp-eyebrow">ASSETS</span><h2>Inventory</h2></div><Button size="icon" variant="ghost" aria-label={inventoryOpen ? 'Collapse inventory' : 'Expand inventory'} onClick={() => setInventoryOpen((open) => !open)}>{inventoryOpen ? <ChevronLeft size={17} /> : <ChevronRight size={17} />}</Button></div>
           {inventoryOpen && <InventoryPanel store={store} search={search} setSearch={setSearch} navigationMode={navigationMode} />}
         </aside>
         <section className="fp-scene-column">
           {!view.preview && <div className="fp-toolbar fp-toolbar-compact">
-            <Button size="sm" variant={state.tool === 'select' ? 'secondary' : 'ghost'} title="Select · Esc cancels current edit" onClick={() => state.setTool('select')}><MousePointer2 size={15} />Select</Button>
+            <Button size="sm" variant={state.tool === 'select' ? 'secondary' : 'ghost'} title="Select; Esc cancels the current drawing or gesture" onClick={() => state.setTool('select')}><MousePointer2 size={15} />Select</Button>
             {!navigationMode ? <>
               <Button size="sm" variant={state.tool === 'move' ? 'secondary' : 'ghost'} title={selectedLocked ? 'Unlock the selected item before moving · Shift+M' : 'Move selected items · Shift+M'} disabled={selectedLocked} onClick={() => state.setTool('move')}><Move size={15} />Move</Button>
               <Button size="sm" variant={state.tool === 'resize' ? 'secondary' : 'ghost'} title="Resize selected object · Shift+R; drag a handle, hold Shift to preserve aspect; Enter applies, Esc discards" disabled={!selectedObject || selectedObject.locked || selectedObject.recipe === 'avatar' || state.selectionSet.length > 1} onClick={() => state.setTool('resize')}><Maximize2 size={15} />Resize</Button>
@@ -686,22 +732,27 @@ export default function StudioPage() {
             </> : <>
               <Button size="sm" variant={state.tool === 'zone-rectangle' ? 'secondary' : 'ghost'} title="Draw walkable rectangle · Shift+Z" onClick={() => state.setTool('zone-rectangle')}><Square size={15} />Walkable area</Button>
               <Button size="sm" variant={state.tool === 'zone-polygon' ? 'secondary' : 'ghost'} title="Draw polygon area · Shift+P" onClick={() => state.setTool('zone-polygon')}><Pentagon size={15} />Polygon area</Button>
-              <Button size="sm" variant="outline" disabled={!walkableAvailable} onClick={() => { if (!walkableAvailable) toast.error('Add a valid walkable area before testing a route.'); else setSectionOpen('directions', true); }}>Test route</Button>
+               <Button size="sm" variant="outline" onClick={() => { if (!walkableAvailable) { notifyRoute('Draw a walkable zone before testing a route.'); } else { setSectionOpen('directions', true); } }}>Test route</Button>
             </>}
           </div>}
-          {(localDraft || serverDraft) && <div className="fp-recovery" role="status"><span>{localDraft ? 'Local recovery is available.' : 'A server draft is available.'}</span><Button size="sm" variant="outline" onClick={() => restore((localDraft ?? serverDraft)!)}>Restore</Button><Button size="sm" variant="ghost" onClick={() => { if (localDraft) { localStorage.removeItem(localDraftKey(eventId)); setLocalDraft(null); } else setServerDraft(null); }}>Dismiss</Button></div>}
+           {(localDraft || serverDraft) && <div className="fp-recovery" role="status"><span>{localDraft ? 'Local recovery is available.' : 'A server draft is available.'}</span><Button size="sm" variant="outline" onClick={() => restore((localDraft ?? serverDraft)!)}>Restore</Button><Button size="sm" variant="ghost" onClick={() => { if (localDraft) { localStorage.removeItem(localDraftKey(eventId)); setLocalDraft(null); } else { setServerDraft(null); } }}>Dismiss</Button></div>}
           <div className="fp-viewport-wrap">
-            <FloorCanvas store={store} view={view} rotationActive={rotationActive} onRotationActiveChange={setRotationActive} onSelectionAnchor={setActionAnchor} onStableFrame={() => { setHasStableFrame(true); setPhase('navigation'); }} readinessGeneration={readinessGeneration} showRouteLabels={false} onInteract={() => { if (view.touring) setView((current) => ({ ...current, touring: false })); }} />
-            <BuilderLoading state={{ loading, phase, stableHighQualityFrame: hasStableFrame, error: loadError }} retry={() => setRetry((value) => value + 1)} />
-            {!view.preview && !playbackActive && <SelectionActions store={store} anchor={actionAnchor} rotationActive={rotationActive} onRotate={() => setRotationActive((active) => !active)} onCustomize={() => { setSectionOpen('selection', true); window.requestAnimationFrame(() => document.getElementById('fp-sidebar-selection')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })); }} navigationMode={navigationMode} />}
+             <FloorCanvas store={store} view={view} onSelectionAnchor={setActionAnchor} onCustomizeObject={openCustomize} onStableFrame={() => { setHasStableFrame(true); setPhase('navigation'); }} readinessGeneration={readinessGeneration} showRouteLabels={false} onInteract={() => { if (view.touring) { setView((current) => ({ ...current, touring: false })); } }} />
+            <MiniatureVenueLoading state={{ loading, phase, stableHighQualityFrame: hasStableFrame, error: loadError }} retry={() => setRetry((value) => value + 1)} />
+            {!view.preview && !playbackActive && <SelectionActions store={store} anchor={actionAnchor} onCustomize={() => openCustomize()} navigationMode={navigationMode} />}
           </div>
           <footer className="fp-status-bar"><span>{floor.objects.length} objects · {floor.zones.length} areas</span><span>{state.saveState === 'Saving' ? 'Saving…' : hasUnsavedChanges ? 'Changes not saved' : 'All changes saved'}</span></footer>
         </section>
         <aside className="fp-inspector" id="fp-inspector" aria-label="Editor sidebar">
+          <div className="fp-panel-heading">
+            <div><span className="fp-eyebrow">PROPERTIES</span><h2>Customize</h2></div>
+            <Button size="icon" variant="ghost" aria-label={inspectorOpen ? 'Collapse Customize sidebar' : 'Expand Customize sidebar'} title={inspectorOpen ? 'Collapse Customize sidebar' : 'Expand Customize sidebar'} onClick={() => setInspectorOpen((open) => !open)}>{inspectorOpen ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</Button>
+          </div>
+          {inspectorOpen && <>
           <SidebarSection id="selection" title="Selection" open={sectionsOpen.selection} onToggle={toggleSection}>
             {state.selection ? <div className="fp-context-panel">
               {state.selectionSet.length > 1 && <p className="fp-muted">{state.selectionSet.length} items selected. Move, rotate, duplicate, and delete act on the temporary selection; Customize edits the primary item.</p>}
-              <Inspector store={store} />
+              <Inspector store={store} onChangeFloor={changeFloor} />
               {selectedObject && isBooth(selectedObject) && <BoothDetails store={store} />}
               {selectedObject && isConnector(selectedObject.recipe) && <p className="fp-muted">Link this connector to a destination floor in its properties. Landing geometry is configured on the connected floor.</p>}
             </div> : <p className="fp-muted fp-sidebar-empty">Select an object or walkable zone, then choose Customize to edit its properties.</p>}
@@ -720,7 +771,7 @@ export default function StudioPage() {
                 <Button size="sm" variant="outline" title="Draw walkable rectangle · Shift+Z" onClick={() => { setNavigationMode(true); state.setTool('zone-rectangle'); }}>Rectangle</Button>
                 <Button size="sm" variant="outline" title="Draw polygon walkable area · Shift+P" onClick={() => { setNavigationMode(true); state.setTool('zone-polygon'); }}>Polygon</Button>
               </div>
-              {floor.zones.length ? <ul className="fp-sidebar-list">{floor.zones.map((zone) => <li key={zone.id}><Button size="sm" variant={state.selection?.id === zone.id ? 'secondary' : 'ghost'} title={zone.locked ? 'Locked zone · select here to unlock in the inspector' : 'Select zone'} onClick={() => { state.select({ kind: 'zone', id: zone.id }); setSectionOpen('selection', true); }}>{zone.label || 'Walkable zone'} · {zone.type}{zone.locked ? ' · Locked' : ''}</Button></li>)}</ul> : <p className="fp-muted">No zones on this floor yet.</p>}
+              {floor.zones.length ? <ul className="fp-sidebar-list">{floor.zones.map((zone) => <li key={zone.id}><Button size="sm" variant={state.selection?.id === zone.id ? 'secondary' : 'ghost'} title={zone.locked ? 'Locked zone · select here to unlock in Customize' : 'Select zone'} onClick={() => state.select({ kind: 'zone', id: zone.id })}>{zone.label || 'Walkable zone'} · {zone.type}{zone.locked ? ' · Locked' : ''}</Button></li>)}</ul> : <p className="fp-muted">No zones on this floor yet.</p>}
             </div>
           </SidebarSection>
           <SidebarSection id="connections" title="Connections" open={sectionsOpen.connections} onToggle={toggleSection}>
@@ -739,15 +790,12 @@ export default function StudioPage() {
           </SidebarSection>
           <SidebarSection id="shortcuts" title="Shortcuts" open={sectionsOpen.shortcuts} onToggle={toggleSection}>
             <dl className="fp-shortcut-list">
-              <div><dt><kbd>{commandModifier}+S</kbd></dt><dd>Apply valid edits and save</dd></div>
+              <div><dt><kbd>{commandModifier}+S</kbd></dt><dd>Save the shared draft</dd></div>
               <div><dt><kbd>{commandModifier}+Z</kbd></dt><dd>Undo</dd></div>
               <div><dt><kbd>{commandModifier}+Shift+Z</kbd></dt><dd>Redo</dd></div>
-              <div><dt><kbd>Shift+S</kbd></dt><dd>Apply pending edit</dd></div>
-              <div><dt><kbd>Enter</kbd></dt><dd>Apply or finish drawing</dd></div>
-              <div><dt><kbd>Esc</kbd></dt><dd>Cancel edit or exit walkthrough</dd></div>
+              <div><dt><kbd>Enter</kbd></dt><dd>Finish an edit or drawing</dd></div>
+              <div><dt><kbd>Esc</kbd></dt><dd>Cancel a drawing or active gesture; valid field edits stay in the shared draft</dd></div>
               <div><dt><kbd>Delete</kbd></dt><dd>Delete unlocked selected items; locked items stay</dd></div>
-              <div><dt><kbd>Q / E</kbd></dt><dd>Rotate selection around its shared center</dd></div>
-              <div><dt><kbd>Alt+Q / Alt+E</kbd></dt><dd>Rotate with structural snap override</dd></div>
               <div><dt><kbd>Shift+D</kbd></dt><dd>Duplicate selection</dd></div>
               <div><dt><kbd>Shift+M</kbd></dt><dd>Move selection</dd></div>
               <div><dt><kbd>Shift+R</kbd></dt><dd>Resize selected object</dd></div>
@@ -760,13 +808,15 @@ export default function StudioPage() {
               <div><dt><kbd>Space</kbd></dt><dd>Play / pause walkthrough</dd></div>
               <div><dt><kbd>← / →</kbd></dt><dd>Scrub walkthrough</dd></div>
             </dl>
-            <p className="fp-muted">In numeric fields, Enter applies and Esc discards. Other shortcuts are ignored while typing.</p>
+            <p className="fp-muted">Numeric fields preview changes immediately. Other shortcuts are ignored while typing.</p>
           </SidebarSection>
+          </>}
         </aside>
       </div>
-      {!view.preview && <div className="fp-bottom-actions"><Button size="sm" variant="outline" onClick={state.addFloor}><Plus size={14} />Add floor</Button><Button size="sm" variant="ghost" aria-label="Delete current floor" disabled={state.document.floors.length < 2} onClick={() => setDeleteFloor(true)}><Trash2 size={14} />Delete floor</Button><Button size="sm" variant="ghost" onClick={() => router.navigate('inventory')}>Manage assets</Button>{!navigationMode && <Button size="sm" variant="ghost" title={selectedLocked ? 'Unlock the selected item before duplicating' : 'Duplicate selection · Shift+D'} disabled={selectedLocked} onClick={() => { if (!store.getState().beginDuplicate()) toast.error(store.getState().message); }}><Copy size={14} />Duplicate <kbd>Shift+D</kbd></Button>}</div>}
+      {!view.preview && <div className="fp-bottom-actions"><Button size="sm" variant="outline" onClick={state.addFloor}><Plus size={14} />Add floor</Button><Button size="sm" variant="ghost" aria-label="Delete current floor" disabled={state.document.floors.length < 2} onClick={() => setDeleteFloor(true)}><Trash2 size={14} />Delete floor</Button><Button size="sm" variant="ghost" onClick={() => requestNavigation('inventory')}>Manage assets</Button>{!navigationMode && <Button size="sm" variant="ghost" title={selectedLocked ? 'Unlock the selected item before duplicating' : 'Duplicate selection · Shift+D'} disabled={selectedLocked} onClick={() => { if (!store.getState().beginDuplicate()) { toast.error(store.getState().message); } }}><Copy size={14} />Duplicate <kbd>Shift+D</kbd></Button>}</div>}
       {state.tool === 'polygon' && state.drawing.length > 0 && <div className="fp-drawing-hint" role="status">Click to add booth corners · click first point, double-click, or press Enter to finish · Esc to cancel</div>}
       {deleteFloor && <div role="alertdialog" aria-modal="true" className="fp-confirm-dialog"><h2>Delete {floor.source.name}?</h2><p>This removes the floor and its assets from this document.</p><Button variant="outline" onClick={() => setDeleteFloor(false)}>Cancel</Button><Button variant="destructive" onClick={() => { state.deleteFloor(state.floorId); setDeleteFloor(false); }}>Delete floor</Button></div>}
+      <UnsavedNavigationDialog route={pendingNavigation} saveInProgress={state.saveState === 'Saving'} onStay={() => setPendingNavigation(null)} onDiscard={discardAndNavigate} />
     </main>
   );
 }

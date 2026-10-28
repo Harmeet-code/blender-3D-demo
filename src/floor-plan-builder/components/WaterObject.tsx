@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import {
@@ -111,27 +111,17 @@ export function WaterObject({
   void color;
   const [w, h, d] = object.dimensions;
   const root = useRef<Group>(null);
-  const [near, setNear] = useState(true);
+  const near: boolean = true;
   const { animate, visible, invalidate } = useServiceMotion(
-    near && !ghost && !topDown,
+    !ghost && !topDown,
     root,
     Math.max(w, h, d),
   );
-  const world = useMemo(() => new Vector3(), []);
   const flow = useRef(0);
   const droplet = useDropletBadge();
   const jetMap = useJetTexture();
   const count = useBottleCount();
-  useFrame(({ camera }, delta) => {
-    if (root.current) {
-      root.current.getWorldPosition(world);
-      const ratio = camera.position.distanceTo(world) / Math.max(w, h, d);
-      if (near && ratio > 12) {
-        setNear(false);
-      } else if (!near && ratio < 9) {
-        setNear(true);
-      }
-    }
+  useFrame((_, delta) => {
     if (animate && visible.current && jetMap) {
       flow.current += Math.min(delta, 0.05);
       jetMap.offset.y = (-1.2 * flow.current) % 1;

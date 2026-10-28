@@ -1,7 +1,7 @@
 import type { Tool } from './types.ts';
 
 export type Shortcut = Tool | 'apply' | 'undo' | 'redo' | 'cancel' | 'finish' | 'preset' | 'poi';
-export type EditorShortcut = Shortcut | 'delete' | 'rotate-left' | 'rotate-right' | 'save';
+export type EditorShortcut = Shortcut | 'delete' | 'save';
 export function isEditableTarget(target: EventTarget | null): boolean {
   const element = target as Element | null;
   if (!element || typeof element.closest !== 'function') {
@@ -77,7 +77,6 @@ export function resolveShortcut(
     return null;
   }
   const mapping: Record<string, Shortcut> = {
-    S: 'apply',
     R: 'resize',
     M: 'move',
     D: 'duplicate',
@@ -123,9 +122,6 @@ export function resolveEditorShortcut(
     return null;
   }
   if (event.altKey) {
-    if (!event.shiftKey && (key === 'Q' || key === 'E')) {
-      return key === 'Q' ? 'rotate-left' : 'rotate-right';
-    }
     return null;
   }
   if (key === 'ESCAPE') {
@@ -137,18 +133,11 @@ export function resolveEditorShortcut(
   if (!event.shiftKey && key === 'DELETE') {
     return 'delete';
   }
-  if (!event.shiftKey && key === 'Q') {
-    return 'rotate-left';
-  }
-  if (!event.shiftKey && key === 'E') {
-    return 'rotate-right';
-  }
   if (!event.shiftKey) {
     return null;
   }
   const mapping: Record<string, EditorShortcut> = {
     D: 'duplicate',
-    S: 'apply',
     R: 'resize',
     M: 'move',
     B: 'rectangle',

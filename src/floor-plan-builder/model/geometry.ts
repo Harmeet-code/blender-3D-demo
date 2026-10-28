@@ -457,6 +457,10 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
       (other) =>
         other.id !== object.id &&
         other.collidable &&
+        !(
+          ((isBooth(object) || isShellStructure(object)) && inventory.find((item) => item.id === other.recipe)?.category === 'Furniture') ||
+          ((isBooth(other) || isShellStructure(other)) && inventory.find((item) => item.id === object.recipe)?.category === 'Furniture')
+        ) &&
         objectSolids.some((solid) => solids(other).some((obstacle) => overlaps(solid, obstacle))),
     );
     if (collision) {
@@ -495,6 +499,8 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
       (other) =>
         other.id !== object.id &&
         other.collidable &&
+        (isBooth(object) || isShellStructure(object)) &&
+        (isBooth(other) || isShellStructure(other)) &&
         !sharesBoothWall(object, other) &&
         polygonGap(shape, footprint(other)) < margin + (other.boothDesign?.clearance ?? 0) - 1e-7,
     );
