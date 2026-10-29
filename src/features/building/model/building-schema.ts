@@ -80,6 +80,7 @@ export const floorAuthoringSchema = z.object({
   obstacles: z.array(areaSchema),
   spawn: point2Schema,
   imageSize: z.tuple([finiteNumberSchema.positive(), finiteNumberSchema.positive()]).optional(),
+  imageOffset: point2Schema.optional(),
   originalImage: runtimeAssetUrlSchema.optional(),
   tiles: tilePyramidSchema.extend({ template: runtimeAssetUrlSchema }).optional(),
   underlayOpacity: finiteNumberSchema.min(0).max(1).default(0.85),

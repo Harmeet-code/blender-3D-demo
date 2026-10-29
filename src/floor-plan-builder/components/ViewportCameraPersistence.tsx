@@ -24,7 +24,9 @@ export function ViewportCameraPersistence({
   const controls = useThree((state) => state.controls) as OrbitControlsImpl | null;
 
   useLayoutEffect(() => {
-    if (!enabled || !controls) return;
+    if (!enabled || !controls) {
+      return;
+    }
     const saved = readViewportCameraSnapshot(viewport, floorId);
     if (
       !saved ||
@@ -36,7 +38,9 @@ export function ViewportCameraPersistence({
   }, [camera, controls, enabled, floorId, viewport]);
 
   useEffect(() => {
-    if (!enabled || !controls) return;
+    if (!enabled || !controls) {
+      return;
+    }
     const save = () => {
       saveViewportCameraSnapshot(
         viewport,

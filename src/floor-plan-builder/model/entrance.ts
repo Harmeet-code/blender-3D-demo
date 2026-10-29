@@ -100,12 +100,19 @@ export function entranceNavigation({ width, doorsOpen, gate }: EntranceLayersInp
   };
 }
 
+export const entranceDimensionLimits = [[2.4, 8], [2.5, 4.5], [0.4, 1.2]] as const;
+
 export function entranceDesignError(object: PlanObject): string | null {
   if (object.recipe !== 'entrance') {
     return null;
   }
   const [w, h, d] = object.dimensions;
-  if (w < 2.4 || w > 8 || h < 2.5 || h > 4.5 || d < 0.4 || d > 1.2) {
+  const epsilon = 1e-7;
+  if (
+    w < 2.4 - epsilon || w > 8 + epsilon ||
+    h < 2.5 - epsilon || h > 4.5 + epsilon ||
+    d < 0.4 - epsilon || d > 1.2 + epsilon
+  ) {
     return 'Entrances require width 2.4–8 m, height 2.5–4.5 m and depth 0.4–1.2 m.';
   }
   const opening = entranceClearWidth(object);

@@ -4,6 +4,7 @@ export default {
   plugins: ['typescript', 'unicorn', 'oxc'],
 
   ignorePatterns: [
+    '.agents/',
     '.opencode/',
     'dist/',
     'build/',

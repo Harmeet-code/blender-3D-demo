@@ -1,7 +1,7 @@
 import type { Tool } from './types.ts';
 
-export type Shortcut = Tool | 'apply' | 'undo' | 'redo' | 'cancel' | 'finish' | 'preset' | 'poi';
-export type EditorShortcut = Shortcut | 'delete' | 'save';
+export type Shortcut = Tool | 'apply' | 'save' | 'undo' | 'redo' | 'cancel' | 'finish' | 'preset' | 'poi';
+export type EditorShortcut = Shortcut | 'delete';
 export function isEditableTarget(target: EventTarget | null): boolean {
   const element = target as Element | null;
   if (!element || typeof element.closest !== 'function') {
@@ -35,13 +35,16 @@ export function isNumericField(target: EventTarget | null): boolean {
 }
 /** Enter commits and Escape abandons a staged numeric edit; the field keeps every other key. */
 function numericFieldCommand(
-  event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey'>,
+  event: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'metaKey' | 'altKey'>,
   target: EventTarget | null,
-): 'finish' | 'cancel' | null {
+): 'finish' | 'cancel' | 'save' | null {
   if (event.ctrlKey || event.metaKey || event.altKey || !isNumericField(target)) {
     return null;
   }
   const key = event.key.toUpperCase();
+  if (event.shiftKey && key === 'S') {
+    return 'save';
+  }
   if (key === 'ESCAPE') {
     return 'cancel';
   }
@@ -77,6 +80,7 @@ export function resolveShortcut(
     return null;
   }
   const mapping: Record<string, Shortcut> = {
+    S: 'save',
     R: 'resize',
     M: 'move',
     D: 'duplicate',
@@ -137,6 +141,7 @@ export function resolveEditorShortcut(
     return null;
   }
   const mapping: Record<string, EditorShortcut> = {
+    S: 'save',
     D: 'duplicate',
     R: 'resize',
     M: 'move',

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import { isBooth, type PlanObject } from '../model/types.ts';
-import { visualHeight } from '../model/geometry.ts';
+import { objectPoints, visualHeight } from '../model/geometry.ts';
 
 interface BoothScreenLabel {
   id: string;
@@ -54,7 +54,6 @@ export function BoothScreenLabelLayer({
     () =>
       booths.filter(isBooth).map((booth) => {
         const { polygon } = booth;
-        const [positionX, positionZ] = booth.position;
         let twiceArea = 0;
         let centerX = 0;
         let centerZ = 0;
@@ -72,17 +71,18 @@ export function BoothScreenLabelLayer({
           centerX /= 3 * twiceArea;
           centerZ /= 3 * twiceArea;
         } else {
-          centerX = positionX;
-          centerZ = positionZ;
+          centerX = 0;
+          centerZ = 0;
         }
+        const [worldX, worldZ] = objectPoints(booth, [[centerX, centerZ]])[0]!;
         const number = booth.boothNumber.trim();
         const name = (booth.company || booth.name).trim();
         const text = number && name ? `${number} · ${name}` : number || name || 'Booth';
         return {
           id: booth.id,
-          x: centerX,
+          x: worldX,
           y: heightOffset + visualHeight(booth) + 0.08,
-          z: centerZ,
+          z: worldZ,
           text,
           screenX: 0,
           screenY: 0,

@@ -17,6 +17,17 @@ describe('placement validation', () => {
     expect(placementError(overlapping, { ...floor, objects: [fixed] })).toMatch(/Overlaps/);
   });
 
+  test('blocks booth-to-booth overlap but allows furniture inside a booth', () => {
+    const floor = blankFloor();
+    const booth = createObject('booth', [8, 8]);
+    const overlappingBooth = createObject('polygon-booth', [8, 8], [booth]);
+    expect(placementError(overlappingBooth, { ...floor, objects: [booth] })).toMatch(/Overlaps/);
+
+    const chair = createObject('chair', [8, 8], [booth]);
+    expect(placementError(chair, { ...floor, objects: [booth] })).toBeNull();
+    expect(placementError(booth, { ...floor, objects: [chair] })).toBeNull();
+  });
+
   test('allows structural edges to touch and noncollidable visuals to overlap', () => {
     const floor = blankFloor();
     const fixed = createObject('barrier', [5, 5]);

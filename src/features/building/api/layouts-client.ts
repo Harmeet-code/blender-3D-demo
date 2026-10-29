@@ -36,11 +36,12 @@ export async function getLayout(
 export function getBuilderLayout(
   eventId: string,
   config?: AxiosRequestConfig,
-): Promise<Result<BuildingLayout, ApiError>> {
-  return loadLayout(eventId, {
-    ...config,
-    headers: { ...config?.headers, ...floorPlanBuilderHeaders() },
-  });
+): Promise<Result<BuildingLayout | null, ApiError>> {
+  return apiResultValidated(
+    `${apiBaseUrl()}/api/events/${encodeURIComponent(eventId)}/layout`,
+    draftLayoutResponseSchema,
+    { ...config, headers: { ...config?.headers, ...floorPlanBuilderHeaders() } },
+  );
 }
 
 async function loadLayout(

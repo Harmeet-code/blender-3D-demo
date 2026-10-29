@@ -2,6 +2,7 @@ import { pointInPolygon, polygonBounds } from '@/utils/geometry/polygon.ts';
 import { metresToSource } from '@/features/building/model/floor-coordinates.ts';
 import { footprint } from './geometry.ts';
 import type { PlanFloor, PlanObject } from './types.ts';
+import { fitFloorImage } from './floor-image.ts';
 
 export interface SurfacePixels {
   width: number;
@@ -22,6 +23,8 @@ export function sampleSurfaceColor(
     floorBounds = polygonBounds(floor.boundary);
   const originalSize = floor.source.authoring?.imageSize ??
     pixels.originalSize ?? [pixels.width, pixels.height];
+  const fit = fitFloorImage(floor.boundary, originalSize as [number, number]);
+  const imageOffset = floor.source.authoring?.imageOffset ?? [0, 0];
   const channels: number[][] = [[], [], []];
   for (let iz = 0; iz < 5; iz++) {
     for (let ix = 0; ix < 5; ix++) {
@@ -32,7 +35,12 @@ export function sampleSurfaceColor(
       if (!pointInPolygon(point, shape)) {
         continue;
       }
-      const source =
+      const source = fit
+        ? [
+            ((point[0] - imageOffset[0] - (fit.center[0] - fit.width / 2)) / fit.width) * originalSize[0]!,
+            ((point[1] - imageOffset[1] - (fit.center[1] - fit.depth / 2)) / fit.depth) * originalSize[1]!,
+          ]
+        :
         floor.source.coordinateSystem?.units === 'pixels'
           ? metresToSource(point, floor.source.coordinateSystem)
           : [

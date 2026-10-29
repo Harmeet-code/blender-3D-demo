@@ -484,6 +484,9 @@ export function BoothObject({
             transparent={ghost}
             opacity={ghost ? 0.45 : 1}
             depthWrite={!ghost}
+            polygonOffset={kind === 'carpet'}
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-1}
             bumpMap={kind === 'carpet' && !ghost ? bump : null}
             bumpScale={0.0015}
             emissive={kind === 'light' ? '#E6ECEF' : '#000000'}

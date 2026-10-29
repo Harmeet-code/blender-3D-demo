@@ -27,6 +27,7 @@ import { AreaObject } from './AreaObject.tsx';
 import { OperationalAreaObject, isOperationalRecipe } from './OperationalAreaObject.tsx';
 import { WashRackObject } from './WashRackObject.tsx';
 import { FoodTruckObject } from './FoodTruckObject.tsx';
+import { ShowOfficeObject } from './ShowOfficeObject.tsx';
 import { GhostController } from '../wayfinding/rendering/GhostController.tsx';
 import { RouteLabel } from '../wayfinding/rendering/Beacon.tsx';
 
@@ -46,6 +47,10 @@ interface Props {
   onPointerDown?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerMove?: (event: ThreeEvent<PointerEvent>) => void;
   onPointerUp?: (event: ThreeEvent<PointerEvent>) => void;
+  onSelectParkingBay?: (objectId: string, bayId: string) => void;
+  onSelectParkingBoundary?: (objectId: string) => void;
+  suppressBayTooltip?: boolean;
+  onHoverParkingBay?: (objectId: string, bayId: string | null) => void;
 }
 const MaterialContext = createContext({ roughness: 0.65, metalness: 0 });
 function Box({
@@ -85,6 +90,10 @@ export const ProceduralObject = memo(
     windSway = true,
     routeCutaway = false,
     rowConnections,
+    onSelectParkingBay,
+    onSelectParkingBoundary,
+    suppressBayTooltip = false,
+    onHoverParkingBay,
     ...events
   }: Props) => {
     // Cache construction geometry separately from placement transforms and business metadata.
@@ -167,7 +176,16 @@ export const ProceduralObject = memo(
         );
       } else if (isPlanArea(object)) {
         body = isOperationalRecipe(object.recipe) ? (
-          <OperationalAreaObject object={object} color={color} ghost={ghost} />
+          <OperationalAreaObject
+            object={object}
+            color={color}
+            ghost={ghost}
+            heatmap={object.parkingDesign?.heatmap ?? false}
+            suppressBayTooltip={suppressBayTooltip}
+            onHoverParkingBay={onHoverParkingBay}
+            onSelectParkingBay={onSelectParkingBay}
+            onSelectParkingBoundary={onSelectParkingBoundary}
+          />
         ) : (
           <AreaObject object={object} color={color} ghost={ghost} />
         );
@@ -211,6 +229,8 @@ export const ProceduralObject = memo(
         body = <TableObject object={object} color={color} ghost={ghost} topDown={topDown} />;
       } else if (object.recipe === 'chair') {
         body = <ChairObject object={object} color={color} ghost={ghost} topDown={topDown} />;
+      } else if (object.recipe === 'show-office') {
+        body = <ShowOfficeObject object={object} ghost={ghost} topDown={topDown} />;
       } else if (object.recipe === 'information') {
         body = <InformationObject object={object} color={color} ghost={ghost} topDown={topDown} />;
       } else if (object.recipe === 'food-kiosk') {

@@ -12,6 +12,7 @@ import {
   err,
   fromRepository,
   validationError,
+  notFoundError,
   type AppError,
   type Result,
 } from '../../shared/result/errors.ts';
@@ -22,11 +23,13 @@ import { publishReadiness } from '../../../features/building/model/layout-readin
 export async function getLayout(
   eventId: string,
   db: Database | null,
+  fallback = true,
 ): Promise<Result<BuildingLayout, AppError>> {
-  const loaded = await fromRepository(() => fetchLayout(eventId, db), `Load layout ${eventId}`);
+  const loaded = await fromRepository(() => fetchLayout(eventId, db, fallback), `Load layout ${eventId}`);
   if (loaded.isErr()) {
     return err(loaded.error);
   }
+  if (!loaded.value) {return err(notFoundError('Published layout not found.'));}
   return validateResponse(layoutResponseSchema, loaded.value, `Layout ${eventId}`);
 }
 

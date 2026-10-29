@@ -12,13 +12,25 @@ import {
   type PlanObject,
   type RecipeId,
 } from './types.ts';
-import { washRackDefaultVariant, washRackDefaultWaterSettings } from './wash-rack.ts';
+import {
+  washRackDefaultVariant,
+  washRackDefaultWaterSettings,
+  washRackVariantProfiles,
+  washRackVariants,
+  type WashRackVariant,
+} from './wash-rack.ts';
+import { shippingDefaultDoorStates, shippingDefaultVariant } from './shipping.ts';
+import { diningObjectDefaults, standaloneChairDefaults } from './dining.ts';
+import { showOfficeDefaultVariant, showOfficeDefaults, showOfficeProfiles, showOfficeVariants, type ShowOfficeVariant } from './show-office.ts';
 
 const dimension = z.number().finite().min(0.1).max(1000);
 const dimensions = z.tuple([dimension, dimension, dimension]);
 export const inventoryRecipeSchema = z
   .object({
     id: z.enum(recipes),
+    catalogId: z.string().trim().min(1),
+    washRackVariant: z.enum(washRackVariants).optional(),
+    showOfficeVariant: z.enum(showOfficeVariants).optional(),
     name: z.string().trim().min(1),
     documentType: planDocumentTypeSchema.optional(),
     // Keep legacy labels in the accepted type for the legacy editor shell while inventory records
@@ -57,7 +69,7 @@ export const inventoryRecipeSchema = z
 export type InventoryRecipe = z.infer<typeof inventoryRecipeSchema>;
 const definitions: Omit<
   InventoryRecipe,
-  'renderer' | 'minDimensions' | 'maxDimensions' | 'material'
+  'renderer' | 'minDimensions' | 'maxDimensions' | 'material' | 'catalogId'
 >[] = [
   {
     id: 'booth',
@@ -79,27 +91,59 @@ const definitions: Omit<
   },
   {
     id: 'show-office',
-    name: 'Show office',
+    showOfficeVariant: 'cabin',
+    name: showOfficeProfiles.cabin.label,
     category: 'Structure',
-    dimensions: [6, 2.8, 4],
+    dimensions: showOfficeProfiles.cabin.dimensions,
     collidable: true,
     color: '#d7d9d4',
     documentType: 'structure',
   },
+  ...showOfficeVariants.slice(1).map((variant) => ({
+    id: 'show-office' as const,
+    showOfficeVariant: variant,
+    name: showOfficeProfiles[variant].label,
+    category: 'Structure' as const,
+    dimensions: showOfficeProfiles[variant].dimensions,
+    collidable: true,
+    color: '#d7d9d4',
+    documentType: 'structure' as const,
+  })),
   {
     id: 'shipping',
     name: 'Shipping',
     category: 'Services',
-    dimensions: [8, 0.1, 5],
+    dimensions: [8, 5, 8],
     collidable: false,
     color: '#b8c9c2',
     documentType: 'area',
   },
   {
     id: 'wash-rack',
-    name: 'Wash rack',
+    washRackVariant: 'equestrian',
+    name: washRackVariantProfiles.equestrian.label,
     category: 'Services',
-    dimensions: [3.6, 2.6, 5],
+    dimensions: washRackVariantProfiles.equestrian.dimensions,
+    collidable: true,
+    color: '#9fc6d8',
+    documentType: 'area',
+  },
+  {
+    id: 'wash-rack',
+    washRackVariant: 'livestock',
+    name: washRackVariantProfiles.livestock.label,
+    category: 'Services',
+    dimensions: washRackVariantProfiles.livestock.dimensions,
+    collidable: true,
+    color: '#9fc6d8',
+    documentType: 'area',
+  },
+  {
+    id: 'wash-rack',
+    washRackVariant: 'vehicle-bay',
+    name: 'Vehicle-bay wash stall',
+    category: 'Services',
+    dimensions: washRackVariantProfiles['vehicle-bay'].dimensions,
     collidable: true,
     color: '#9fc6d8',
     documentType: 'area',
@@ -108,7 +152,7 @@ const definitions: Omit<
     id: 'parking-lot',
     name: 'Parking lot',
     category: 'Services',
-    dimensions: [36, 0.1, 28],
+    dimensions: [36, 5, 28],
     collidable: false,
     color: '#777e82',
     documentType: 'area',
@@ -126,7 +170,7 @@ const definitions: Omit<
     id: 'dining',
     name: 'Dining',
     category: 'Services',
-    dimensions: [8, 0.1, 6],
+    dimensions: [8, 3, 6],
     collidable: false,
     color: '#decda7',
     documentType: 'area',
@@ -303,18 +347,23 @@ const definitions: Omit<
 export const inventory: InventoryRecipe[] = definitions
   .filter((definition) => definition.id !== 'booth' && definition.id !== 'polygon-booth')
   .map((definition) =>
-  inventoryRecipeSchema.parse(
-    Object.assign({}, definition, {
-      renderer: definition.id,
-      minDimensions: [0.1, 0.1, 0.1] as [number, number, number],
-      maxDimensions: [1000, 1000, 1000] as [number, number, number],
-      material: {
-        roughness: definition.id === 'barn-tent' ? 0.85 : 0.65,
-        metalness: definition.category === 'Connectors' ? 0.15 : 0,
-      },
-    }),
-  ),
-);
+    inventoryRecipeSchema.parse(
+      Object.assign({}, definition, {
+        catalogId: definition.washRackVariant
+          ? `wash-rack:${definition.washRackVariant}`
+          : definition.showOfficeVariant
+            ? `show-office:${definition.showOfficeVariant}`
+            : definition.id,
+        renderer: definition.id,
+        minDimensions: [0.1, 0.1, 0.1] as [number, number, number],
+        maxDimensions: [1000, 1000, 1000] as [number, number, number],
+        material: {
+          roughness: definition.id === 'barn-tent' ? 0.85 : 0.65,
+          metalness: definition.category === 'Connectors' ? 0.15 : 0,
+        },
+      }),
+    ),
+  );
 export function rectangle(width: number, depth: number): [number, number][] {
   return [
     [-width / 2, -depth / 2],
@@ -386,8 +435,16 @@ export function createObject(
   position: [number, number],
   others: PlanObject[] = [],
   names = others.map((object) => object.name),
+  washRackVariant?: WashRackVariant,
+  showOfficeVariant?: ShowOfficeVariant,
 ): PlanObject {
-  const definition = definitions.find((item) => item.id === recipe) ?? inventory[0]!;
+  const definition = (recipe === 'show-office'
+    ? definitions.find((item) => item.id === recipe && item.showOfficeVariant === (showOfficeVariant ?? showOfficeDefaultVariant))
+    : recipe === 'wash-rack'
+    ? definitions.find(
+        (item) => item.id === recipe && item.washRackVariant === (washRackVariant ?? washRackDefaultVariant),
+      )
+    : definitions.find((item) => item.id === recipe)) ?? inventory[0]!;
   const [width, , depth] = definition.dimensions;
   const polygon = rectangle(width, depth);
   const documentType: PlanDocumentType = definition.documentType ?? 'asset';
@@ -414,16 +471,30 @@ export function createObject(
       boothDesign: shellDesign,
       circulationDesign: isCirculation(recipe) ? circulationDesignSchema.parse({}) : undefined,
       parkingDesign: recipe === 'parking-lot' ? parkingDesignSchema.parse({}) : undefined,
+      ...(recipe === 'dining' ? diningObjectDefaults() : {}),
+      ...(recipe === 'show-office' ? showOfficeDefaults(showOfficeVariant ?? showOfficeDefaultVariant) : {}),
+      ...(recipe === 'chair' ? standaloneChairDefaults() : {}),
       boothNumber: documentType === 'booth' ? nextBoothNumber(others) : '',
       color: definition.color,
       gender: recipe === 'washroom-men' ? 'men' : recipe === 'washroom-women' ? 'women' : 'unisex',
       ...(recipe === 'wash-rack'
         ? {
-            washRackVariant: washRackDefaultVariant,
+            washRackVariant: washRackVariant ?? washRackDefaultVariant,
             washRackWetness: washRackDefaultWaterSettings.wetness,
             washRackRunning: washRackDefaultWaterSettings.running,
             washRackBoomAngle: washRackDefaultWaterSettings.boomAngle,
             washRackBoomArc: washRackDefaultWaterSettings.boomArc,
+          }
+        : {}),
+      ...(recipe === 'shipping'
+        ? {
+            shippingVariant: shippingDefaultVariant,
+            shippingSeed: 42,
+            shippingDensity: 0.65,
+            shippingDoorStates: [...shippingDefaultDoorStates],
+            shippingTrailerDocked: false,
+            shippingLevelerAngle: 0,
+            shippingForkliftActive: true,
           }
         : {}),
       roughness: definition.id === 'barn-tent' ? 0.85 : 0.65,

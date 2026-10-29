@@ -13,14 +13,16 @@ const key = (key: string, overrides: Partial<KeyboardEvent> = {}) => ({
 });
 
 describe('editor shortcuts', () => {
-  test('maps one-shot editing and rotation commands', () => {
+  test('maps one-shot editing commands but keeps rotation in Customize', () => {
     expect(resolveEditorShortcut(key('d', { shiftKey: true }))).toBe('duplicate');
     expect(resolveEditorShortcut(key('Delete'))).toBe('delete');
-    expect(resolveEditorShortcut(key('q'))).toBe('rotate-left');
-    expect(resolveEditorShortcut(key('q', { altKey: true }))).toBe('rotate-left');
-    expect(resolveEditorShortcut(key('e'))).toBe('rotate-right');
+    expect(resolveEditorShortcut(key('q'))).toBeNull();
+    expect(resolveEditorShortcut(key('q', { altKey: true }))).toBeNull();
+    expect(resolveEditorShortcut(key('e'))).toBeNull();
     expect(resolveEditorShortcut(key('Escape'))).toBe('cancel');
     expect(resolveEditorShortcut(key('Enter'))).toBe('finish');
+    expect(resolveEditorShortcut(key('s', { shiftKey: true }))).toBe('save');
+    expect(resolveShortcut(key('s', { shiftKey: true }))).toBe('save');
   });
 
   test('maps save, undo and redo for both command-key platforms', () => {
@@ -35,5 +37,14 @@ describe('editor shortcuts', () => {
     expect(resolveEditorShortcut(key('d', { altKey: true, shiftKey: true }))).toBeNull();
     expect(resolveEditorShortcut(key('s', { ctrlKey: true, metaKey: true }))).toBeNull();
     expect(resolveShortcut(key('Delete'))).toBe('remove');
+  });
+
+  test('allows Shift+S from a numeric editor without intercepting text typing', () => {
+    const spinbutton = { getAttribute: () => 'spinbutton' };
+    const numericTarget = {
+      closest: (selector: string) => selector === 'input,[role="spinbutton"]' ? spinbutton : null,
+    } as unknown as EventTarget;
+    expect(resolveEditorShortcut({ ...key('S', { shiftKey: true }), target: numericTarget }, true)).toBe('save');
+    expect(resolveEditorShortcut(key('S', { shiftKey: true }), true)).toBeNull();
   });
 });

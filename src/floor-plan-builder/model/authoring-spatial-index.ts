@@ -135,8 +135,12 @@ export class AuthoringSpatialIndex<T> {
           }
         }
       } else {
-        if (node.left) this.stack.push(node.left);
-        if (node.right) this.stack.push(node.right);
+        if (node.left) {
+          this.stack.push(node.left);
+        }
+        if (node.right) {
+          this.stack.push(node.right);
+        }
       }
     }
 

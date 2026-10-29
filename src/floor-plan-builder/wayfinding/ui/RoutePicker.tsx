@@ -13,6 +13,10 @@ import { Switch } from '@/components/ui/switch';
 import type { PlanDocument } from '../../model/types.ts';
 import { useWayfindingStore } from '../store/wayfinding-store.ts';
 import type { RouteRequest } from '../model/route-schema.ts';
+import { parkingAnchorPoint } from '../../model/parking-navigation.ts';
+import { parkingLayout } from '../../model/parking-lot.ts';
+import { diningAnchorPoint } from '../../model/dining-navigation.ts';
+import { diningLayout } from '../../model/dining.ts';
 
 type ToolId = 'select' | 'route-start' | 'route-dest';
 export function RoutePicker({
@@ -35,6 +39,8 @@ export function RoutePicker({
   const status = useWayfindingStore((state) => state.status);
   const [query, setQuery] = useState('');
   const [end, setEndChoice] = useState<'start' | 'dest'>('dest');
+  const [parkingBayId, setParkingBayId] = useState('');
+  const [diningSeatId, setDiningSeatId] = useState('');
   const all = useMemo(
     () =>
       document.floors.flatMap((floor) =>
@@ -57,6 +63,14 @@ export function RoutePicker({
         .slice(0, 12),
     [all, query],
   );
+  const selectedParking = all.find(
+    (item) => item.object.id === selectionId && item.object.recipe === 'parking-lot',
+  );
+  const selectedParkingLayout = selectedParking ? parkingLayout(selectedParking.object) : null;
+  const selectedDining = all.find(
+    (item) => item.object.id === selectionId && item.object.recipe === 'dining',
+  );
+  const selectedDiningLayout = selectedDining ? diningLayout(selectedDining.object) : null;
   const setEnd = (which: 'start' | 'dest', endpoint: RouteRequest['start']) => {
     const spawn = document.floors.find((floor) => floor.source.id === floorId)?.spawn ?? [0, 0];
     const fallback: RouteRequest['start'] = { floorId, kind: 'point', point: [...spawn] };
@@ -152,6 +166,119 @@ export function RoutePicker({
             Use selection
           </Button>
         </div>
+        {selectedParking && (
+          <div className="fp-context-panel" aria-label="Parking lot route anchors">
+            <p className="fp-muted">Parking lot anchors</p>
+            {(
+              [
+                ['pedestrian-exit', 'Use pedestrian exit'],
+                ['vehicle-arrival', 'Use safe pedestrian landing beside vehicle gate'],
+              ] as const
+            ).map(([kind, anchorLabel]) => {
+              const point = parkingAnchorPoint(selectedParking.object, kind);
+              return (
+                <Button
+                  key={kind}
+                  size="sm"
+                  variant="outline"
+                  disabled={!point}
+                  onClick={() =>
+                    point && setEnd(end, { floorId: selectedParking.floorId, kind: 'point', point })
+                  }
+                >
+                  {anchorLabel}
+                </Button>
+              );
+            })}
+            <Field>
+              <FieldLabel htmlFor="parking-arrival-bay">Free stall</FieldLabel>
+              <select
+                id="parking-arrival-bay"
+                value={parkingBayId}
+                onChange={(event) => setParkingBayId(event.target.value)}
+              >
+                <option value="">Choose a free stall</option>
+                {selectedParkingLayout?.bays
+                  .filter((bay) => !bay.isOccupied && !bay.hatchFor)
+                  .map((bay) => (
+                    <option key={bay.id} value={bay.id}>
+                      {bay.id} · {bay.type}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            {(() => {
+              const point = parkingBayId
+                ? parkingAnchorPoint(selectedParking.object, 'bay-access', parkingBayId)
+                : null;
+              return (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!point}
+                  onClick={() =>
+                    point && setEnd(end, { floorId: selectedParking.floorId, kind: 'point', point })
+                  }
+                >
+                  Use stall-side arrival landing
+                </Button>
+              );
+            })()}
+          </div>
+        )}
+        {selectedDining && selectedDiningLayout && (
+          <div className="fp-context-panel" aria-label="Dining route targets">
+            <p className="fp-muted">
+              Dining arrivals use a clear point outside the selected furniture blocker.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!selectedDining.object.diningHost}
+              onClick={() => {
+                const point = diningAnchorPoint(selectedDining.object, 'host');
+                if (point) {
+                  setEnd(end, { floorId: selectedDining.floorId, kind: 'point', point });
+                }
+              }}
+            >
+              Use host station
+            </Button>
+            <Field>
+              <FieldLabel htmlFor="dining-seat-arrival">Seat arrival</FieldLabel>
+              <select
+                id="dining-seat-arrival"
+                value={diningSeatId}
+                onChange={(event) => setDiningSeatId(event.target.value)}
+              >
+                <option value="">Choose a seat</option>
+                {selectedDiningLayout.tables
+                  .flatMap((table) => table.chairs)
+                  .map((chair) => (
+                    <option key={chair.id} value={chair.id}>
+                      {chair.id}
+                      {chair.occupied ? ' · occupied' : ' · vacant'}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!diningSeatId}
+              onClick={() => {
+                const point = diningSeatId
+                  ? diningAnchorPoint(selectedDining.object, 'seat', diningSeatId)
+                  : null;
+                if (point) {
+                  setEnd(end, { floorId: selectedDining.floorId, kind: 'point', point });
+                }
+              }}
+            >
+              Use seat arrival landing
+            </Button>
+          </div>
+        )}
         <Field>
           <FieldLabel id="route-search-label">
             Search {end === 'start' ? 'start' : 'destination'}

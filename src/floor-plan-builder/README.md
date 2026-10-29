@@ -28,7 +28,7 @@ Production output is `dist/floor-plan-builder/`. Host it under `/floorplan/`, wi
 - Existing POIs and portal landings are editable reference markers. Connector controls preserve source parameters, stage target coordinates with the object form, and expose landing editing/disconnection. Reference markers keep their original landing point without inventing stair dimensions.
 - Recalibration preserves residual planar shear/reflection in procedural metadata. Rendering, footprints and resize handles use the same transform. Legacy metric images use their loaded natural dimensions before calibration; unknown image dimensions block the operation.
 
-Shortcuts ignore editable fields, repeated events and conflicting modifiers. Shift+S applies; R resizes; M moves; D duplicates; B draws a rectangle; P draws a polygon; T cycles booth presets; I cycles stairs/entrance; Z draws a walkable rectangle; X arms removal. Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z undo/redo. Enter/double-click/right-click finish a polygon. The in-app shortcut dialog and labelled controls provide alternatives.
+Shortcuts ignore editable fields, repeated events and conflicting modifiers, except that Shift+S, Enter and Escape work in numeric fields. Shift+S applies edits and saves; Shift+R resizes; Shift+M moves; Shift+D duplicates; Shift+B draws a rectangle; Shift+P draws a polygon; Shift+T cycles booth presets; Shift+I cycles stairs/entrance; Shift+Z draws a walkable rectangle; Shift+X arms removal. Ctrl/Cmd+Z removes the latest drawing point or undoes a committed change; Ctrl/Cmd+Shift+Z redoes committed changes. Right-click removes the latest drawing point; Enter or double-click finishes a polygon. The in-app shortcut dialog and labelled controls provide alternatives.
 
 ## Data compatibility
 

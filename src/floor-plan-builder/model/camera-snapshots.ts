@@ -29,7 +29,9 @@ export function viewportCameraKey(viewport: CameraViewport, floorId: string): st
 }
 
 function isSnapshot(value: unknown): value is ViewportCameraSnapshot {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
   const item = value as Partial<ViewportCameraSnapshot>;
   return (
     Array.isArray(item.position) &&
@@ -98,7 +100,9 @@ export function restoreViewportCameraSnapshot(
   camera.far = snapshot.far;
   if (camera instanceof PerspectiveCamera) {
     camera.fov = snapshot.fov;
-    if (snapshot.aspect !== undefined) camera.aspect = snapshot.aspect;
+    if (snapshot.aspect !== undefined) {
+      camera.aspect = snapshot.aspect;
+    }
   }
   if (camera instanceof OrthographicCamera && snapshot.frustum) {
     [camera.left, camera.right, camera.top, camera.bottom] = snapshot.frustum;
@@ -113,15 +117,23 @@ export function restoreViewportCameraSnapshot(
 }
 
 function load() {
-  if (loaded) return;
+  if (loaded) {
+    return;
+  }
   loaded = true;
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
-    if (!raw) return;
+    if (!raw) {
+      return;
+    }
     const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return;
+    if (!parsed || typeof parsed !== 'object') {
+      return;
+    }
     for (const [key, value] of Object.entries(parsed)) {
-      if (isSnapshot(value)) snapshots[key] = value;
+      if (isSnapshot(value)) {
+        snapshots[key] = value;
+      }
     }
   } catch {
     // Storage can be unavailable in private browsing or when quota is exhausted.
@@ -129,7 +141,9 @@ function load() {
 }
 
 function queuePersist() {
-  if (typeof window === 'undefined' || persistTimer !== null) return;
+  if (typeof window === 'undefined' || persistTimer !== null) {
+    return;
+  }
   if (!pageHideSubscribed) {
     window.addEventListener('pagehide', persistNow);
     pageHideSubscribed = true;
@@ -170,14 +184,18 @@ export function saveViewportCameraSnapshot(
   floorId: string,
   snapshot: ViewportCameraSnapshot,
 ) {
-  if (!isSnapshot(snapshot)) return;
+  if (!isSnapshot(snapshot)) {
+    return;
+  }
   load();
   snapshots[viewportCameraKey(viewport, floorId)] = snapshot;
   queuePersist();
 }
 
 export function clearViewportCameraSnapshots() {
-  for (const key of Object.keys(snapshots)) delete snapshots[key];
+  for (const key of Object.keys(snapshots)) {
+    delete snapshots[key];
+  }
   loaded = true;
   try {
     globalThis.localStorage?.removeItem(STORAGE_KEY);
@@ -190,6 +208,8 @@ export function clearViewportCameraSnapshots() {
 export function resetViewportCameraSnapshotsForTests() {
   clearViewportCameraSnapshots();
   loaded = false;
-  if (persistTimer !== null) window.clearTimeout(persistTimer);
+  if (persistTimer !== null) {
+    window.clearTimeout(persistTimer);
+  }
   persistTimer = null;
 }

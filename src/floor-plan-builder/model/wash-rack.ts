@@ -18,8 +18,8 @@ export const washRackVariantProfiles: Record<
     dimensions: [3.6, 2.6, 5],
   },
   'vehicle-bay': {
-    label: 'Equipment wash bay',
-    subtitle: 'EQUIPMENT WASH BAY',
+    label: 'Vehicle-bay wash stall',
+    subtitle: 'VEHICLE-BAY WASH STALL',
     dimensions: [4.2, 3.5, 6],
   },
 };
@@ -154,4 +154,4 @@ export function washRackHasCustomDimensions(object: PlanObject): boolean {
   return object.recipe === 'wash-rack' &&
     object.washRackVariant !== undefined &&
     rackDimensionsWereCustomized(object);
-}\n
+}

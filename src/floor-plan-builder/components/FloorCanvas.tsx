@@ -131,6 +131,10 @@ interface ObjectLayerProps {
   topDown: boolean;
   routeCutaway: boolean;
   eventDispatch: ObjectEventDispatchRef;
+  onSelectParkingBay?: (objectId: string, bayId: string) => void;
+  onSelectParkingBoundary?: (objectId: string) => void;
+  suppressBayTooltip: boolean;
+  onHoverParkingBay?: (objectId: string, bayId: string | null) => void;
 }
 /**
  * Keep the per-object event props stable while FloorCanvas refreshes its latest-state dispatch.
@@ -146,6 +150,10 @@ const ObjectLayer = memo(
     topDown,
     routeCutaway,
     eventDispatch,
+    onSelectParkingBay,
+    onSelectParkingBoundary,
+    suppressBayTooltip,
+    onHoverParkingBay,
   }: ObjectLayerProps) => {
     const events = useMemo(
       () => ({
@@ -175,6 +183,10 @@ const ObjectLayer = memo(
           selected={selected}
           topDown={topDown}
           routeCutaway={routeCutaway}
+          onSelectParkingBay={onSelectParkingBay}
+          onSelectParkingBoundary={onSelectParkingBoundary}
+          suppressBayTooltip={suppressBayTooltip}
+          onHoverParkingBay={onHoverParkingBay}
           {...events}
         />
       </group>
@@ -541,10 +553,12 @@ function ControlsPolicy({ enabled }: { enabled: boolean }) {
 }
 function SelectionAnchor({
   position,
+  fallbackPosition,
   element,
   onAnchor,
 }: {
   position: [number, number, number];
+  fallbackPosition: [number, number, number];
   element: React.RefObject<HTMLDivElement | null>;
   onAnchor: (anchor: { x: number; y: number; width: number; height: number } | null) => void;
 }) {
@@ -557,6 +571,10 @@ function SelectionAnchor({
       return;
     }
     point.set(...position).project(camera);
+    // The top of a tall object can be clipped while its footprint is still visible.
+    if (point.z < -1 || point.z > 1) {
+      point.set(...fallbackPosition).project(camera);
+    }
     const x = (point.x + 1) * 0.5 * bounds.width;
     const y = (1 - point.y) * 0.5 * bounds.height;
     if (point.z < -1 || point.z > 1) {
@@ -615,6 +633,8 @@ export function FloorSurface({
   imageSize,
   click,
   move,
+  imageOffset,
+  pointerUp,
   pointerDown,
 }: {
   floor: PlanFloor;
@@ -622,6 +642,8 @@ export function FloorSurface({
   imageSize: [number, number] | null;
   click: (event: ThreeEvent<MouseEvent>) => void;
   move: (event: ThreeEvent<PointerEvent>) => void;
+  imageOffset?: [number, number];
+  pointerUp?: (event: ThreeEvent<PointerEvent>) => void;
   pointerDown: (event: ThreeEvent<PointerEvent>) => void;
 }) {
   const bounds = polygonBounds(floor.boundary);
@@ -636,7 +658,9 @@ export function FloorSurface({
       }, 0);
     const outerArea = area(floor.boundary);
     for (const object of floor.objects) {
-      if (object.recipe !== 'wash-rack' || !object.washRackVariant) continue;
+      if (object.recipe !== 'wash-rack' || !object.washRackVariant) {
+        continue;
+      }
       // Earcut is undefined for touching holes. Keep a 2 cm floor land under the
       // 8 cm shared rail so side-by-side rack apertures remain disjoint and stable.
       const rackBounds = polygonBounds(object.polygon),
@@ -645,18 +669,27 @@ export function FloorSurface({
         inset = 0.02,
         localInsetX = inset / Math.max(0.1, Math.abs(object.scale[0])),
         localInsetZ = inset / Math.max(0.1, Math.abs(object.scale[2])),
-        factorX = Math.max(0.1, (rackBounds.maxX - rackBounds.minX - 2 * localInsetX) / (rackBounds.maxX - rackBounds.minX)),
-        factorZ = Math.max(0.1, (rackBounds.maxZ - rackBounds.minZ - 2 * localInsetZ) / (rackBounds.maxZ - rackBounds.minZ)),
-        insetPolygon = object.polygon.map(([x, z]) => [
-          centerX + (x - centerX) * factorX,
-          centerZ + (z - centerZ) * factorZ,
-        ] as [number, number]);
+        factorX = Math.max(
+          0.1,
+          (rackBounds.maxX - rackBounds.minX - 2 * localInsetX) /
+            (rackBounds.maxX - rackBounds.minX),
+        ),
+        factorZ = Math.max(
+          0.1,
+          (rackBounds.maxZ - rackBounds.minZ - 2 * localInsetZ) /
+            (rackBounds.maxZ - rackBounds.minZ),
+        ),
+        insetPolygon = object.polygon.map(
+          ([x, z]) =>
+            [centerX + (x - centerX) * factorX, centerZ + (z - centerZ) * factorZ] as [
+              number,
+              number,
+            ],
+        );
       const world = objectPoints(object, insetPolygon);
       const cutout = area(world) * outerArea > 0 ? [...world].reverse() : world;
       const hole = new Path();
-      cutout.forEach(([x, z], index) =>
-        index ? hole.lineTo(x, -z) : hole.moveTo(x, -z),
-      );
+      cutout.forEach(([x, z], index) => (index ? hole.lineTo(x, -z) : hole.moveTo(x, -z)));
       hole.closePath();
       value.holes.push(hole);
     }
@@ -667,12 +700,14 @@ export function FloorSurface({
     [floor.boundary, imageSize],
   );
   const imageGeometry = useMemo(() => {
-    if (!texture || !imageFit) return null;
+    if (!texture || !imageFit) {
+      return null;
+    }
     const geometry = new ShapeGeometry(shape);
     const positions = geometry.getAttribute('position'),
       uv = geometry.getAttribute('uv'),
-      left = imageFit.center[0] - imageFit.width / 2,
-      top = imageFit.center[1] + imageFit.depth / 2;
+      left = imageFit.center[0] - imageFit.width / 2 + (imageOffset?.[0] ?? 0),
+      top = imageFit.center[1] + imageFit.depth / 2 + (imageOffset?.[1] ?? 0);
     for (let index = 0; index < positions.count; index++) {
       const x = positions.getX(index),
         z = -positions.getY(index);
@@ -680,7 +715,7 @@ export function FloorSurface({
     }
     uv.needsUpdate = true;
     return geometry;
-  }, [shape, texture, imageFit]);
+  }, [shape, texture, imageFit, imageOffset?.[0], imageOffset?.[1]]);
   useEffect(() => () => imageGeometry?.dispose(), [imageGeometry]);
   return (
     <group>
@@ -689,6 +724,7 @@ export function FloorSurface({
         onClick={click}
         onPointerDown={pointerDown}
         onPointerMove={move}
+        onPointerUp={pointerUp}
         receiveShadow
       >
         <shapeGeometry
@@ -716,20 +752,20 @@ export function FloorSurface({
         <meshStandardMaterial color="#d7ddd7" roughness={0.94} side={DoubleSide} />
       </mesh>
       {texture && imageFit && imageGeometry && (
-        <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0.001, 0]}
-          raycast={() => {}}
-        >
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} raycast={() => {}}>
           <primitive object={imageGeometry} attach="geometry" />
           <meshBasicMaterial
             map={texture}
             toneMapped={false}
             transparent
             depthWrite={false}
-            polygonOffset
-            polygonOffsetFactor={-1}
-            polygonOffsetUnits={-1}
+            onBeforeCompile={(shader) => {
+              shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <map_fragment>',
+                '#include <map_fragment>\n if (vMapUv.x < 0.0 || vMapUv.x > 1.0 || vMapUv.y < 0.0 || vMapUv.y > 1.0) discard;',
+              );
+            }}
+            customProgramCacheKey={() => 'floor-image-clipped-v1'}
             side={DoubleSide}
           />
         </mesh>
@@ -796,6 +832,9 @@ export function FloorCanvas({
   onInteract,
   onSelectionAnchor,
   onCustomizeObject,
+  onSelectParkingBay,
+  onSelectParkingBoundary,
+  onHoverParkingBay,
   onStableFrame,
   readinessGeneration = 0,
   showRouteLabels = true,
@@ -807,6 +846,9 @@ export function FloorCanvas({
     anchor: { x: number; y: number; width: number; height: number } | null,
   ) => void;
   onCustomizeObject?: (id: string) => void;
+  onSelectParkingBay?: (objectId: string, bayId: string) => void;
+  onSelectParkingBoundary?: (objectId: string) => void;
+  onHoverParkingBay?: (objectId: string, bayId: string | null) => void;
   onStableFrame?: () => void;
   readinessGeneration?: number;
   showRouteLabels?: boolean;
@@ -906,6 +948,23 @@ export function FloorCanvas({
     onPointerUp: () => {},
     onContextMenu: () => {},
   });
+  const [imageSelected, setImageSelected] = useState(false);
+  const [imageMoveMode, setImageMoveMode] = useState(false);
+  const [imagePreviewOffset, setImagePreviewOffset] = useState<[number, number] | null>(null);
+  const imageDrag = useRef<{ pointerId: number; start: [number, number]; offset: [number, number]; next: [number, number] } | null>(null);
+  const imageOffset = imagePreviewOffset ?? floor.source.authoring?.imageOffset ?? [0, 0];
+  useEffect(() => {
+    setImageSelected(false);
+    setImageMoveMode(false);
+    setImagePreviewOffset(null);
+    imageDrag.current = null;
+  }, [floor.source.id]);
+  useEffect(() => {
+    if (state.tool !== 'select') {
+      setImageSelected(false);
+      setImageMoveMode(false);
+    }
+  }, [state.tool]);
   const [dragging, setDragging] = useState(false),
     [orbiting, setOrbiting] = useState(false),
     [contextLost, setContextLost] = useState(false);
@@ -1684,6 +1743,9 @@ export function FloorCanvas({
     onPointerOut: clearHover,
     onClick: (id, event) => {
       event.stopPropagation();
+      if (imageMoveMode) {return;}
+      setImageSelected(false);
+      setImageMoveMode(false);
       const object = floor.objects.find((item) => item.id === id);
       if (!object || (playback && playbackMode !== 'overview')) {
         return;
@@ -1878,6 +1940,11 @@ export function FloorCanvas({
       if (event.delta > 3 || (playback && playbackMode !== 'overview')) {
         return;
       }
+      if (store.getState().drawing.length) {
+        event.nativeEvent.stopPropagation();
+        store.getState().removePoint();
+        return;
+      }
       onCustomizeObject?.(id);
     },
   };
@@ -1892,6 +1959,11 @@ export function FloorCanvas({
   }, [state.tool]);
   useEffect(() => {
     const stop = () => {
+      if (imageDrag.current) {
+        imageDrag.current = null;
+        setImagePreviewOffset(null);
+        setDragging(false);
+      }
       if (marquee.current) {
         marquee.current = null;
         setMarqueeFrame(null);
@@ -2023,9 +2095,17 @@ export function FloorCanvas({
       onContextMenu={(event) => {
         event.preventDefault();
         clearHover();
+        if (!playback && store.getState().drawing.length) {
+          store.getState().removePoint();
+        }
       }}
       onPointerCancel={(event) => {
         clearHover();
+        if (imageDrag.current?.pointerId === event.pointerId) {
+          imageDrag.current = null;
+          setImagePreviewOffset(null);
+          setDragging(false);
+        }
         if (event.pointerId === vertexDrag.current?.pointerId) {
           const active = vertexDrag.current;
           vertexDrag.current = null;
@@ -2039,6 +2119,11 @@ export function FloorCanvas({
         }
       }}
       onLostPointerCapture={(event) => {
+        if (imageDrag.current?.pointerId === event.pointerId) {
+          imageDrag.current = null;
+          setImagePreviewOffset(null);
+          setDragging(false);
+        }
         if (drag.current?.pointerId === event.pointerId) {
           endDrag(undefined, true);
         }
@@ -2200,6 +2285,7 @@ export function FloorCanvas({
                 return position ? (
                   <SelectionAnchor
                     position={position}
+                    fallbackPosition={[position[0], floor.source.heightOffset, position[2]]}
                     element={element}
                     onAnchor={onSelectionAnchor}
                   />
@@ -2213,9 +2299,66 @@ export function FloorCanvas({
                   floor={floor}
                   texture={image.texture}
                   imageSize={image.size}
-                  click={click}
-                  pointerDown={beginMarquee}
+                  imageOffset={imageOffset as [number, number]}
+                  click={(event) => {
+                    if (imageMoveMode) {
+                      event.stopPropagation();
+                      return;
+                    }
+                    if (image.texture && store.getState().tool === 'select') {
+                      setImageSelected(true);
+                    }
+                    click(event);
+                  }}
+                  pointerDown={(event) => {
+                    if (!imageMoveMode || event.button !== 0) {
+                      beginMarquee(event);
+                      return;
+                    }
+                    const point = bridge.current.project(event.clientX, event.clientY);
+                    if (!point) {return;}
+                    event.stopPropagation();
+                    const offset: [number, number] = [...imageOffset] as [number, number];
+                    imageDrag.current = { pointerId: event.pointerId, start: point, offset, next: offset };
+                    setDragging(true);
+                    if (event.target && 'setPointerCapture' in event.target && typeof event.target.setPointerCapture === 'function') {
+                      event.target.setPointerCapture(event.pointerId);
+                    }
+                  }}
+                  pointerUp={(event) => {
+                    const active = imageDrag.current;
+                    if (!active || active.pointerId !== event.pointerId) {return;}
+                    event.stopPropagation();
+                    imageDrag.current = null;
+                    setDragging(false);
+                    const current = store.getState();
+                    const currentFloor = activeFloor(current);
+                    const authoring = currentFloor.source.authoring ?? {
+                      boundary: currentFloor.boundary.map((point) => metresToSource(point, currentFloor.source.coordinateSystem)),
+                      spawn: metresToSource(currentFloor.spawn, currentFloor.source.coordinateSystem),
+                      obstacles: [], instances: [], underlayOpacity: 0.85, imageSize: image.size ?? undefined,
+                    };
+                    if (active.next[0] !== active.offset[0] || active.next[1] !== active.offset[1]) {
+                      if (!current.commitFloor({ ...currentFloor, source: { ...currentFloor.source, authoring: { ...authoring, imageSize: authoring.imageSize ?? image.size ?? undefined, imageOffset: active.next } } })) {
+                        toast.error(store.getState().message || 'Could not move the floor image.');
+                      }
+                    }
+                    setImagePreviewOffset(null);
+                    if (event.target && 'releasePointerCapture' in event.target && typeof event.target.releasePointerCapture === 'function') {
+                      event.target.releasePointerCapture(event.pointerId);
+                    }
+                  }}
                   move={(event) => {
+                    const active = imageDrag.current;
+                    if (active?.pointerId === event.pointerId) {
+                      event.stopPropagation();
+                      const point = bridge.current.project(event.clientX, event.clientY);
+                      if (point) {
+                        active.next = [active.offset[0] + point[0] - active.start[0], active.offset[1] + point[1] - active.start[1]];
+                        setImagePreviewOffset(active.next);
+                      }
+                      return;
+                    }
                     setHover(null);
                     if (state.tool !== 'select' || debug) {
                       store
@@ -2322,11 +2465,15 @@ export function FloorCanvas({
                         object={displayed}
                         rowConnections={washRackRowConnections(
                           displayed,
-                          floor.objects.map((candidate) =>
-                            pendingMemberById.get(candidate.id) ?? candidate,
+                          floor.objects.map(
+                            (candidate) => pendingMemberById.get(candidate.id) ?? candidate,
                           ),
                         )}
                         eventDispatch={objectEventDispatch}
+                        onSelectParkingBay={onSelectParkingBay}
+                        onSelectParkingBoundary={onSelectParkingBoundary}
+                        suppressBayTooltip={state.tool === 'edit-footprint'}
+                        onHoverParkingBay={onHoverParkingBay}
                         colorOverride={
                           (isBooth(displayed) && view.display !== 'surface') ||
                           conflictIds.has(object.id) ||
@@ -2463,12 +2610,14 @@ export function FloorCanvas({
                         }}
                       >
                         <boxGeometry args={[0.3, 0.3, 0.3]} />
-                        <meshBasicMaterial color="#f3cc7b" depthTest={false} />
+                        <meshBasicMaterial color="#000000" depthTest={false} />
                       </mesh>
                     ));
                   })()}
                 {state.tool === 'edit-footprint' &&
-                  selectedObject?.recipe === 'polygon-booth' &&
+                  (selectedObject?.recipe === 'polygon-booth' ||
+                    selectedObject?.recipe === 'parking-lot' ||
+                    selectedObject?.recipe === 'dining') &&
                   !selectedObject.locked &&
                   (() => {
                     const footprintObject = state.pendingObject ?? selectedObject;
@@ -2614,7 +2763,7 @@ export function FloorCanvas({
                         display: 'block',
                         padding: '5px 8px',
                         borderRadius: 5,
-                        background: 'rgba(0, 0, 0, 0.9)',
+                        background: '#000000',
                         color: '#fff',
                         font: '600 13px/1.2 system-ui, sans-serif',
                         whiteSpace: 'nowrap',
@@ -2629,12 +2778,30 @@ export function FloorCanvas({
                   <ProceduralObject
                     key={`ghost:${member.id}`}
                     object={member}
-                    rowConnections={washRackRowConnections(member, [...floor.objects, ...ghostMembers])}
+                    rowConnections={washRackRowConnections(member, [
+                      ...floor.objects,
+                      ...ghostMembers,
+                    ])}
                     color={ghostError ? '#d87572' : '#86c9ad'}
                     colorOverride
                     ghost
                   />
                 ))}
+                {state.tool === 'move' && selectedObject &&
+                  (pendingMembers.length ? pendingMembers : ghostMembers).map((member) => {
+                    const outline = objectPoints(member, member.polygon);
+                    if (outline.length < 3) {return null;}
+                    return (
+                      <Line
+                        key={`move-outline:${member.id}`}
+                        points={[...outline, outline[0]!].map(([x, z]) => [x, 0.08, z])}
+                        color="#000000"
+                        lineWidth={2}
+                        depthTest={false}
+                        renderOrder={1000}
+                      />
+                    );
+                  })}
                 {alignmentGuide && (
                   <Line
                     points={[
@@ -2660,7 +2827,10 @@ export function FloorCanvas({
                     <ProceduralObject
                       key={`drag-copy:${member.id}`}
                       object={member}
-                      rowConnections={washRackRowConnections(member, [...floor.objects, ...pendingMembers])}
+                      rowConnections={washRackRowConnections(member, [
+                        ...floor.objects,
+                        ...pendingMembers,
+                      ])}
                       color={ghostError ? '#d87572' : '#86c9ad'}
                       colorOverride
                       ghost
@@ -2707,7 +2877,15 @@ export function FloorCanvas({
                 {drawing.length >= 2 && (
                   <Line
                     points={drawing.map(([x, z]) => [x, 0.08, z])}
-                    color={drawingInvalid ? '#ff7777' : '#e3bf81'}
+                    depthTest={false}
+                    renderOrder={1000}
+                    color={
+                      drawingInvalid
+                        ? '#ff7777'
+                        : state.tool === 'rectangle' || state.tool === 'polygon'
+                          ? '#000000'
+                          : '#e3bf81'
+                    }
                     lineWidth={2}
                   />
                 )}
@@ -2749,6 +2927,21 @@ export function FloorCanvas({
             </PlaybackMotionProvider>
           </Canvas>
         </ErrorBoundary>
+      )}
+      {!playback && imageSelected && image.texture && (
+        <div className="fp-selection-actions" style={{ left: 12, top: 12, transform: 'none' }} role="toolbar" aria-label="Floor image actions" onPointerDown={(event) => event.stopPropagation()}>
+          <span className="fp-muted">Floor image</span>
+          <button type="button" className="fp-image-move-button" aria-pressed={imageMoveMode} onClick={() => {
+            if (!imageMoveMode && unfinished(store.getState())) {
+              toast.error('Apply or discard the current edit before moving the image.');
+              return;
+            }
+            setImageMoveMode((value) => !value);
+            store.getState().select(null);
+            store.getState().setTool('select');
+          }}>{imageMoveMode ? 'Done moving' : 'Move image'}</button>
+          {imageMoveMode && <span className="fp-muted">Drag the image on the floor</span>}
+        </div>
       )}
       {!playback && hovered && activeHover && (
         <div

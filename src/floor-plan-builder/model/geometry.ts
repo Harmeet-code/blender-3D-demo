@@ -18,15 +18,17 @@ import { wallSpans, wallHeightFor } from '@/features/building/model/wall-spans.t
 import { authoredWallBoxes } from '@/features/building/model/authored-walls.ts';
 import { boxFootprint } from '@/features/building/model/booth-physical.ts';
 import { inventory } from './inventory.ts';
-import { ShapeUtils, Vector2 } from 'three';
+import { showOfficeSpatialLayout } from './show-office.ts';
 import {
-  boothDesignError,
-  boothNavigationPolygons,
-  polygonGap,
-  sharesBoothWall,
-} from './booth.ts';
+  shippingSpatialLayout,
+  shippingWorldObstacles,
+  shippingWorldPolygon,
+} from './shipping-spatial.ts';
+import { diningVendorServiceWindow } from './dining.ts';
+import { ShapeUtils, Vector2 } from 'three';
+import { boothDesignError, boothNavigationPolygons, polygonGap, sharesBoothWall } from './booth.ts';
 import { tentCollisionLocal, tentDesignError } from './tent.ts';
-import { entranceCollisionLocal, entranceDesignError } from './entrance.ts';
+import { entranceCollisionLocal, entranceDesignError, entranceDimensionLimits } from './entrance.ts';
 import { benchDesignError, benchObstacleLocal } from './bench.ts';
 import { tableDesignError, tableObstacleLocal } from './table.ts';
 import { barrierDesignError, barrierObstacleLocal } from './barrier.ts';
@@ -100,6 +102,81 @@ export function objectPoints(object: PlanObject, points: [number, number][]): [n
     object.yawRadians,
   );
 }
+
+function diningVendorRelation(
+  dining: PlanObject,
+  vendor: PlanObject,
+): { error: string | null; buffer: [number, number][] | null } {
+  if (dining.recipe !== 'dining' || !dining.diningVendorReferenceId) {
+    return { error: null, buffer: null };
+  }
+  if (
+    vendor.id !== dining.diningVendorReferenceId ||
+    !['food-kiosk', 'food-truck'].includes(vendor.recipe)
+  ) {
+    return {
+      error: `${dining.name} must link to a food kiosk or food truck on the same floor.`,
+      buffer: null,
+    };
+  }
+  const edgeIndex = dining.diningVendorServiceEdge;
+  if (edgeIndex === undefined || edgeIndex >= dining.polygon.length) {
+    return { error: `${dining.name} needs a valid vendor-facing footprint edge.`, buffer: null };
+  }
+  const service = diningVendorServiceWindow(dining);
+  const [a, b] = [
+    dining.polygon[edgeIndex]!,
+    dining.polygon[(edgeIndex + 1) % dining.polygon.length]!,
+  ];
+  const edge = objectPoints(dining, [a, b]);
+  const midpoint: [number, number] = [
+    (edge[0]![0] + edge[1]![0]) / 2,
+    (edge[0]![1] + edge[1]![1]) / 2,
+  ];
+  const windowCenter = objectPoints(vendor, [[0, vendor.dimensions[2] / 2]])[0]!;
+  const windowNormal: [number, number] = [Math.sin(vendor.yawRadians), Math.cos(vendor.yawRadians)];
+  const windowAxis: [number, number] = [Math.cos(vendor.yawRadians), -Math.sin(vendor.yawRadians)];
+  const dx = midpoint[0] - windowCenter[0],
+    dz = midpoint[1] - windowCenter[1];
+  const distance = Math.hypot(dx, dz);
+  const facing = distance > 1e-6 ? (dx * windowNormal[0] + dz * windowNormal[1]) / distance : -1;
+  const edgeDx = edge[1]![0] - edge[0]![0],
+    edgeDz = edge[1]![1] - edge[0]![1];
+  const edgeLength = Math.hypot(edgeDx, edgeDz) || 1;
+  const parallel = Math.abs((edgeDx * windowAxis[0] + edgeDz * windowAxis[1]) / edgeLength);
+  if (!service) {
+    return {
+      error: 'The linked dining area needs a valid 4 m vendor service buffer.',
+      buffer: null,
+    };
+  }
+  if (Math.abs(distance - 4) > 0.15 || facing < 0.98 || parallel < 0.98) {
+    return {
+      error:
+        'Keep the linked vendor service window 4 m from the selected dining edge and aligned to the rendered service face.',
+      buffer: null,
+    };
+  }
+  const halfWidth = Math.min(vendor.dimensions[0] / 2, edgeLength / 2);
+  const edgeAxis: [number, number] = [edgeDx / edgeLength, edgeDz / edgeLength];
+  const windowStart: [number, number] = [
+    windowCenter[0] - windowAxis[0] * halfWidth,
+    windowCenter[1] - windowAxis[1] * halfWidth,
+  ];
+  const windowEnd: [number, number] = [
+    windowCenter[0] + windowAxis[0] * halfWidth,
+    windowCenter[1] + windowAxis[1] * halfWidth,
+  ];
+  const edgeStart: [number, number] = [
+    midpoint[0] - edgeAxis[0] * halfWidth,
+    midpoint[1] - edgeAxis[1] * halfWidth,
+  ];
+  const edgeEnd: [number, number] = [
+    midpoint[0] + edgeAxis[0] * halfWidth,
+    midpoint[1] + edgeAxis[1] * halfWidth,
+  ];
+  return { error: null, buffer: [windowStart, windowEnd, edgeEnd, edgeStart] };
+}
 export function baseFootprint(object: PlanObject): [number, number][] {
   return objectPoints(object, object.polygon);
 }
@@ -171,7 +248,7 @@ export function objectObstaclePolygons(
   object: PlanObject,
   siblings: readonly PlanObject[] = [object],
 ): [number, number][][] {
-  if (!object.collidable) {
+  if (!object.collidable && object.recipe !== 'shipping') {
     return [];
   }
   if (isBooth(object) || isShellStructure(object)) {
@@ -180,6 +257,8 @@ export function objectObstaclePolygons(
   const mapped = (local: [number, number][][]) =>
     local.map((polygon) => objectPoints(object, polygon));
   switch (object.recipe) {
+    case 'shipping':
+      return shippingWorldObstacles(object);
     case 'wash-rack':
       return object.washRackVariant
         ? mapped(washRackObstacleLocal(object, washRackRowConnections(object, siblings)))
@@ -357,31 +436,130 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
   if (!insideBoundary(shape, floor.boundary)) {
     return 'Keep the whole object inside the floor boundary.';
   }
+  const officeLayout = object.recipe === 'show-office' ? showOfficeSpatialLayout(object) : null;
+  const officeLocal = (polygon: [number, number][]) => polygon.map(([x, z]) => [x, z - object.dimensions[2] / 2] as [number, number]);
+  const officeAppendages = officeLayout
+    ? [officeLayout.footprints.ramp, officeLayout.footprints.landing]
+        .filter((polygon) => polygon.length >= 3)
+        .map((polygon) => objectPoints(object, officeLocal(polygon)))
+    : [];
+  if (officeAppendages.some((polygon) => !insideBoundary(polygon, floor.boundary))) {
+    return 'Keep the complete accessible ramp and landing inside the floor boundary.';
+  }
+  const shippingPlan = object.recipe === 'shipping' ? shippingSpatialLayout(object) : null;
+  const shippingFootprints =
+    shippingPlan?.placementFootprints.map((polygon) => shippingWorldPolygon(object, polygon)) ?? [];
+  if (shippingFootprints.some((polygon) => !insideBoundary(polygon, floor.boundary))) {
+    return 'Keep the complete trailer and stair footprint inside the floor boundary.';
+  }
   // Reserve approaches in both placement orders. These are clear floor, not navmesh obstacles.
   const placementObjects = [...floor.objects.filter((item) => item.id !== object.id), object];
+  for (const other of placementObjects) {
+    if (other.id === object.id) {continue;}
+    const shippingParkingPair =
+      (object.recipe === 'shipping' && other.recipe === 'parking-lot') ||
+      (object.recipe === 'parking-lot' && other.recipe === 'shipping');
+    if (shippingParkingPair) {
+      const shipping = object.recipe === 'shipping' ? object : other;
+      const parking = object.recipe === 'parking-lot' ? object : other;
+      const width = Math.max(4.5, shipping.dimensions[0]);
+      const apron = shippingWorldPolygon(shipping, [
+        [-width / 2, -16.5], [width / 2, -16.5], [width / 2, 0], [-width / 2, 0],
+      ]);
+      if (overlaps(apron, footprint(parking))) {
+        return 'Keep the 16.5 m forward truck turning apron clear of parking bays.';
+      }
+    }
+    const washTentPair =
+      (object.recipe === 'wash-rack' && other.recipe === 'barn-tent') ||
+      (object.recipe === 'barn-tent' && other.recipe === 'wash-rack');
+    if (washTentPair && polygonGap(footprint(object), footprint(other)) < 3 - 1e-6) {
+      return 'Keep wash racks at least 3 m from barn tents for drainage clearance.';
+    }
+  }
   const reserved = (item: PlanObject) =>
     item.recipe === 'wash-rack' && item.washRackVariant && item.collidable
       ? [objectPoints(item, washRackApproachLocal(item))]
       : item.recipe === 'food-kiosk'
-      ? [objectPoints(item, kioskQueueLocal(item))]
-      : item.recipe === 'exit'
-        ? [objectPoints(item, exitClearLocal(item))]
-        : [];
+        ? [objectPoints(item, kioskQueueLocal(item))]
+        : item.recipe === 'exit'
+          ? [objectPoints(item, exitClearLocal(item))]
+          : [];
   const solids = (item: PlanObject) => [
-    ...(isBooth(item) || isShellStructure(item)
-      ? objectObstaclePolygons(item)
-      : item.recipe === 'wash-rack'
-        ? objectObstaclePolygons(item, placementObjects)
-        : [footprint(item)]),
+    ...(item.recipe === 'show-office'
+      ? (() => {
+          const layout = showOfficeSpatialLayout(item);
+          const localize = (polygon: [number, number][]) => polygon.map(([x, z]) => [x, z - item.dimensions[2] / 2] as [number, number]);
+          return [layout.footprints.shell, layout.footprints.landing]
+            .filter((polygon) => polygon.length >= 3)
+            .map((polygon) => objectPoints(item, localize(polygon)));
+        })()
+      : []),
+    ...(item.recipe === 'shipping'
+      ? shippingSpatialLayout(item).appendageFootprints.map((polygon) =>
+          shippingWorldPolygon(item, polygon),
+        )
+      : isBooth(item) || isShellStructure(item)
+        ? objectObstaclePolygons(item)
+        : item.recipe === 'wash-rack'
+          ? objectObstaclePolygons(item, placementObjects)
+          : [footprint(item)]),
     ...(item.recipe === 'exit' && item.exitOpen
       ? exitCollisionFor(item).map((polygon) => objectPoints(item, polygon))
       : []),
   ];
+  const linkedDining = placementObjects.filter(
+    (item) => item.recipe === 'dining' && item.diningVendorReferenceId,
+  );
+  for (const dining of linkedDining) {
+    const vendor = placementObjects.find((item) => item.id === dining.diningVendorReferenceId);
+    if (!vendor) {
+      return `${dining.name} is linked to a missing vendor. Choose a food kiosk or food truck on this floor.`;
+    }
+    const relation = diningVendorRelation(dining, vendor);
+    if (relation.error) {
+      return relation.error;
+    }
+  }
   const fixed = [
     ...floor.zones.filter((zone) => zone.type === 'blocked').map((zone) => zone.polygon),
     ...staticBlockers(floor, visualHeight(object)),
   ];
-  const others = floor.objects.filter((other) => other.id !== object.id && other.collidable);
+  const others = floor.objects.filter(
+    (other) => other.id !== object.id && (other.collidable || other.recipe === 'shipping'),
+  );
+  for (const dining of linkedDining) {
+    const vendor = placementObjects.find((item) => item.id === dining.diningVendorReferenceId)!;
+    const relation = diningVendorRelation(dining, vendor);
+    if (!relation.buffer) {
+      continue;
+    }
+    if (fixed.some((obstacle) => overlaps(relation.buffer!, obstacle))) {
+      return 'Keep the 4 m linked vendor service buffer clear of walls and blocked zones.';
+    }
+    const obstruction = placementObjects.find(
+      (candidate) =>
+        candidate.id !== dining.id &&
+        candidate.id !== vendor.id &&
+        candidate.collidable &&
+        solids(candidate).some((solid) => overlaps(relation.buffer!, solid)),
+    );
+    if (obstruction) {
+      return `Keep ${obstruction.name} outside the 4 m linked vendor service buffer.`;
+    }
+  }
+  if (object.collidable) {
+    for (const dining of linkedDining) {
+      if (object.id === dining.id || object.id === dining.diningVendorReferenceId) {
+        continue;
+      }
+      const vendor = placementObjects.find((item) => item.id === dining.diningVendorReferenceId);
+      const buffer = vendor ? diningVendorRelation(dining, vendor).buffer : null;
+      if (buffer && solids(object).some((solid) => overlaps(buffer, solid))) {
+        return 'Keep this object outside the 4 m linked vendor service buffer.';
+      }
+    }
+  }
   if (
     reserved(object).some(
       (area) =>
@@ -394,7 +572,9 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
       : 'Keep the entire service queue or exit approach free of objects, blocked zones and walls.';
   }
   if (
-    object.recipe === 'wash-rack' && object.washRackVariant && object.collidable &&
+    object.recipe === 'wash-rack' &&
+    object.washRackVariant &&
+    object.collidable &&
     reserved(object).some((approach) => !insideBoundary(approach, floor.boundary))
   ) {
     return 'Keep the wash-rack entrance approach inside the floor boundary.';
@@ -481,10 +661,12 @@ export function placementError(object: PlanObject, floor: PlanFloor): string | n
     const collision = floor.objects.find(
       (other) =>
         other.id !== object.id &&
-        other.collidable &&
+        (other.collidable || other.recipe === 'shipping') &&
         !(
-          ((isBooth(object) || isShellStructure(object)) && inventory.find((item) => item.id === other.recipe)?.category === 'Furniture') ||
-          ((isBooth(other) || isShellStructure(other)) && inventory.find((item) => item.id === object.recipe)?.category === 'Furniture')
+          ((isBooth(object) || isShellStructure(object)) &&
+            inventory.find((item) => item.id === other.recipe)?.category === 'Furniture') ||
+          ((isBooth(other) || isShellStructure(other)) &&
+            inventory.find((item) => item.id === object.recipe)?.category === 'Furniture')
         ) &&
         objectSolids.some((solid) => solids(other).some((obstacle) => overlaps(solid, obstacle))),
     );
@@ -669,10 +851,10 @@ export function transformZonePolygon(
   return polygon.map(([x, z]) => {
     const rx = x - pivot[0];
     const rz = z - pivot[1];
-    return [
-      pivot[0] + rx * cosine + rz * sine + dx,
-      pivot[1] - rx * sine + rz * cosine + dz,
-    ] as [number, number];
+    return [pivot[0] + rx * cosine + rz * sine + dx, pivot[1] - rx * sine + rz * cosine + dz] as [
+      number,
+      number,
+    ];
   });
 }
 
@@ -691,13 +873,25 @@ export function rotatePosition(
 
 const connectorResizePresets: Partial<Record<PlanObject['recipe'], readonly [number, number][]>> = {
   stairs: [
-    [2, 7.48], [2.5, 7.48], [3, 7.48],
-    [2, 9], [2.5, 9], [3, 9],
+    [2, 7.48],
+    [2.5, 7.48],
+    [3, 7.48],
+    [2, 9],
+    [2.5, 9],
+    [3, 9],
   ],
-  elevator: [[2.5, 2.5], [3, 3], [3.5, 3.5]],
+  elevator: [
+    [2.5, 2.5],
+    [3, 3],
+    [3.5, 3.5],
+  ],
   escalator: [
-    [2, 7.2], [2.5, 7.2], [3, 7.2],
-    [2, 9], [2.5, 9], [3, 9],
+    [2, 7.2],
+    [2.5, 7.2],
+    [3, 7.2],
+    [2, 9],
+    [2.5, 9],
+    [3, 9],
   ],
 };
 
@@ -731,10 +925,7 @@ export function resizeRampSafely(
 ): PlanObject {
   const limits = rampResizeLimits(object);
   const safeWidth = Math.min(limits.width[1], Math.max(limits.width[0], width));
-  const safeDepth = Math.min(
-    20,
-    Math.max(limits.depth[0], Math.min(limits.depth[1], depth)),
-  );
+  const safeDepth = Math.min(20, Math.max(limits.depth[0], Math.min(limits.depth[1], depth)));
   return resizeObject(object, safeWidth, height, safeDepth);
 }
 
@@ -745,15 +936,26 @@ export function resizeObjectSafely(
   height: number,
   depth: number,
 ): PlanObject {
+  if (object.recipe === 'entrance') {
+    const dimensions = [width, height, depth].map((value, axis) => {
+      const [min, max] = entranceDimensionLimits[axis]!;
+      return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : object.dimensions[axis]!;
+    }) as [number, number, number];
+    return resizeObject(object, ...dimensions);
+  }
   if (object.recipe === 'ramp') {
     return resizeRampSafely(object, width, height, depth);
   }
   const presets = connectorResizePresets[object.recipe];
-  if (!presets) return resizeObject(object, width, height, depth);
+  if (!presets) {
+    return resizeObject(object, width, height, depth);
+  }
   const safe = presets.reduce((best, candidate) => {
-    const score = ((candidate[0] - width) / Math.max(width, 0.1)) ** 2 +
+    const score =
+      ((candidate[0] - width) / Math.max(width, 0.1)) ** 2 +
       ((candidate[1] - depth) / Math.max(depth, 0.1)) ** 2;
-    const bestScore = ((best[0] - width) / Math.max(width, 0.1)) ** 2 +
+    const bestScore =
+      ((best[0] - width) / Math.max(width, 0.1)) ** 2 +
       ((best[1] - depth) / Math.max(depth, 0.1)) ** 2;
     return score < bestScore ? candidate : best;
   });

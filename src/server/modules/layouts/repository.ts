@@ -66,13 +66,13 @@ export async function storeLayoutDraft(
   return { saved: true };
 }
 /** Load an event layout, using the calibrated venue until the owner saves their first revision. */
-export async function fetchLayout(eventId: string, db: Database | null): Promise<BuildingLayout> {
+export async function fetchLayout(eventId: string, db: Database | null, fallback = true): Promise<BuildingLayout | null> {
   if (!db) {
     const saved = await readLocalLayout(eventId);
     if (saved) {
       return saved;
     }
-    return initialLayout(eventId);
+    return fallback ? initialLayout(eventId) : null;
   }
   const event = await db
     .select({ id: events.id, layoutDocument: events.layoutDocument })
@@ -80,7 +80,7 @@ export async function fetchLayout(eventId: string, db: Database | null): Promise
     .where(eq(events.id, eventId))
     .limit(1);
   if (event.length === 0) {
-    return initialLayout(eventId);
+    return fallback ? initialLayout(eventId) : null;
   }
   if (event[0]?.layoutDocument) {
     return buildingLayoutSchema.parse(event[0].layoutDocument);

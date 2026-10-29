@@ -63,7 +63,11 @@ export async function registerLayoutRoutes(app: FastifyInstance): Promise<void> 
   app.get<{ Params: { eventId: string } }>('/:eventId/layout', async (request, reply) => {
     reply.header('Cache-Control', 'no-store');
     if (isFloorPlanBuilderRequest(request.headers)) {
-      return replyResult(reply, await getLayout(request.params.eventId, app.db));
+      const result = await getLayout(request.params.eventId, app.db, false);
+      if (result.isErr() && result.error.code === 'NOT_FOUND') {
+        return reply.send(null);
+      }
+      return replyResult(reply, result);
     }
     const snapshot = await publicLayoutSnapshot(request.params.eventId);
     if (snapshot.layout) {

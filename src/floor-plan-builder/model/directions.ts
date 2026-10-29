@@ -118,10 +118,10 @@ export class StudioNavigator {
                     ...source.objects
                       .filter((object) => isBooth(object) || isShellStructure(object))
                       .map((object) => ({
-                      id: `fpb-interior:${object.id}`,
-                      label: `${object.name} interior`,
-                      type: 'walkable' as const,
-                      polygon: footprint(object),
+                        id: `fpb-interior:${object.id}`,
+                        label: `${object.name} interior`,
+                        type: 'walkable' as const,
+                        polygon: footprint(object),
                       })),
                     ...source.objects
                       .filter((object) => object.recipe === 'barn-tent')
@@ -132,7 +132,12 @@ export class StudioNavigator {
                         polygon: objectPoints(object, tentWalkableLocal(object)),
                       })),
                     ...source.objects
-                      .filter((object) => object.recipe === 'wash-rack' && object.washRackVariant && object.collidable)
+                      .filter(
+                        (object) =>
+                          object.recipe === 'wash-rack' &&
+                          object.washRackVariant &&
+                          object.collidable,
+                      )
                       .map((object) => ({
                         id: `fpb-wash-rack-interior:${object.id}`,
                         label: `${object.name} interior`,
@@ -140,7 +145,12 @@ export class StudioNavigator {
                         polygon: objectPoints(object, washRackWalkableLocal(object)),
                       })),
                     ...source.objects
-                      .filter((object) => object.recipe === 'wash-rack' && object.washRackVariant && object.collidable)
+                      .filter(
+                        (object) =>
+                          object.recipe === 'wash-rack' &&
+                          object.washRackVariant &&
+                          object.collidable,
+                      )
                       .map((object) => ({
                         id: `fpb-wash-rack-approach:${object.id}`,
                         label: `${object.name} entrance approach`,
@@ -173,7 +183,9 @@ export class StudioNavigator {
                     return [objectPoints(object, washroomObstacleLocal(object))];
                   }
                   if (object.recipe === 'wash-rack') {
-                    if (!object.washRackVariant) return [footprint(object)];
+                    if (!object.washRackVariant) {
+                      return [footprint(object)];
+                    }
                     return washRackObstacleLocal(
                       object,
                       washRackRowConnections(object, source.objects),

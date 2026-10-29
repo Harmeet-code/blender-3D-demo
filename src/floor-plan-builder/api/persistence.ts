@@ -60,14 +60,14 @@ export class StudioPersistence {
       };
     }
     let publishedDocument: BuildingLayout | null = null;
-    if (published.isOk()) {
+    if (published.isOk() && published.value) {
       const document = decodeLayout(published.value);
       if (document.baseline.buildingId !== this.eventId) {
         throw new Error('The server returned another event. The current workspace was preserved.');
       }
       acceptLayoutVersion(this.eventId, published.value);
       publishedDocument = published.value;
-    } else if (published.error.status !== 404) {
+    } else if (published.isErr()) {
       this.store.setState({ saveState: 'Error' });
       this.store
         .getState()
@@ -81,14 +81,34 @@ export class StudioPersistence {
       if (document.baseline.buildingId !== this.eventId) {
         throw new Error('The server returned another event’s draft. The current workspace was preserved.');
       }
+    }
+    if (serverDraft) {
+      const document = decodeLayout(serverDraft);
       this.store.getState().load(document);
       this.store.getState().notify('Saved draft loaded.');
       return { draft: null, published: publishedDocument, restoredDraft: serverDraft };
     }
-    if (published.isOk()) {
+    if (published.isOk() && published.value) {
       this.store.getState().load(decodeLayout(published.value));
     }
     return { draft: null, published: publishedDocument, restoredDraft: null };
+  }
+  async fetchRecoveryCandidates(signal?: AbortSignal) {
+    const draft = await getBuilderLayoutDraft(this.eventId, { signal });
+    if (signal?.aborted) {
+      return { draft: null };
+    }
+    if (draft.isErr()) {
+      throw new Error(`Could not fetch the server draft (${draft.error.kind}).`);
+    }
+    const serverDraft = draft.value;
+    if (serverDraft) {
+      const decoded = decodeLayout(serverDraft);
+      if (decoded.baseline.buildingId !== this.eventId) {
+        throw new Error('The server returned a draft for another project.');
+      }
+    }
+    return { draft: serverDraft };
   }
   saveDraft(): Promise<void> {
     const state = this.store.getState(),

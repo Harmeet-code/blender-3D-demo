@@ -18,6 +18,7 @@ import {
 import { polygonBounds } from '@/utils/geometry/polygon.ts';
 import { activeFloor, unfinished, type StudioStore } from '../model/store.ts';
 import { resizeObjectSafely, rampResizeLimits } from '../model/geometry.ts';
+import { entranceDimensionLimits } from '../model/entrance.ts';
 import {
   isBooth,
   isConnector,
@@ -40,6 +41,21 @@ import {
   washRackVariants,
   type WashRackVariant,
 } from '../model/wash-rack.ts';
+import {
+  applyShippingVariant,
+  shippingProfiles,
+  shippingVariants,
+  type ShippingVariant,
+} from '../model/shipping.ts';
+import { ParkingLotFields } from './ParkingLotFields.tsx';
+import {
+  applyStandaloneChairStyle,
+  diningLayout,
+  diningVendorServiceWindow,
+  type DiningChairStyle,
+} from '../model/dining.ts';
+import { snapDiningToVendor } from '../model/dining-navigation.ts';
+import { showOfficeProfiles, showOfficeVariants, type ShowOfficeVariant } from '../model/show-office.ts';
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -208,7 +224,19 @@ function Vertices({
     </div>
   );
 }
-function ObjectFields({ store, object, onChangeFloor }: { store: StudioStore; object: PlanObject; onChangeFloor?: (floorId: string) => boolean }) {
+function ObjectFields({
+  store,
+  object,
+  onChangeFloor,
+  selectedBayId,
+  onClearBay,
+}: {
+  store: StudioStore;
+  object: PlanObject;
+  onChangeFloor?: (floorId: string) => boolean;
+  selectedBayId?: string | null;
+  onClearBay?: () => void;
+}) {
   const landing = object.targetLanding ?? [5, 5];
   const shellDesign = isBooth(object) || isShellStructure(object);
   // The object form only reacts to the fields it edits, not to the pointer preview.
@@ -236,17 +264,26 @@ function ObjectFields({ store, object, onChangeFloor }: { store: StudioStore; ob
     })),
   );
   const patch = state.patchObject;
+  const vendors =
+    state.document.floors
+      .find((floor) => floor.source.id === state.floorId)
+      ?.objects.filter((item) => item.recipe === 'food-kiosk' || item.recipe === 'food-truck') ??
+    [];
   const commitPendingObject = () => {
     const latest = store.getState();
-    if (latest.pendingObject || latest.pendingObjects?.length) { latest.apply(); }
+    if (latest.pendingObject || latest.pendingObjects?.length) {
+      latest.apply();
+    }
   };
   const validation = objectSchema.safeParse(object);
   const safeConnectorPreset = ['stairs', 'elevator', 'escalator'].includes(object.recipe);
   const isRamp = object.recipe === 'ramp';
   const rampLimits = isRamp ? rampResizeLimits(object) : null;
   const wallLike = /wall|barrier|fence/i.test(object.recipe);
-  const dimensionLabels = wallLike ? ['Length (m)', 'Height (m)', 'Thickness (m)'] : ['Width (m)', 'Height (m)', 'Depth (m)'];
-  const rotationDegrees = ((object.yawRadians * 180 / Math.PI) % 360 + 360) % 360;
+  const dimensionLabels = wallLike
+    ? ['Length (m)', 'Height (m)', 'Thickness (m)']
+    : ['Width (m)', 'Height (m)', 'Depth (m)'];
+  const rotationDegrees = ((((object.yawRadians * 180) / Math.PI) % 360) + 360) % 360;
   const dimension = (axis: number, value: number) => {
     const dimensions = [...object.dimensions] as [number, number, number];
     dimensions[axis] = value;
@@ -289,7 +326,7 @@ function ObjectFields({ store, object, onChangeFloor }: { store: StudioStore; ob
         aria-label="Object properties"
         onClick={commitPendingObject}
         onBlurCapture={(event) => {
-          const target = event.target;
+          const { target } = event;
           if (
             target instanceof HTMLElement &&
             ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
@@ -298,856 +335,1270 @@ function ObjectFields({ store, object, onChangeFloor }: { store: StudioStore; ob
           }
         }}
       >
-      <Field label="Name">
-        <Input
-          aria-label="Object name"
-          aria-invalid={!object.name.trim()}
-          value={object.name}
-          onChange={(event) => patch({ name: event.target.value })}
-        />
-      </Field>
-      {isBooth(object) && (
-        <Field label="Booth number">
+        {object.recipe === 'parking-lot' && (
+          <>
+            <details className="fp-settings-group">
+              <summary>Parking footprint vertices</summary>
+              <Vertices
+                key={`${object.id}:parking-footprint`}
+                value={object.polygon}
+                label="Footprint vertices (local meters)"
+                onChange={(polygon) => patch({ polygon })}
+              />
+            </details>
+            <ParkingLotFields
+              object={object}
+              selectedBayId={selectedBayId}
+              onClearBay={onClearBay}
+              patch={patch}
+            />
+          </>
+        )}
+        {object.recipe === 'dining' && (
+          <details className="fp-settings-group">
+            <summary>Dining footprint vertices</summary>
+            <Vertices
+              key={`${object.id}:dining-footprint`}
+              value={object.polygon}
+              label="Footprint vertices (local meters)"
+              onChange={(polygon) => patch({ polygon })}
+            />
+          </details>
+        )}
+        <Field label="Name">
           <Input
-            aria-label="Booth number"
-            value={object.boothNumber}
-            onChange={(event) => patch({ boothNumber: event.target.value })}
+            aria-label="Object name"
+            aria-invalid={!object.name.trim()}
+            value={object.name}
+            onChange={(event) => patch({ name: event.target.value })}
           />
         </Field>
-      )}
-      {isBooth(object) && <Field label="Size label"><Input aria-label="Booth size label" value={object.boothSize} onChange={(event) => patch({ boothSize: event.target.value })} /></Field>}
-      <div className="fp-three">
-        {dimensionLabels.map((label, axis) => (
-          <NumberInput
-            key={label}
-            label={label}
-            value={object.dimensions[axis]!}
-            disabled={
-              (safeConnectorPreset && axis === 1) ||
-              (isRamp && axis === 1) ||
-              (axis === 2 &&
-                Boolean(object.circulationDesign?.autoSize) &&
-                object.circulationDesign?.role !== 'upper' &&
-                object.recipe !== 'elevator')
-            }
-            min={
-              rampLimits
-                ? rampLimits[axis === 0 ? 'width' : 'depth'][0]
-                : object.boothDesign
-                  ? (axis === 1 ? 2.2 : object.recipe === 'booth' ? 2 : 0.1) / object.scale[axis]!
-                  : 0.1
-            }
-            max={
-              rampLimits
-                ? rampLimits[axis === 0 ? 'width' : 'depth'][1]
-                : object.boothDesign
-                  ? (axis === 1
-                      ? object.recipe === 'booth'
-                        ? 4.5
-                        : 6
-                      : object.recipe === 'booth'
-                        ? 12
-                        : 1000) / object.scale[axis]!
-                  : 1000
-            }
-            onChange={(value) => dimension(axis, value)}
-          />
-        ))}
-      </div>
-      <Field label="Rotation (degrees)">
-        <Input aria-label="Rotation slider" type="range" min={0} max={359} step={1} value={rotationDegrees} onChange={(event) => patch({ yawRadians: (Number(event.target.value) * Math.PI) / 180 })} onPointerUp={commitPendingObject} onKeyUp={commitPendingObject} />
-      </Field>
-      <NumberInput
-        label="Rotation value (degrees)"
-        value={Math.round(rotationDegrees * 100) / 100}
-        min={0}
-        max={360}
-        step={0.1}
-        onChange={(degrees) => patch({ yawRadians: (degrees * Math.PI) / 180 })}
-      />
-      {isBooth(object) && (
-        <div className="fp-preset-palette" aria-label="Apply booth preset">
-          {boothPresets.map((preset) => (
-            <Button
-              key={preset.id}
-              size="sm"
-              variant="outline"
-              onClick={() => patch(withPreset(object, preset.id))}
-            >
-              Use {preset.label}
-            </Button>
-          ))}
-        </div>
-      )}
-      {safeConnectorPreset && <p className="fp-muted">Connector footprints use safe width/depth presets; height follows the floor rise.</p>}
-      {isRamp && <p className="fp-muted">Ramps keep an accessible slope: {rampLimits?.width[0]}–{rampLimits?.width[1]} m clear width and a 1:12–1:20 run. The rise follows the floor it connects.</p>}
-      {!object.circulationDesign && !isConnector(object.recipe) && (
-        <details className="fp-settings-group">
-          <summary>Advanced scale</summary>
-          <div className="fp-three">
-            {['Scale X', 'Scale Y', 'Scale Z'].map((label, axis) => (
-              <NumberInput
-                key={label}
-                label={label}
-                value={object.scale[axis]!}
-                disabled={axis === 1 && ['information', 'water'].includes(object.recipe)}
-                min={0.01}
-                onChange={(value) => {
-                  const scale = [...object.scale] as [number, number, number];
-                  scale[axis] = value;
-                  patch({ scale });
-                }}
-              />
-            ))}
-          </div>
-        </details>
-      )}
-      {!isCirculation(object.recipe) && (
-        <>
-          <Field label="Color mode">
-            <select
-              aria-label="Color mode"
-              value={object.colorMode}
-              onChange={(event) =>
-                patch({ colorMode: event.target.value as 'surface' | 'explicit' })
-              }
-            >
-              <option value="surface">Match surface beneath object</option>
-              <option value="explicit">Explicit color</option>
-            </select>
-          </Field>
-          <Field label={object.colorMode === 'surface' ? 'Fallback color' : 'Object color'}>
+        {isBooth(object) && (
+          <Field label="Booth number">
             <Input
-              aria-label="Object color"
-              type="color"
-              value={object.color}
-              onChange={(event) => patch({ color: event.target.value })}
+              aria-label="Booth number"
+              value={object.boothNumber}
+              onChange={(event) => patch({ boothNumber: event.target.value })}
             />
           </Field>
-        </>
-      )}
-      <Field label="Blocks walking routes">
-        <select
-          aria-label="Blocks walking routes"
-          value={object.collidable ? 'solid' : 'reference'}
-          onChange={(event) => patch({ collidable: event.target.value === 'solid' })}
-        >
-          <option value="solid">Yes, blocks routes</option>
-          <option value="reference">
-            {isCirculation(object.recipe) ? 'No, non-blocking reference' : 'No, visitors can walk through'}
-          </option>
-        </select>
-      </Field>
-      <p className="fp-muted">
-        {object.recipe === 'wash-rack'
-          ? 'When enabled, rails, posts, and the rear boundary block routes; the entrance and wash area stay open.'
-          : 'Turn this off for a visual reference visitors can walk through.'}
-      </p>
-      <details className="fp-settings-group">
-        <summary>{isBooth(object) ? 'Booth details' : `${object.name} options`}</summary>
-      {object.recipe === 'wash-rack' && (
-        <>
-          <Field label="Wash rack type">
+        )}
+        {isBooth(object) && (
+          <Field label="Size label">
+            <Input
+              aria-label="Booth size label"
+              value={object.boothSize}
+              onChange={(event) => patch({ boothSize: event.target.value })}
+            />
+          </Field>
+        )}
+        <div className="fp-three">
+          {dimensionLabels.map((label, axis) => (
+            <NumberInput
+              key={label}
+              label={label}
+              value={object.dimensions[axis]!}
+              disabled={
+                (safeConnectorPreset && axis === 1) ||
+                (isRamp && axis === 1) ||
+                (axis === 2 &&
+                  Boolean(object.circulationDesign?.autoSize) &&
+                  object.circulationDesign?.role !== 'upper' &&
+                  object.recipe !== 'elevator')
+              }
+              min={
+                object.recipe === 'entrance'
+                  ? entranceDimensionLimits[axis]![0]
+                  : rampLimits
+                  ? rampLimits[axis === 0 ? 'width' : 'depth'][0]
+                  : object.boothDesign
+                    ? (axis === 1 ? 2.2 : object.recipe === 'booth' ? 2 : 0.1) / object.scale[axis]!
+                    : 0.1
+              }
+              max={
+                object.recipe === 'entrance'
+                  ? entranceDimensionLimits[axis]![1]
+                  : rampLimits
+                  ? rampLimits[axis === 0 ? 'width' : 'depth'][1]
+                  : object.boothDesign
+                    ? (axis === 1
+                        ? object.recipe === 'booth'
+                          ? 4.5
+                          : 6
+                        : object.recipe === 'booth'
+                          ? 12
+                          : 1000) / object.scale[axis]!
+                    : 1000
+              }
+              onChange={(value) => dimension(axis, value)}
+            />
+          ))}
+        </div>
+        {object.recipe === 'chair' && (
+          <Field label="Chair style">
             <select
-              aria-label="Wash rack type"
-              value={object.washRackVariant ?? ''}
+              aria-label="Chair style"
+              value={object.chairStyle ?? 'plastic-stackable'}
               onChange={(event) => {
-                const variant = event.target.value as WashRackVariant;
-                patch(applyWashRackVariant(object, variant));
+                patch(applyStandaloneChairStyle(object, event.target.value as DiningChairStyle));
                 commitPendingObject();
               }}
             >
-              <option value="" disabled>Select a rack type</option>
-              {washRackVariants.map((variant) => (
-                <option key={variant} value={variant}>
-                  {washRackVariantProfiles[variant].label}
-                </option>
-              ))}
+              <option value="plastic-stackable">Plastic stackable</option>
+              <option value="wooden-cafe">Wooden café</option>
+              <option value="bistro-wire">Bistro wire</option>
+              <option value="banquet-padded">Banquet padded</option>
+              <option value="bar-stool">Bar stool · 0.5 × 1.05 × 0.5 m</option>
             </select>
           </Field>
-          {isLegacyWashRack(object) ? (
-            <p className="fp-muted">
-              This saved rack keeps its existing footprint until you choose a type above.
-            </p>
-          ) : (
-            <>
-              <Field label="Water delivery running">
-                <Input
-                  aria-label="Water delivery running"
-                  type="checkbox"
-                  checked={object.washRackRunning ?? false}
-                  onChange={(event) => patch({ washRackRunning: event.target.checked })}
+        )}
+        <Field label="Rotation (degrees)">
+          <Input
+            aria-label="Rotation slider"
+            type="range"
+            min={0}
+            max={359}
+            step={1}
+            value={rotationDegrees}
+            onChange={(event) =>
+              patch({ yawRadians: (Number(event.target.value) * Math.PI) / 180 })
+            }
+            onPointerUp={commitPendingObject}
+            onKeyUp={commitPendingObject}
+          />
+        </Field>
+        <NumberInput
+          label="Rotation value (degrees)"
+          value={Math.round(rotationDegrees * 100) / 100}
+          min={0}
+          max={360}
+          step={0.1}
+          onChange={(degrees) => patch({ yawRadians: (degrees * Math.PI) / 180 })}
+        />
+        {isBooth(object) && (
+          <div className="fp-preset-palette" aria-label="Apply booth preset">
+            {boothPresets.map((preset) => (
+              <Button
+                key={preset.id}
+                size="sm"
+                variant="outline"
+                onClick={() => patch(withPreset(object, preset.id))}
+              >
+                Use {preset.label}
+              </Button>
+            ))}
+          </div>
+        )}
+        {safeConnectorPreset && (
+          <p className="fp-muted">
+            Connector footprints use safe width/depth presets; height follows the floor rise.
+          </p>
+        )}
+        {isRamp && (
+          <p className="fp-muted">
+            Ramps keep an accessible slope: {rampLimits?.width[0]}–{rampLimits?.width[1]} m clear
+            width and a 1:12–1:20 run. The rise follows the floor it connects.
+          </p>
+        )}
+        {!object.circulationDesign && !isConnector(object.recipe) && (
+          <details className="fp-settings-group">
+            <summary>Advanced scale</summary>
+            <div className="fp-three">
+              {['Scale X', 'Scale Y', 'Scale Z'].map((label, axis) => (
+                <NumberInput
+                  key={label}
+                  label={label}
+                  value={object.scale[axis]!}
+                  disabled={axis === 1 && ['information', 'water'].includes(object.recipe)}
+                  min={0.01}
+                  onChange={(value) => {
+                    const scale = [...object.scale] as [number, number, number];
+                    scale[axis] = value;
+                    patch({ scale });
+                  }}
                 />
-              </Field>
-              <Field label="Wetness (0 dry – 1 saturated)">
-                <Input
-                  aria-label="Wash rack wetness slider"
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={object.washRackWetness ?? 0}
-                  onChange={(event) => patch({ washRackWetness: Number(event.target.value) })}
-                  onPointerUp={commitPendingObject}
-                  onKeyUp={commitPendingObject}
-                />
-              </Field>
-              <NumberInput
-                label="Wetness value"
-                value={object.washRackWetness ?? 0}
-                min={0}
-                max={1}
-                step={0.01}
-                onChange={(washRackWetness) => patch({ washRackWetness })}
+              ))}
+            </div>
+          </details>
+        )}
+        {!isCirculation(object.recipe) && (
+          <>
+            <Field label="Color mode">
+              <select
+                aria-label="Color mode"
+                value={object.colorMode}
+                onChange={(event) =>
+                  patch({ colorMode: event.target.value as 'surface' | 'explicit' })
+                }
+              >
+                <option value="surface">Match surface beneath object</option>
+                <option value="explicit">Explicit color</option>
+              </select>
+            </Field>
+            <Field label={object.colorMode === 'surface' ? 'Fallback color' : 'Object color'}>
+              <Input
+                aria-label="Object color"
+                type="color"
+                value={object.color}
+                onChange={(event) => patch({ color: event.target.value })}
               />
-              <Field label="Boom sweep arc">
+            </Field>
+          </>
+        )}
+        <Field label="Blocks walking routes">
+          <select
+            aria-label="Blocks walking routes"
+            value={object.collidable ? 'solid' : 'reference'}
+            onChange={(event) => patch({ collidable: event.target.value === 'solid' })}
+          >
+            <option value="solid">Yes, blocks routes</option>
+            <option value="reference">
+              {isCirculation(object.recipe)
+                ? 'No, non-blocking reference'
+                : 'No, visitors can walk through'}
+            </option>
+          </select>
+        </Field>
+        <p className="fp-muted">
+          {object.recipe === 'wash-rack'
+            ? 'When enabled, rails, posts, and the rear boundary block routes; the entrance and wash area stay open.'
+            : 'Turn this off for a visual reference visitors can walk through.'}
+        </p>
+        <details className="fp-settings-group">
+          <summary>{isBooth(object) ? 'Booth details' : `${object.name} options`}</summary>
+          {object.recipe === 'wash-rack' && (
+            <>
+              <Field label="Wash rack type">
                 <select
-                  aria-label="Boom sweep arc"
-                  value={object.washRackBoomArc ?? 180}
+                  aria-label="Wash rack type"
+                  value={object.washRackVariant ?? ''}
                   onChange={(event) => {
-                    const washRackBoomArc = Number(event.target.value) as 180 | 360;
-                    const previousArc = object.washRackBoomArc ?? 180;
-                    const previousAngle = object.washRackBoomAngle ?? previousArc / 2;
-                    patch({
-                      washRackBoomArc,
-                      washRackBoomAngle: Math.max(
-                        0,
-                        Math.min(
-                          previousAngle - previousArc / 2 + washRackBoomArc / 2,
-                          washRackBoomArc,
-                        ),
-                      ),
-                    });
+                    const variant = event.target.value as WashRackVariant;
+                    patch(applyWashRackVariant(object, variant));
+                    commitPendingObject();
                   }}
                 >
-                  <option value={180}>180°</option>
-                  <option value={360}>360°</option>
+                  <option value="" disabled>
+                    Select a rack type
+                  </option>
+                  {washRackVariants.map((variant) => (
+                    <option key={variant} value={variant}>
+                      {washRackVariantProfiles[variant].label}
+                    </option>
+                  ))}
                 </select>
               </Field>
-              <NumberInput
-                label="Boom angle (degrees)"
-                value={object.washRackBoomAngle ?? (object.washRackBoomArc ?? 180) / 2}
-                min={0}
-                max={object.washRackBoomArc ?? 180}
-                step={1}
-                onChange={(washRackBoomAngle) => patch({ washRackBoomAngle })}
-              />
-              {washRackHasCustomDimensions(object) && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const dimensions = resetWashRackVariantDimensions(object);
-                    if (dimensions) {
-                      patch(dimensions);
-                      commitPendingObject();
-                    }
-                  }}
-                >
-                  Reset to {washRackVariantProfiles[object.washRackVariant!].label} dimensions
-                </Button>
+              {isLegacyWashRack(object) ? (
+                <p className="fp-muted">
+                  This saved rack keeps its existing footprint until you choose a type above.
+                </p>
+              ) : (
+                <>
+                  <Field label="Water delivery running">
+                    <Input
+                      aria-label="Water delivery running"
+                      type="checkbox"
+                      checked={object.washRackRunning ?? false}
+                      onChange={(event) => patch({ washRackRunning: event.target.checked })}
+                    />
+                  </Field>
+                  <Field label="Wetness (0 dry – 1 saturated)">
+                    <Input
+                      aria-label="Wash rack wetness slider"
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={object.washRackWetness ?? 0}
+                      onChange={(event) => patch({ washRackWetness: Number(event.target.value) })}
+                      onPointerUp={commitPendingObject}
+                      onKeyUp={commitPendingObject}
+                    />
+                  </Field>
+                  <NumberInput
+                    label="Wetness value"
+                    value={object.washRackWetness ?? 0}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    onChange={(washRackWetness) => patch({ washRackWetness })}
+                  />
+                  <Field label="Boom sweep arc">
+                    <select
+                      aria-label="Boom sweep arc"
+                      value={object.washRackBoomArc ?? 180}
+                      onChange={(event) => {
+                        const washRackBoomArc = Number(event.target.value) as 180 | 360;
+                        const previousArc = object.washRackBoomArc ?? 180;
+                        const previousAngle = object.washRackBoomAngle ?? previousArc / 2;
+                        patch({
+                          washRackBoomArc,
+                          washRackBoomAngle: Math.max(
+                            0,
+                            Math.min(
+                              previousAngle - previousArc / 2 + washRackBoomArc / 2,
+                              washRackBoomArc,
+                            ),
+                          ),
+                        });
+                      }}
+                    >
+                      <option value={180}>180°</option>
+                      <option value={360}>360°</option>
+                    </select>
+                  </Field>
+                  <NumberInput
+                    label="Boom angle (degrees)"
+                    value={object.washRackBoomAngle ?? (object.washRackBoomArc ?? 180) / 2}
+                    min={0}
+                    max={object.washRackBoomArc ?? 180}
+                    step={1}
+                    onChange={(washRackBoomAngle) => patch({ washRackBoomAngle })}
+                  />
+                  {washRackHasCustomDimensions(object) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const dimensions = resetWashRackVariantDimensions(object);
+                        if (dimensions) {
+                          patch(dimensions);
+                          commitPendingObject();
+                        }
+                      }}
+                    >
+                      Reset to {washRackVariantProfiles[object.washRackVariant!].label} dimensions
+                    </Button>
+                  )}
+                </>
               )}
             </>
           )}
-        </>
-      )}
-      {object.recipe.startsWith('washroom') && (
-        <Field label="Washroom signage">
-          <select
-            aria-label="Washroom signage"
-            value={object.gender}
-            onChange={(event) => patch({ gender: event.target.value as PlanObject['gender'] })}
-          >
-            <option value="men">Men</option>
-            <option value="women">Women</option>
-            <option value="unisex">Unisex</option>
-          </select>
-        </Field>
-      )}
-      {(object.recipe === 'washroom-men' || object.recipe === 'washroom-women') && (
-        <NumberInput
-          label="Entrance opening (m)"
-          value={object.washroomOpening}
-          min={1.0}
-          max={1.8}
-          step={0.1}
-          onChange={(washroomOpening) => patch({ washroomOpening })}
-        />
-      )}
-      {object.recipe === 'kids-zone' && (
-        <NumberInput
-          label="Play element density"
-          value={object.kidsDensity}
-          min={0.2}
-          max={1.0}
-          step={0.1}
-          onChange={(kidsDensity) => patch({ kidsDensity })}
-        />
-      )}
-      {object.recipe === 'avatar' && (
-        <>
-          <Field label="Pose preset">
-            <select
-              aria-label="Pose preset"
-              value={object.avatarPose}
-              onChange={(event) =>
-                patch({ avatarPose: event.target.value as PlanObject['avatarPose'] })
-              }
-            >
-              {['idle', 'walking', 'pointing', 'sitting'].map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </Field>
-          <div className="fp-two">
-            {(
-              [
-                ['avatarSkin', 'Skin'],
-                ['avatarClothing', 'Clothing'],
-                ['avatarHair', 'Hair'],
-              ] as const
-            ).map(([key, label]) => (
-              <Field key={key} label={label}>
-                <Input
-                  aria-label={label}
-                  type="color"
-                  value={object[key]}
-                  onChange={(event) => patch({ [key]: event.target.value })}
-                />
-              </Field>
-            ))}
-          </div>
-          <label className="fp-check">
-            <input
-              type="checkbox"
-              checked={object.avatarAnimated}
-              onChange={(event) => patch({ avatarAnimated: event.target.checked })}
-            />
-            Idle breathing &amp; sway
-          </label>
-          <label className="fp-check">
-            <input
-              type="checkbox"
-              checked={object.avatarPin}
-              onChange={(event) => patch({ avatarPin: event.target.checked })}
-            />
-            “You are here” pin
-          </label>
-          <p className="fp-muted">Scale and dimensions are locked to the 1.8 m benchmark.</p>
-        </>
-      )}
-      {object.recipe === 'barn-tent' && (
-        <>
-          <Field label="Tent style">
-            <select
-              aria-label="Tent style"
-              value={object.tentStyle}
-              onChange={(event) =>
-                patch({ tentStyle: event.target.value as PlanObject['tentStyle'] })
-              }
-            >
-              <option value="barn">Barn</option>
-              <option value="gazebo">Gazebo</option>
-              <option value="marquee">Marquee</option>
-            </select>
-          </Field>
-          <NumberInput
-            label="Roof overhang (m)"
-            value={object.roofOverhang}
-            min={0}
-            max={5}
-            onChange={(roofOverhang) => patch({ roofOverhang })}
-          />
-          <NumberInput
-            label="Eaves / peak ratio"
-            value={object.eavesRatio}
-            min={0.3}
-            max={0.95}
-            step={0.05}
-            onChange={(eavesRatio) => patch({ eavesRatio })}
-          />
-          {object.tentStyle === 'marquee' && (
-            <NumberInput
-              label="Marquee bays"
-              value={object.tentBays}
-              min={1}
-              max={8}
-              step={1}
-              onChange={(tentBays) => patch({ tentBays })}
-            />
-          )}
-          <Field label="Canopy material">
-            <select
-              aria-label="Canopy material"
-              value={object.canopyMaterial}
-              onChange={(event) =>
-                patch({ canopyMaterial: event.target.value as PlanObject['canopyMaterial'] })
-              }
-            >
-              {['canvas', 'vinyl', 'transparent'].map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Pole material">
-            <select
-              aria-label="Pole material"
-              value={object.poleMaterial}
-              onChange={(event) =>
-                patch({ poleMaterial: event.target.value as PlanObject['poleMaterial'] })
-              }
-            >
-              {['steel', 'wood', 'aluminium'].map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Sidewall state">
-            <select
-              aria-label="Sidewall state"
-              value={object.tentSidewall}
-              onChange={(event) =>
-                patch({ tentSidewall: event.target.value as PlanObject['tentSidewall'] })
-              }
-            >
-              {['open', 'half', 'full', 'windows'].map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Flooring">
-            <select
-              aria-label="Tent flooring"
-              value={object.tentFlooring}
-              onChange={(event) =>
-                patch({ tentFlooring: event.target.value as PlanObject['tentFlooring'] })
-              }
-            >
-              {['none', 'grass', 'wood-deck'].map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </Field>
-          <NumberInput
-            label="Eaves height (m)"
-            value={object.tentEavesHeight}
-            min={2}
-            max={3}
-            step={0.1}
-            onChange={(tentEavesHeight) => patch({ tentEavesHeight })}
-          />
-          <label className="fp-check">
-            <input
-              type="checkbox"
-              checked={object.tentIndoors}
-              onChange={(event) => patch({ tentIndoors: event.target.checked })}
-            />
-            Indoors (hide guy ropes)
-          </label>
-          <Vertices
-            value={object.polePositions}
-            label="Tent poles (local meters; empty uses corners)"
-            isPolygon={false}
-            onChange={(polePositions) => patch({ polePositions })}
-          />
-        </>
-      )}
-      {shellDesign && (
-        <BoothFields object={object} patch={patch} shellStructure={isShellStructure(object)} />
-      )}
-      {isBooth(object) && (
-        <>
-          <NumberInput
-            label="Price"
-            min={0}
-            value={object.price}
-            onChange={(price) => patch({ price })}
-          />
-          <Field label="Status">
-            <select
-              aria-label="Booth status"
-              value={object.status}
-              onChange={(event) => patch({ status: event.target.value as PlanObject['status'] })}
-            >
-              {['AVAILABLE', 'HOLD', 'BOOKED', 'UNAVAILABLE'].map((status) => (
-                <option key={status}>{status}</option>
-              ))}
-            </select>
-          </Field>
-          {(
-            [
-              'company',
-              'boothType',
-              'youtubeLink',
-              'tags',
-              'contactName',
-              'contactEmail',
-              'contactPhone',
-            ] as const
-          ).map((key) => (
-            <Field
-              key={key}
-              label={
-                {
-                  company: 'Company',
-                  boothType: 'Booth type',
-                  youtubeLink: 'YouTube URL',
-                  tags: 'Tags',
-                  contactName: 'Contact name',
-                  contactEmail: 'Contact email',
-                  contactPhone: 'Contact phone',
-                }[key]
-              }
-            >
-              <Input
-                aria-label={key}
-                value={object[key]}
-                onChange={(event) => patch({ [key]: event.target.value })}
-              />
-            </Field>
-          ))}
-          <Field label="Gate">
-            <select
-              aria-label="Gate"
-              value={object.gate}
-              onChange={(event) => patch({ gate: event.target.value as PlanObject['gate'] })}
-            >
-              {['front', 'back', 'left', 'right'].map((gate) => (
-                <option key={gate}>{gate}</option>
-              ))}
-            </select>
-          </Field>
-        </>
-      )}
-      {object.recipe === 'entrance' && (
-        <>
-          <Field label="Gate type">
-            <select
-              aria-label="Gate type"
-              value={object.entranceGate}
-              onChange={(event) =>
-                patch({ entranceGate: event.target.value as PlanObject['entranceGate'] })
-              }
-            >
-              {['arch-sliding-doors', 'turnstile-lanes', 'open-arch'].map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </Field>
-          <NumberInput
-            label="Clear opening (m)"
-            value={object.entranceOpening ?? object.dimensions[0] - 1.0}
-            min={1.2}
-            max={6}
-            step={0.1}
-            onChange={(entranceOpening) => patch({ entranceOpening })}
-          />
-          <label className="fp-check">
-            <input
-              type="checkbox"
-              checked={object.entranceGate === 'open-arch' ? true : object.entranceOpen}
-              disabled={object.entranceGate === 'open-arch'}
-              onChange={(event) => patch({ entranceOpen: event.target.checked })}
-            />
-            Doors open (slide ±0.9 m, 0.8 s)
-          </label>
-        </>
-      )}
-      {object.recipe === 'information' && (
-        <NumberInput
-          label="Floating sign height (m)"
-          value={object.infoSignHeight}
-          min={2.8}
-          max={4.5}
-          step={0.1}
-          onChange={(infoSignHeight) => patch({ infoSignHeight })}
-        />
-      )}
-      {object.recipe === 'food-kiosk' && (
-        <>
-          <NumberInput
-            label="Queue zone depth (m)"
-            value={object.kioskQueueDepth}
-            min={1.5}
-            max={3.0}
-            step={0.1}
-            onChange={(kioskQueueDepth) => patch({ kioskQueueDepth })}
-          />
-          <Field label="Menu board text">
-            <Input
-              aria-label="Menu board text"
-              value={object.kioskMenu}
-              onChange={(event) => patch({ kioskMenu: event.target.value })}
-            />
-          </Field>
-        </>
-      )}
-      {object.recipe === 'exit' && (
-        <label className="fp-check">
-          <input
-            type="checkbox"
-            checked={object.exitOpen}
-            onChange={(event) => patch({ exitOpen: event.target.checked })}
-          />
-          Egress door open (−90° swing, 0.6 s)
-        </label>
-      )}
-      {object.recipe === 'bench' && (
-        <Field label="Bench variant">
-          <select
-            aria-label="Bench variant"
-            value={object.benchVariant}
-            onChange={(event) => {
-              const benchVariant = event.target.value as PlanObject['benchVariant'];
-              patch({
-                benchVariant,
-                dimensions: [
-                  object.dimensions[0],
-                  benchVariant === 'backed' ? 0.85 : 0.45,
-                  object.dimensions[2],
-                ],
-              });
-            }}
-          >
-            <option value="backed">Backed</option>
-            <option value="backless">Backless</option>
-          </select>
-        </Field>
-      )}
-      {object.recipe === 'table' && (
-        <>
-          <Field label="Table variant">
-            <select
-              aria-label="Table variant"
-              value={object.tableVariant}
-              onChange={(event) => {
-                const tableVariant = event.target.value as PlanObject['tableVariant'];
-                patch({
-                  tableVariant,
-                  dimensions: [
-                    object.dimensions[0],
-                    tableVariant === 'cocktail-standing' ? 1.1 : 0.75,
-                    object.dimensions[2],
-                  ],
-                });
-              }}
-            >
-              <option value="cocktail-standing">Cocktail standing</option>
-              <option value="standard-dining">Standard dining</option>
-              <option value="cloth-draped">Cloth draped</option>
-            </select>
-          </Field>
-          <Field label="Top shape">
-            <select
-              aria-label="Top shape"
-              value={object.tableTop}
-              onChange={(event) =>
-                patch({ tableTop: event.target.value as PlanObject['tableTop'] })
-              }
-            >
-              <option value="round">Round</option>
-              <option value="rectangular">Rectangular</option>
-            </select>
-          </Field>
-          <Field label="Attached chairs">
-            <select
-              aria-label="Attached chairs"
-              value={object.tableChairs}
-              onChange={(event) =>
-                patch({ tableChairs: event.target.value as PlanObject['tableChairs'] })
-              }
-            >
-              <option value="none">None</option>
-              <option value="2-chairs">2 chairs</option>
-              <option value="4-chairs">4 chairs</option>
-            </select>
-          </Field>
-        </>
-      )}
-      {object.recipe === 'barrier' && (
-        <>
-          <Field label="Belt color">
-            <select
-              aria-label="Belt color"
-              value={object.barrierBelt}
-              onChange={(event) =>
-                patch({ barrierBelt: event.target.value as PlanObject['barrierBelt'] })
-              }
-            >
-              <option value="cyan">Wayfinding cyan</option>
-              <option value="blue">Accent blue</option>
-              <option value="red">Warning red</option>
-            </select>
-          </Field>
-          <NumberInput
-            label="Belt sag (m)"
-            value={object.barrierSag}
-            min={0.01}
-            max={0.08}
-            step={0.01}
-            onChange={(barrierSag) => patch({ barrierSag })}
-          />
-        </>
-      )}
-      {object.recipe === 'planter' && (
-        <>
-          <Field label="Foliage variant">
-            <select
-              aria-label="Foliage variant"
-              value={object.planterVariant}
-              onChange={(event) =>
-                patch({ planterVariant: event.target.value as PlanObject['planterVariant'] })
-              }
-            >
-              <option value="tall-tree">Tall tree</option>
-              <option value="hedge-box">Hedge box</option>
-              <option value="flower-shrub">Flower shrub</option>
-            </select>
-          </Field>
-          <NumberInput
-            label="Foliage seed"
-            value={object.planterSeed}
-            min={1}
-            max={9999}
-            step={1}
-            onChange={(planterSeed) => patch({ planterSeed })}
-          />
-        </>
-      )}
-      {object.recipe === 'bin' && (
-        <>
-          <Field label="Waste stream">
-            <select
-              aria-label="Waste stream"
-              value={object.binStream}
-              onChange={(event) =>
-                patch({ binStream: event.target.value as PlanObject['binStream'] })
-              }
-            >
-              <option value="general-waste">General waste</option>
-              <option value="recycling">Recycling</option>
-              <option value="organics">Organics</option>
-            </select>
-          </Field>
-          <Field label="Body finish">
-            <select
-              aria-label="Body finish"
-              value={object.binBody}
-              onChange={(event) => patch({ binBody: event.target.value as PlanObject['binBody'] })}
-            >
-              <option value="dark">Neutral dark</option>
-              <option value="steel">Stainless</option>
-            </select>
-          </Field>
-        </>
-      )}
-      {isCirculation(object.recipe) && <CirculationFields object={object} patch={patch} />}
-      {isConnector(object.recipe) && (
-        <>
-          {!object.circulationDesign && (
+          {object.recipe === 'show-office' && (
             <>
-              <NumberInput
-                label="Steps"
-                min={1}
-                step={1}
-                value={object.steps}
-                onChange={(steps) => patch({ steps })}
-              />
-              <p className="fp-muted">
-                Rise {(object.dimensions[1] / object.steps).toFixed(2)} m · tread{' '}
-                {(object.dimensions[2] / object.steps).toFixed(2)} m
-              </p>
-              <div className="fp-two">
-                <NumberInput
-                  label="Step rise (m)"
-                  value={object.dimensions[1] / object.steps}
-                  min={0.01}
-                  onChange={(value) => dimension(1, value * object.steps)}
-                />
-                <NumberInput
-                  label="Step tread (m)"
-                  value={object.dimensions[2] / object.steps}
-                  min={0.01}
-                  onChange={(value) => dimension(2, value * object.steps)}
-                />
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                aria-pressed={object.handrails}
-                onClick={() => patch({ handrails: !object.handrails })}
-              >
-                Handrails {object.handrails ? 'on' : 'off'}
-              </Button>
+              <Field label="Show Office layout">
+                <select aria-label="Show Office layout" value={object.showOfficeVariant ?? 'cabin'} onChange={(event) => {
+                  const variant = event.target.value as ShowOfficeVariant;
+                  const dimensions = showOfficeProfiles[variant].dimensions;
+                  patch({ showOfficeVariant: variant, dimensions, polygon: [
+                    [-dimensions[0] / 2, -dimensions[2] / 2], [dimensions[0] / 2, -dimensions[2] / 2],
+                    [dimensions[0] / 2, dimensions[2] / 2], [-dimensions[0] / 2, dimensions[2] / 2],
+                  ] });
+                  commitPendingObject();
+                }}>
+                  {showOfficeVariants.map((variant) => <option key={variant} value={variant}>{showOfficeProfiles[variant].label}</option>)}
+                </select>
+              </Field>
+              <Field label="Office status"><select aria-label="Office status" value={object.officeStatus ?? 'open'} onChange={(event) => patch({ officeStatus: event.target.value as PlanObject['officeStatus'] })}><option value="open">Open</option><option value="closed">Closed</option><option value="back-in-10">Back in 10 min</option></select></Field>
+              <Field label="Service window open"><Input aria-label="Service window open" type="checkbox" checked={object.officeWindowOpen ?? false} onChange={(event) => patch({ officeWindowOpen: event.target.checked })} /></Field>
+              <Field label="Public door open"><Input aria-label="Public door open" type="checkbox" checked={object.officeDoorOpen ?? false} onChange={(event) => patch({ officeDoorOpen: event.target.checked })} /></Field>
+              <Field label="Blinds open"><Input aria-label="Blinds open" type="checkbox" checked={object.officeBlindsOpen ?? true} onChange={(event) => patch({ officeBlindsOpen: event.target.checked })} /></Field>
+              <NumberInput label="Roof cutaway" value={object.officeCutaway ?? 0} min={0} max={1} step={0.05} onChange={(officeCutaway) => patch({ officeCutaway })} />
+              <Field label="Detailed interior"><Input aria-label="Detailed interior" type="checkbox" checked={object.officeInteriorDetail ?? false} onChange={(event) => patch({ officeInteriorDetail: event.target.checked })} /></Field>
+              <Field label="Freight desk"><Input aria-label="Freight desk" type="checkbox" checked={object.officeHasFreightDesk ?? false} onChange={(event) => patch({ officeHasFreightDesk: event.target.checked })} /></Field>
+              <NumberInput label="Staff avatars" value={object.officeStaff ?? 2} min={0} max={4} step={1} onChange={(officeStaff) => patch({ officeStaff: Math.round(officeStaff) })} />
+              <NumberInput label="Queue visitors" value={object.officeVisitors ?? 3} min={0} max={8} step={1} onChange={(officeVisitors) => patch({ officeVisitors: Math.round(officeVisitors) })} />
             </>
           )}
-          <p className="fp-muted">
-            Save connector changes from the top-right button. Each landing can then be moved independently.
-          </p>
-          {state.document.floors
-            .filter(
-              (floor) =>
-                floor.source.id !== state.floorId &&
-                !floor.objects.some((item) => object.portalId && item.portalId === object.portalId),
-            )
-            .map((floor) => (
-              <Button
-                key={floor.source.id}
-                variant="outline"
-                size="sm"
-                onClick={() => state.linkConnector(floor.source.id, landing)}
-              >
-                Connect to {floor.source.name}
-              </Button>
-            ))}
-          {object.portalId &&
-            state.document.floors
-              .filter((floor) => floor.source.id !== state.floorId)
-              .flatMap((floor) => {
-                const target = floor.objects.find((item) => item.portalId === object.portalId);
-                return target
-                  ? [
-                      <div className="fp-row" key={floor.source.id}>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={unfinished(state)}
-                          onClick={() => {
-                            if ((onChangeFloor ?? state.setFloor)(floor.source.id)) {
-                              store.getState().select({ kind: 'object', id: target.id });
-                            }
-                          }}
-                        >
-                          Edit landing · {floor.source.name}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={unfinished(state)}
-                          onClick={() => state.unlinkConnector(floor.source.id)}
-                        >
-                          Disconnect {floor.source.name}
-                        </Button>
-                      </div>,
-                    ]
-                  : [];
-              })}
-          {object.portalId && (
-            <p className="fp-muted">Paired connector · {object.connectsFloorIds.length} floors</p>
+          {object.recipe === 'shipping' && (
+            <>
+              <Field label="Shipping layout">
+                <select
+                  aria-label="Shipping layout"
+                  value={object.shippingVariant ?? 'dock-bay'}
+                  onChange={(event) => {
+                    patch(applyShippingVariant(object, event.target.value as ShippingVariant));
+                    commitPendingObject();
+                  }}
+                >
+                  {shippingVariants.map((variant) => (
+                    <option key={variant} value={variant}>
+                      {shippingProfiles[variant].label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <NumberInput
+                label="Prop density"
+                value={object.shippingDensity ?? 0.65}
+                min={0}
+                max={1}
+                step={0.05}
+                onChange={(shippingDensity) => patch({ shippingDensity })}
+              />
+              <NumberInput
+                label="Procedural seed"
+                value={object.shippingSeed ?? 42}
+                min={1}
+                max={9999}
+                step={1}
+                onChange={(shippingSeed) => patch({ shippingSeed: Math.round(shippingSeed) })}
+              />
+              {(object.shippingVariant ?? 'dock-bay') === 'dock-bay' && (
+                <>
+                  <Field label="Trailer docked">
+                    <Input
+                      aria-label="Trailer docked"
+                      type="checkbox"
+                      checked={object.shippingTrailerDocked ?? false}
+                      onChange={(event) => patch({ shippingTrailerDocked: event.target.checked })}
+                    />
+                  </Field>
+                  <NumberInput
+                    label="Leveler angle (degrees)"
+                    value={object.shippingLevelerAngle ?? 0}
+                    min={-12}
+                    max={12}
+                    step={1}
+                    onChange={(shippingLevelerAngle) => patch({ shippingLevelerAngle })}
+                  />
+                  {(object.shippingDoorStates ?? ['closed']).map((door, index) => (
+                    <Field key={index} label={`Bay ${String(index + 1).padStart(2, '0')} door`}>
+                      <select
+                        aria-label={`Bay ${index + 1} door`}
+                        value={door}
+                        onChange={(event) => {
+                          const shippingDoorStates = [...(object.shippingDoorStates ?? ['closed'])];
+                          shippingDoorStates[index] = event.target.value as 'open' | 'closed';
+                          patch({ shippingDoorStates });
+                        }}
+                      >
+                        <option value="closed">Closed</option>
+                        <option value="open">Open</option>
+                      </select>
+                    </Field>
+                  ))}
+                </>
+              )}
+              <p className="fp-muted">
+                Dock bay keeps a 3.2 m clear opening beneath a 5.0 m canopy. Variant and prop
+                settings save with this object.
+              </p>
+            </>
           )}
-        </>
-      )}
-      </details>
-      {isBooth(object) && (
-        <details className="fp-settings-group">
-          <summary>Advanced geometry</summary>
-          <Vertices
-            key={`${object.id}:vertices`}
-            value={object.polygon}
-            onChange={(polygon) => patch({ polygon })}
-          />
+          {object.recipe === 'dining' &&
+            (() => {
+              const layout = diningLayout(object);
+              const linkedVendor = vendors.find(
+                (item) => item.id === object.diningVendorReferenceId,
+              );
+              const serviceWindow = diningVendorServiceWindow(object);
+              const snapToVendor = (vendorId: string, edgeIndex: number) => {
+                const vendor = vendors.find((item) => item.id === vendorId);
+                if (!vendor) {
+                  patch({ diningVendorReferenceId: undefined, diningVendorServiceEdge: undefined });
+                  return;
+                }
+                const snapped = snapDiningToVendor(object, vendor, edgeIndex);
+                if (!snapped) {
+                  toast.error('This vendor has no modeled service-window orientation.');
+                  return;
+                }
+                patch({
+                  diningVendorReferenceId: vendor.id,
+                  diningVendorServiceEdge: edgeIndex,
+                  ...snapped,
+                });
+                commitPendingObject();
+              };
+              return (
+                <>
+                  <Field label="Dining layout">
+                    <select
+                      aria-label="Dining layout"
+                      value={object.diningStyle ?? 'grid4'}
+                      onChange={(event) =>
+                        patch({ diningStyle: event.target.value as PlanObject['diningStyle'] })
+                      }
+                    >
+                      <option value="grid4">Grid · 4 seats per table</option>
+                      <option value="grid6">Grid · 6 seats per table</option>
+                      <option value="rows-banquet">Banquet rows</option>
+                      <option value="round6">Round · 6 seats</option>
+                      <option value="round8">Round · 8 seats</option>
+                      <option value="communal-long">Communal long tables</option>
+                      <option value="cafe-bistro">Café bistro</option>
+                    </select>
+                  </Field>
+                  <Field label="Chair style">
+                    <select
+                      aria-label="Dining chair style"
+                      value={object.diningChairStyle ?? 'plastic-stackable'}
+                      onChange={(event) =>
+                        patch({
+                          diningChairStyle: event.target.value as PlanObject['diningChairStyle'],
+                        })
+                      }
+                    >
+                      <option value="plastic-stackable">Plastic stackable</option>
+                      <option value="wooden-cafe">Wooden café</option>
+                      <option value="bistro-wire">Bistro wire</option>
+                      <option value="banquet-padded">Banquet padded</option>
+                      <option value="bar-stool">Bar stool</option>
+                    </select>
+                  </Field>
+                  <NumberInput
+                    label="Table count"
+                    value={object.diningTableCount ?? 6}
+                    min={1}
+                    max={200}
+                    step={1}
+                    onChange={(diningTableCount) =>
+                      patch({ diningTableCount: Math.round(diningTableCount) })
+                    }
+                  />
+                  <NumberInput
+                    label="Occupancy"
+                    value={object.diningOccupancy ?? 0}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    onChange={(diningOccupancy) => patch({ diningOccupancy })}
+                  />
+                  <NumberInput
+                    label="Layout seed"
+                    value={object.diningSeed ?? 42}
+                    min={1}
+                    max={999999}
+                    step={1}
+                    onChange={(diningSeed) => patch({ diningSeed: Math.round(diningSeed) })}
+                  />
+                  <Field label="Table centerpiece">
+                    <select
+                      aria-label="Table centerpiece"
+                      value={object.diningCenterpiece ?? 'none'}
+                      onChange={(event) =>
+                        patch({
+                          diningCenterpiece: event.target.value as PlanObject['diningCenterpiece'],
+                        })
+                      }
+                    >
+                      <option value="none">None</option>
+                      <option value="vase-flowers">Vase with flowers</option>
+                      <option value="candle-lantern">Candle lantern</option>
+                      <option value="table-number">Table number</option>
+                    </select>
+                  </Field>
+                  <Field label="Tablecloths">
+                    <Input
+                      aria-label="Tablecloths"
+                      type="checkbox"
+                      checked={object.diningTablecloth ?? false}
+                      onChange={(event) => patch({ diningTablecloth: event.target.checked })}
+                    />
+                  </Field>
+                  <Field label="Shade">
+                    <select
+                      aria-label="Dining shade"
+                      value={object.diningShade ?? 'none'}
+                      onChange={(event) =>
+                        patch({ diningShade: event.target.value as PlanObject['diningShade'] })
+                      }
+                    >
+                      <option value="none">None</option>
+                      <option value="umbrella">Umbrellas</option>
+                      <option value="pergola">Pergola</option>
+                    </select>
+                  </Field>
+                  <Field label="Boundary">
+                    <select
+                      aria-label="Dining boundary"
+                      value={object.diningBoundary ?? 'none'}
+                      onChange={(event) =>
+                        patch({
+                          diningBoundary: event.target.value as PlanObject['diningBoundary'],
+                        })
+                      }
+                    >
+                      <option value="none">None</option>
+                      <option value="planter">Planters</option>
+                      <option value="rope">Rope posts</option>
+                    </select>
+                  </Field>
+                  <Field label="Host station">
+                    <Input
+                      aria-label="Host station"
+                      type="checkbox"
+                      checked={object.diningHost ?? false}
+                      onChange={(event) => patch({ diningHost: event.target.checked })}
+                    />
+                  </Field>
+                  <Field label="Bus tub">
+                    <Input
+                      aria-label="Bus tub"
+                      type="checkbox"
+                      checked={object.diningBusTub ?? false}
+                      onChange={(event) => patch({ diningBusTub: event.target.checked })}
+                    />
+                  </Field>
+                  <Field label="Linked food vendor">
+                    <select
+                      aria-label="Linked food vendor"
+                      value={object.diningVendorReferenceId ?? ''}
+                      onChange={(event) =>
+                        snapToVendor(event.target.value, object.diningVendorServiceEdge ?? 0)
+                      }
+                    >
+                      <option value="">No linked vendor</option>
+                      {vendors.map((vendor) => (
+                        <option key={vendor.id} value={vendor.id}>
+                          {vendor.name} · {vendor.recipe}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  {!vendors.length && (
+                    <p className="fp-muted">
+                      No food kiosk or food truck is on this floor. Vendor linking requires one of
+                      those service-window models.
+                    </p>
+                  )}
+                  {linkedVendor && (
+                    <>
+                      <Field label="Vendor-facing dining edge">
+                        <select
+                          aria-label="Vendor-facing dining edge"
+                          value={object.diningVendorServiceEdge ?? 0}
+                          onChange={(event) =>
+                            snapToVendor(linkedVendor.id, Number(event.target.value))
+                          }
+                        >
+                          {object.polygon.map((_, index) => (
+                            <option key={index} value={index}>
+                              Edge {index + 1}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <p className="fp-muted">
+                        Linked to {linkedVendor.name}; its modeled +Z service window aligns to edge{' '}
+                        {serviceWindow
+                          ? serviceWindow.edgeIndex + 1
+                          : (object.diningVendorServiceEdge ?? 0) + 1}{' '}
+                        with a 4 m clear buffer.
+                      </p>
+                    </>
+                  )}
+                  <div className="fp-context-panel" aria-live="polite">
+                    <strong>{layout.capacity} seats</strong>
+                    <p className="fp-muted">
+                      {layout.tables.length} of {object.diningTableCount ?? 6} requested tables fit.
+                      Furniture remains at physical scale when the footprint changes.
+                    </p>
+                    {layout.warnings.map((warning) => (
+                      <p key={warning} className="fp-error">
+                        {warning}
+                      </p>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+          {object.recipe.startsWith('washroom') && (
+            <Field label="Washroom signage">
+              <select
+                aria-label="Washroom signage"
+                value={object.gender}
+                onChange={(event) => patch({ gender: event.target.value as PlanObject['gender'] })}
+              >
+                <option value="men">Men</option>
+                <option value="women">Women</option>
+                <option value="unisex">Unisex</option>
+              </select>
+            </Field>
+          )}
+          {(object.recipe === 'washroom-men' || object.recipe === 'washroom-women') && (
+            <NumberInput
+              label="Entrance opening (m)"
+              value={object.washroomOpening}
+              min={1.0}
+              max={1.8}
+              step={0.1}
+              onChange={(washroomOpening) => patch({ washroomOpening })}
+            />
+          )}
+          {object.recipe === 'kids-zone' && (
+            <NumberInput
+              label="Play element density"
+              value={object.kidsDensity}
+              min={0.2}
+              max={1.0}
+              step={0.1}
+              onChange={(kidsDensity) => patch({ kidsDensity })}
+            />
+          )}
+          {object.recipe === 'avatar' && (
+            <>
+              <Field label="Pose preset">
+                <select
+                  aria-label="Pose preset"
+                  value={object.avatarPose}
+                  onChange={(event) =>
+                    patch({ avatarPose: event.target.value as PlanObject['avatarPose'] })
+                  }
+                >
+                  {['idle', 'walking', 'pointing', 'sitting'].map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+              </Field>
+              <div className="fp-two">
+                {(
+                  [
+                    ['avatarSkin', 'Skin'],
+                    ['avatarClothing', 'Clothing'],
+                    ['avatarHair', 'Hair'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <Field key={key} label={label}>
+                    <Input
+                      aria-label={label}
+                      type="color"
+                      value={object[key]}
+                      onChange={(event) => patch({ [key]: event.target.value })}
+                    />
+                  </Field>
+                ))}
+              </div>
+              <label className="fp-check">
+                <input
+                  type="checkbox"
+                  checked={object.avatarAnimated}
+                  onChange={(event) => patch({ avatarAnimated: event.target.checked })}
+                />
+                Idle breathing &amp; sway
+              </label>
+              <label className="fp-check">
+                <input
+                  type="checkbox"
+                  checked={object.avatarPin}
+                  onChange={(event) => patch({ avatarPin: event.target.checked })}
+                />
+                “You are here” pin
+              </label>
+              <p className="fp-muted">Scale and dimensions are locked to the 1.8 m benchmark.</p>
+            </>
+          )}
+          {object.recipe === 'barn-tent' && (
+            <>
+              <Field label="Tent style">
+                <select
+                  aria-label="Tent style"
+                  value={object.tentStyle}
+                  onChange={(event) =>
+                    patch({ tentStyle: event.target.value as PlanObject['tentStyle'] })
+                  }
+                >
+                  <option value="barn">Barn</option>
+                  <option value="gazebo">Gazebo</option>
+                  <option value="marquee">Marquee</option>
+                </select>
+              </Field>
+              <NumberInput
+                label="Roof overhang (m)"
+                value={object.roofOverhang}
+                min={0}
+                max={5}
+                onChange={(roofOverhang) => patch({ roofOverhang })}
+              />
+              <NumberInput
+                label="Eaves / peak ratio"
+                value={object.eavesRatio}
+                min={0.3}
+                max={0.95}
+                step={0.05}
+                onChange={(eavesRatio) => patch({ eavesRatio })}
+              />
+              {object.tentStyle === 'marquee' && (
+                <NumberInput
+                  label="Marquee bays"
+                  value={object.tentBays}
+                  min={1}
+                  max={8}
+                  step={1}
+                  onChange={(tentBays) => patch({ tentBays })}
+                />
+              )}
+              <Field label="Canopy material">
+                <select
+                  aria-label="Canopy material"
+                  value={object.canopyMaterial}
+                  onChange={(event) =>
+                    patch({ canopyMaterial: event.target.value as PlanObject['canopyMaterial'] })
+                  }
+                >
+                  {['canvas', 'vinyl', 'transparent'].map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Pole material">
+                <select
+                  aria-label="Pole material"
+                  value={object.poleMaterial}
+                  onChange={(event) =>
+                    patch({ poleMaterial: event.target.value as PlanObject['poleMaterial'] })
+                  }
+                >
+                  {['steel', 'wood', 'aluminium'].map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Sidewall state">
+                <select
+                  aria-label="Sidewall state"
+                  value={object.tentSidewall}
+                  onChange={(event) =>
+                    patch({ tentSidewall: event.target.value as PlanObject['tentSidewall'] })
+                  }
+                >
+                  {['open', 'half', 'full', 'windows'].map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Flooring">
+                <select
+                  aria-label="Tent flooring"
+                  value={object.tentFlooring}
+                  onChange={(event) =>
+                    patch({ tentFlooring: event.target.value as PlanObject['tentFlooring'] })
+                  }
+                >
+                  {['none', 'grass', 'wood-deck'].map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+              </Field>
+              <NumberInput
+                label="Eaves height (m)"
+                value={object.tentEavesHeight}
+                min={2}
+                max={3}
+                step={0.1}
+                onChange={(tentEavesHeight) => patch({ tentEavesHeight })}
+              />
+              <label className="fp-check">
+                <input
+                  type="checkbox"
+                  checked={object.tentIndoors}
+                  onChange={(event) => patch({ tentIndoors: event.target.checked })}
+                />
+                Indoors (hide guy ropes)
+              </label>
+              <Vertices
+                value={object.polePositions}
+                label="Tent poles (local meters; empty uses corners)"
+                isPolygon={false}
+                onChange={(polePositions) => patch({ polePositions })}
+              />
+            </>
+          )}
+          {shellDesign && (
+            <BoothFields object={object} patch={patch} shellStructure={isShellStructure(object)} />
+          )}
+          {isBooth(object) && (
+            <>
+              <NumberInput
+                label="Price"
+                min={0}
+                value={object.price}
+                onChange={(price) => patch({ price })}
+              />
+              <Field label="Status">
+                <select
+                  aria-label="Booth status"
+                  value={object.status}
+                  onChange={(event) =>
+                    patch({ status: event.target.value as PlanObject['status'] })
+                  }
+                >
+                  {['AVAILABLE', 'HOLD', 'BOOKED', 'UNAVAILABLE'].map((status) => (
+                    <option key={status}>{status}</option>
+                  ))}
+                </select>
+              </Field>
+              {(
+                [
+                  'company',
+                  'boothType',
+                  'youtubeLink',
+                  'tags',
+                  'contactName',
+                  'contactEmail',
+                  'contactPhone',
+                ] as const
+              ).map((key) => (
+                <Field
+                  key={key}
+                  label={
+                    {
+                      company: 'Company',
+                      boothType: 'Booth type',
+                      youtubeLink: 'YouTube URL',
+                      tags: 'Tags',
+                      contactName: 'Contact name',
+                      contactEmail: 'Contact email',
+                      contactPhone: 'Contact phone',
+                    }[key]
+                  }
+                >
+                  <Input
+                    aria-label={key}
+                    value={object[key]}
+                    onChange={(event) => patch({ [key]: event.target.value })}
+                  />
+                </Field>
+              ))}
+              <Field label="Gate">
+                <select
+                  aria-label="Gate"
+                  value={object.gate}
+                  onChange={(event) => patch({ gate: event.target.value as PlanObject['gate'] })}
+                >
+                  {['front', 'back', 'left', 'right'].map((gate) => (
+                    <option key={gate}>{gate}</option>
+                  ))}
+                </select>
+              </Field>
+            </>
+          )}
+          {object.recipe === 'entrance' && (
+            <>
+              <Field label="Gate type">
+                <select
+                  aria-label="Gate type"
+                  value={object.entranceGate}
+                  onChange={(event) =>
+                    patch({ entranceGate: event.target.value as PlanObject['entranceGate'] })
+                  }
+                >
+                  {['arch-sliding-doors', 'turnstile-lanes', 'open-arch'].map((value) => (
+                    <option key={value}>{value}</option>
+                  ))}
+                </select>
+              </Field>
+              <NumberInput
+                label="Clear opening (m)"
+                value={object.entranceOpening ?? object.dimensions[0] - 1.0}
+                min={1.2}
+                max={6}
+                step={0.1}
+                onChange={(entranceOpening) => patch({ entranceOpening })}
+              />
+              <label className="fp-check">
+                <input
+                  type="checkbox"
+                  checked={object.entranceGate === 'open-arch' ? true : object.entranceOpen}
+                  disabled={object.entranceGate === 'open-arch'}
+                  onChange={(event) => patch({ entranceOpen: event.target.checked })}
+                />
+                Doors open (slide ±0.9 m, 0.8 s)
+              </label>
+            </>
+          )}
+          {object.recipe === 'information' && (
+            <NumberInput
+              label="Floating sign height (m)"
+              value={object.infoSignHeight}
+              min={2.8}
+              max={4.5}
+              step={0.1}
+              onChange={(infoSignHeight) => patch({ infoSignHeight })}
+            />
+          )}
+          {object.recipe === 'food-kiosk' && (
+            <>
+              <NumberInput
+                label="Queue zone depth (m)"
+                value={object.kioskQueueDepth}
+                min={1.5}
+                max={3.0}
+                step={0.1}
+                onChange={(kioskQueueDepth) => patch({ kioskQueueDepth })}
+              />
+              <Field label="Menu board text">
+                <Input
+                  aria-label="Menu board text"
+                  value={object.kioskMenu}
+                  onChange={(event) => patch({ kioskMenu: event.target.value })}
+                />
+              </Field>
+            </>
+          )}
+          {object.recipe === 'exit' && (
+            <label className="fp-check">
+              <input
+                type="checkbox"
+                checked={object.exitOpen}
+                onChange={(event) => patch({ exitOpen: event.target.checked })}
+              />
+              Egress door open (−90° swing, 0.6 s)
+            </label>
+          )}
+          {object.recipe === 'bench' && (
+            <Field label="Bench variant">
+              <select
+                aria-label="Bench variant"
+                value={object.benchVariant}
+                onChange={(event) => {
+                  const benchVariant = event.target.value as PlanObject['benchVariant'];
+                  patch({
+                    benchVariant,
+                    dimensions: [
+                      object.dimensions[0],
+                      benchVariant === 'backed' ? 0.85 : 0.45,
+                      object.dimensions[2],
+                    ],
+                  });
+                }}
+              >
+                <option value="backed">Backed</option>
+                <option value="backless">Backless</option>
+              </select>
+            </Field>
+          )}
+          {object.recipe === 'table' && (
+            <>
+              <Field label="Table variant">
+                <select
+                  aria-label="Table variant"
+                  value={object.tableVariant}
+                  onChange={(event) => {
+                    const tableVariant = event.target.value as PlanObject['tableVariant'];
+                    patch({
+                      tableVariant,
+                      dimensions: [
+                        object.dimensions[0],
+                        tableVariant === 'cocktail-standing' ? 1.1 : 0.75,
+                        object.dimensions[2],
+                      ],
+                    });
+                  }}
+                >
+                  <option value="cocktail-standing">Cocktail standing</option>
+                  <option value="standard-dining">Standard dining</option>
+                  <option value="cloth-draped">Cloth draped</option>
+                </select>
+              </Field>
+              <Field label="Top shape">
+                <select
+                  aria-label="Top shape"
+                  value={object.tableTop}
+                  onChange={(event) =>
+                    patch({ tableTop: event.target.value as PlanObject['tableTop'] })
+                  }
+                >
+                  <option value="round">Round</option>
+                  <option value="rectangular">Rectangular</option>
+                </select>
+              </Field>
+              <Field label="Attached chairs">
+                <select
+                  aria-label="Attached chairs"
+                  value={object.tableChairs}
+                  onChange={(event) =>
+                    patch({ tableChairs: event.target.value as PlanObject['tableChairs'] })
+                  }
+                >
+                  <option value="none">None</option>
+                  <option value="2-chairs">2 chairs</option>
+                  <option value="4-chairs">4 chairs</option>
+                </select>
+              </Field>
+            </>
+          )}
+          {object.recipe === 'barrier' && (
+            <>
+              <Field label="Belt color">
+                <select
+                  aria-label="Belt color"
+                  value={object.barrierBelt}
+                  onChange={(event) =>
+                    patch({ barrierBelt: event.target.value as PlanObject['barrierBelt'] })
+                  }
+                >
+                  <option value="cyan">Wayfinding cyan</option>
+                  <option value="blue">Accent blue</option>
+                  <option value="red">Warning red</option>
+                </select>
+              </Field>
+              <NumberInput
+                label="Belt sag (m)"
+                value={object.barrierSag}
+                min={0.01}
+                max={0.08}
+                step={0.01}
+                onChange={(barrierSag) => patch({ barrierSag })}
+              />
+            </>
+          )}
+          {object.recipe === 'planter' && (
+            <>
+              <Field label="Foliage variant">
+                <select
+                  aria-label="Foliage variant"
+                  value={object.planterVariant}
+                  onChange={(event) =>
+                    patch({ planterVariant: event.target.value as PlanObject['planterVariant'] })
+                  }
+                >
+                  <option value="tall-tree">Tall tree</option>
+                  <option value="hedge-box">Hedge box</option>
+                  <option value="flower-shrub">Flower shrub</option>
+                </select>
+              </Field>
+              <NumberInput
+                label="Foliage seed"
+                value={object.planterSeed}
+                min={1}
+                max={9999}
+                step={1}
+                onChange={(planterSeed) => patch({ planterSeed })}
+              />
+            </>
+          )}
+          {object.recipe === 'bin' && (
+            <>
+              <Field label="Waste stream">
+                <select
+                  aria-label="Waste stream"
+                  value={object.binStream}
+                  onChange={(event) =>
+                    patch({ binStream: event.target.value as PlanObject['binStream'] })
+                  }
+                >
+                  <option value="general-waste">General waste</option>
+                  <option value="recycling">Recycling</option>
+                  <option value="organics">Organics</option>
+                </select>
+              </Field>
+              <Field label="Body finish">
+                <select
+                  aria-label="Body finish"
+                  value={object.binBody}
+                  onChange={(event) =>
+                    patch({ binBody: event.target.value as PlanObject['binBody'] })
+                  }
+                >
+                  <option value="dark">Neutral dark</option>
+                  <option value="steel">Stainless</option>
+                </select>
+              </Field>
+            </>
+          )}
+          {isCirculation(object.recipe) && <CirculationFields object={object} patch={patch} />}
+          {isConnector(object.recipe) && (
+            <>
+              {!object.circulationDesign && (
+                <>
+                  <NumberInput
+                    label="Steps"
+                    min={1}
+                    step={1}
+                    value={object.steps}
+                    onChange={(steps) => patch({ steps })}
+                  />
+                  <p className="fp-muted">
+                    Rise {(object.dimensions[1] / object.steps).toFixed(2)} m · tread{' '}
+                    {(object.dimensions[2] / object.steps).toFixed(2)} m
+                  </p>
+                  <div className="fp-two">
+                    <NumberInput
+                      label="Step rise (m)"
+                      value={object.dimensions[1] / object.steps}
+                      min={0.01}
+                      onChange={(value) => dimension(1, value * object.steps)}
+                    />
+                    <NumberInput
+                      label="Step tread (m)"
+                      value={object.dimensions[2] / object.steps}
+                      min={0.01}
+                      onChange={(value) => dimension(2, value * object.steps)}
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    aria-pressed={object.handrails}
+                    onClick={() => patch({ handrails: !object.handrails })}
+                  >
+                    Handrails {object.handrails ? 'on' : 'off'}
+                  </Button>
+                </>
+              )}
+              <p className="fp-muted">
+                Save connector changes from the top-right button. Each landing can then be moved
+                independently.
+              </p>
+              {state.document.floors
+                .filter(
+                  (floor) =>
+                    floor.source.id !== state.floorId &&
+                    !floor.objects.some(
+                      (item) => object.portalId && item.portalId === object.portalId,
+                    ),
+                )
+                .map((floor) => (
+                  <Button
+                    key={floor.source.id}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => state.linkConnector(floor.source.id, landing)}
+                  >
+                    Connect to {floor.source.name}
+                  </Button>
+                ))}
+              {object.portalId &&
+                state.document.floors
+                  .filter((floor) => floor.source.id !== state.floorId)
+                  .flatMap((floor) => {
+                    const target = floor.objects.find((item) => item.portalId === object.portalId);
+                    return target
+                      ? [
+                          <div className="fp-row" key={floor.source.id}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={unfinished(state)}
+                              onClick={() => {
+                                if ((onChangeFloor ?? state.setFloor)(floor.source.id)) {
+                                  store.getState().select({ kind: 'object', id: target.id });
+                                }
+                              }}
+                            >
+                              Edit landing · {floor.source.name}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={unfinished(state)}
+                              onClick={() => state.unlinkConnector(floor.source.id)}
+                            >
+                              Disconnect {floor.source.name}
+                            </Button>
+                          </div>,
+                        ]
+                      : [];
+                  })}
+              {object.portalId && (
+                <p className="fp-muted">
+                  Paired connector · {object.connectsFloorIds.length} floors
+                </p>
+              )}
+            </>
+          )}
         </details>
-      )}
+        {isBooth(object) && (
+          <details className="fp-settings-group">
+            <summary>Advanced geometry</summary>
+            <Vertices
+              key={`${object.id}:vertices`}
+              value={object.polygon}
+              onChange={(polygon) => patch({ polygon })}
+            />
+          </details>
+        )}
       </fieldset>
     </div>
   );
@@ -1457,7 +1908,17 @@ export function FloorProperties({ store }: { store: StudioStore }) {
     </div>
   );
 }
-export function Inspector({ store, onChangeFloor }: { store: StudioStore; onChangeFloor?: (floorId: string) => boolean }) {
+export function Inspector({
+  store,
+  onChangeFloor,
+  selectedBayId,
+  onClearBay,
+}: {
+  store: StudioStore;
+  onChangeFloor?: (floorId: string) => boolean;
+  selectedBayId?: string | null;
+  onClearBay?: () => void;
+}) {
   const state = useStore(
     store,
     useShallow((value) => ({
@@ -1494,7 +1955,10 @@ export function Inspector({ store, onChangeFloor }: { store: StudioStore; onChan
   if (state.pendingRemoval) {
     return (
       <div className="fp-form">
-        <p>Removal is in the shared draft. Use the top-right Save button to persist it, or Undo to restore the item.</p>
+        <p>
+          Removal is in the shared draft. Use the top-right Save button to persist it, or Undo to
+          restore the item.
+        </p>
       </div>
     );
   }
@@ -1505,7 +1969,16 @@ export function Inspector({ store, onChangeFloor }: { store: StudioStore; onChan
     state.pendingZone ??
     floor.zones.find((item) => selection?.kind === 'zone' && item.id === selection.id);
   if (object) {
-    return <ObjectFields key={object.id} store={store} object={object} onChangeFloor={onChangeFloor} />;
+    return (
+      <ObjectFields
+        key={object.id}
+        store={store}
+        object={object}
+        onChangeFloor={onChangeFloor}
+        selectedBayId={selectedBayId}
+        onClearBay={onClearBay}
+      />
+    );
   }
   if (zone) {
     return (
@@ -1519,47 +1992,58 @@ export function Inspector({ store, onChangeFloor }: { store: StudioStore; onChan
         >
           {zone.locked ? 'Unlock zone' : 'Lock zone'}
         </Button>
-        {zone.locked && <p className="fp-muted">Locked zones stay out of marquee selection and bulk edits.</p>}
+        {zone.locked && (
+          <p className="fp-muted">Locked zones stay out of marquee selection and bulk edits.</p>
+        )}
         <fieldset disabled={zone.locked === true} className="contents" aria-label="Zone properties">
-        <Field label="Zone name">
-          <Input
-            aria-label="Zone name"
-            aria-invalid={!zone.label.trim()}
-            value={zone.label}
-            onChange={(event) => state.patchZone({ label: event.target.value })}
-          />
-        </Field>
-        <Field label="Zone type">
-          <select
-            aria-label="Zone type"
-            value={zone.type}
-            onChange={(event) => state.patchZone({ type: event.target.value as typeof zone.type })}
-          >
-            <option value="walkable">Walkable</option>
-            <option value="blocked">Blocked</option>
-            <option value="display">Display</option>
-          </select>
-        </Field>
-        <details className="fp-settings-group">
-          <summary>Advanced geometry</summary>
-          <Vertices
-            key={zone.id}
-            value={zone.polygon}
-            label="Zone vertices (world meters)"
-            onChange={(polygon) => state.patchZone({ polygon })}
-          />
-        </details>
-        <div className="fp-row">
-          <Button variant="outline" onClick={() => state.setTool('move')}>
-            Move zone
-          </Button>
-           <Button variant="outline" onClick={() => { if (!state.beginDuplicate()) { toast.error(store.getState().message); } }}>
-            Duplicate zone
-          </Button>
-          <Button variant="outline" onClick={() => state.remove()}>
-            Remove zone
-          </Button>
-        </div>
+          <Field label="Zone name">
+            <Input
+              aria-label="Zone name"
+              aria-invalid={!zone.label.trim()}
+              value={zone.label}
+              onChange={(event) => state.patchZone({ label: event.target.value })}
+            />
+          </Field>
+          <Field label="Zone type">
+            <select
+              aria-label="Zone type"
+              value={zone.type}
+              onChange={(event) =>
+                state.patchZone({ type: event.target.value as typeof zone.type })
+              }
+            >
+              <option value="walkable">Walkable</option>
+              <option value="blocked">Blocked</option>
+              <option value="display">Display</option>
+            </select>
+          </Field>
+          <details className="fp-settings-group">
+            <summary>Advanced geometry</summary>
+            <Vertices
+              key={zone.id}
+              value={zone.polygon}
+              label="Zone vertices (world meters)"
+              onChange={(polygon) => state.patchZone({ polygon })}
+            />
+          </details>
+          <div className="fp-row">
+            <Button variant="outline" onClick={() => state.setTool('move')}>
+              Move zone
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!state.beginDuplicate()) {
+                  toast.error(store.getState().message);
+                }
+              }}
+            >
+              Duplicate zone
+            </Button>
+            <Button variant="outline" onClick={() => state.remove()}>
+              Remove zone
+            </Button>
+          </div>
         </fieldset>
       </div>
     );

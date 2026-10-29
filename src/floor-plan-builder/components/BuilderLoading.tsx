@@ -41,7 +41,9 @@ export function BuilderLoading({
   delayMs?: number;
 }) {
   const visible = useBuilderLoadingVisible(state, delayMs);
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
   const titles: Record<BuilderLoadingPhase, string> = {
     floor: 'Preparing floor',
     assets: 'Preparing objects',
@@ -111,10 +113,7 @@ const venueVisitors = [
   { id: 'visitor-3', x: 400, y: 136, color: '#657e63', route: 'fp-mini-visitor-route-c' },
 ] as const;
 
-function activateOnKeyboard(
-  event: KeyboardEvent<SVGGElement>,
-  activate: () => void,
-) {
+function activateOnKeyboard(event: KeyboardEvent<SVGGElement>, activate: () => void) {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
     activate();
@@ -143,12 +142,16 @@ export function MiniatureVenueLoading({
       setMounted(true);
       return;
     }
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     // Let the ready floor appear immediately beneath a short, non-blocking fade.
     const timer = window.setTimeout(() => setMounted(false), 180);
     return () => window.clearTimeout(timer);
   }, [visible, mounted]);
-  if (!mounted) return null;
+  if (!mounted) {
+    return null;
+  }
 
   const title: Record<BuilderLoadingPhase, string> = {
     floor: 'Making room for your ideas',
@@ -208,15 +211,35 @@ export function MiniatureVenueLoading({
               <stop offset="1" stopColor="#e8eee6" />
             </linearGradient>
             <filter id="fp-mini-shadow" x="-30%" y="-30%" width="160%" height="180%">
-              <feDropShadow dx="0" dy="5" stdDeviation="4" floodColor="#40574a" floodOpacity=".16" />
+              <feDropShadow
+                dx="0"
+                dy="5"
+                stdDeviation="4"
+                floodColor="#40574a"
+                floodOpacity=".16"
+              />
             </filter>
           </defs>
           <rect x="6" y="7" width="508" height="238" rx="24" fill="url(#fp-mini-floor)" />
-          <path d="M18 136h484M252 17v218" fill="none" stroke="#c9d8ce" strokeWidth="2" strokeDasharray="4 8" />
-          <path d="M18 150c64-24 119 18 181 0s109-21 170 0 90 9 133-3" fill="none" stroke="#fffdf7" strokeWidth="20" strokeLinecap="round" />
+          <path
+            d="M18 136h484M252 17v218"
+            fill="none"
+            stroke="#c9d8ce"
+            strokeWidth="2"
+            strokeDasharray="4 8"
+          />
+          <path
+            d="M18 150c64-24 119 18 181 0s109-21 170 0 90 9 133-3"
+            fill="none"
+            stroke="#fffdf7"
+            strokeWidth="20"
+            strokeLinecap="round"
+          />
           <g fill="#d3dfd3" opacity=".7">
-            <circle cx="26" cy="34" r="4" /><circle cx="494" cy="216" r="5" />
-            <circle cx="278" cy="224" r="3" /><circle cx="487" cy="30" r="3" />
+            <circle cx="26" cy="34" r="4" />
+            <circle cx="494" cy="216" r="5" />
+            <circle cx="278" cy="224" r="3" />
+            <circle cx="487" cy="30" r="3" />
           </g>
           {venueBooths.map((booth, index) => {
             const bouncing = motion?.kind === 'booth' && motion.id === booth.id;
@@ -231,12 +254,48 @@ export function MiniatureVenueLoading({
                 onClick={() => animate('booth', booth.id)}
                 onKeyDown={(event) => activateOnKeyboard(event, () => animate('booth', booth.id))}
               >
-                <ellipse cx={booth.x + 43} cy={booth.y + 43} rx="48" ry="8" fill="#9aab9d" opacity=".35" />
-                <path d={`M${booth.x} ${booth.y + 12}l13-10h73l-13 10z`} fill={booth.color} opacity=".72" />
-                <rect x={booth.x} y={booth.y + 12} width="73" height="30" rx="5" fill={booth.color} filter="url(#fp-mini-shadow)" />
-                <path d={`M${booth.x + 9} ${booth.y + 20}h19v14H${booth.x + 9}z`} fill="#fff9e9" opacity=".8" />
-                <path d={`M${booth.x + 34} ${booth.y + 20}h27v3h-27zm0 7h20v3h-20z`} fill="#fff9e9" opacity=".76" />
-                <text x={booth.x + 36} y={booth.y + 55} textAnchor="middle" fill="#40574a" fontSize="9" fontWeight="700">{booth.name}</text>
+                <ellipse
+                  cx={booth.x + 43}
+                  cy={booth.y + 43}
+                  rx="48"
+                  ry="8"
+                  fill="#9aab9d"
+                  opacity=".35"
+                />
+                <path
+                  d={`M${booth.x} ${booth.y + 12}l13-10h73l-13 10z`}
+                  fill={booth.color}
+                  opacity=".72"
+                />
+                <rect
+                  x={booth.x}
+                  y={booth.y + 12}
+                  width="73"
+                  height="30"
+                  rx="5"
+                  fill={booth.color}
+                  filter="url(#fp-mini-shadow)"
+                />
+                <path
+                  d={`M${booth.x + 9} ${booth.y + 20}h19v14H${booth.x + 9}z`}
+                  fill="#fff9e9"
+                  opacity=".8"
+                />
+                <path
+                  d={`M${booth.x + 34} ${booth.y + 20}h27v3h-27zm0 7h20v3h-20z`}
+                  fill="#fff9e9"
+                  opacity=".76"
+                />
+                <text
+                  x={booth.x + 36}
+                  y={booth.y + 55}
+                  textAnchor="middle"
+                  fill="#40574a"
+                  fontSize="9"
+                  fontWeight="700"
+                >
+                  {booth.name}
+                </text>
               </g>
             );
           })}
@@ -251,29 +310,63 @@ export function MiniatureVenueLoading({
                 className={`fp-mini-venue-visitor ${visitor.route}${waving ? ' is-waving' : ''}`}
                 transform={`translate(${visitor.x} ${visitor.y})`}
                 onClick={() => animate('visitor', visitor.id)}
-                onKeyDown={(event) => activateOnKeyboard(event, () => animate('visitor', visitor.id))}
+                onKeyDown={(event) =>
+                  activateOnKeyboard(event, () => animate('visitor', visitor.id))
+                }
               >
                 <ellipse cx="0" cy="19" rx="8" ry="3" fill="#88998c" opacity=".45" />
                 <circle cx="0" cy="-2" r="5" fill="#d99770" />
-                <path d="M0 4v10m0-6-6 5m6-5 6 4m-6 2-4 7m4-7 5 7" fill="none" stroke={visitor.color} strokeWidth="3.4" strokeLinecap="round" />
-                <path className="fp-mini-arm" d="M0 8l-7 2" fill="none" stroke={visitor.color} strokeWidth="3.4" strokeLinecap="round" />
+                <path
+                  d="M0 4v10m0-6-6 5m6-5 6 4m-6 2-4 7m4-7 5 7"
+                  fill="none"
+                  stroke={visitor.color}
+                  strokeWidth="3.4"
+                  strokeLinecap="round"
+                />
+                <path
+                  className="fp-mini-arm"
+                  d="M0 8l-7 2"
+                  fill="none"
+                  stroke={visitor.color}
+                  strokeWidth="3.4"
+                  strokeLinecap="round"
+                />
               </g>
             );
           })}
-          <text x="260" y="232" textAnchor="middle" fill="#648074" fontSize="9" letterSpacing="1.6">A LITTLE VENUE TAKING SHAPE</text>
+          <text x="260" y="232" textAnchor="middle" fill="#648074" fontSize="9" letterSpacing="1.6">
+            A LITTLE VENUE TAKING SHAPE
+          </text>
         </svg>
         <div className="mt-2 grid gap-2 text-center">
           {state.error ? (
             <>
               <p className="text-base font-semibold">Could not prepare this view</p>
               <p className="mx-auto max-w-md text-sm text-muted-foreground">{state.error}</p>
-              {retry && <button type="button" className="mx-auto rounded-lg border px-4 py-2 text-sm font-medium" onClick={retry}>Try again</button>}
+              {retry && (
+                <button
+                  type="button"
+                  className="mx-auto rounded-lg border px-4 py-2 text-sm font-medium"
+                  onClick={retry}
+                >
+                  Try again
+                </button>
+              )}
             </>
           ) : (
             <>
               <p className="text-base font-semibold">{title[state.phase]}</p>
-              <p className="text-sm text-muted-foreground">Click a booth for a tiny bounce, or ask a visitor to wave.</p>
-              {progress !== undefined && <progress aria-label={title[state.phase]} className="fp-mini-venue-progress w-full" max={1} value={progress} />}
+              <p className="text-sm text-muted-foreground">
+                Click a booth for a tiny bounce, or ask a visitor to wave.
+              </p>
+              {progress !== undefined && (
+                <progress
+                  aria-label={title[state.phase]}
+                  className="fp-mini-venue-progress w-full"
+                  max={1}
+                  value={progress}
+                />
+              )}
             </>
           )}
         </div>

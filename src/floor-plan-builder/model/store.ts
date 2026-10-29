@@ -11,6 +11,8 @@ import { snapBoothPosition } from './booth.ts';
 import { snapBarrierPosition } from './barrier.ts';
 import { fitCirculation, snapCirculation } from './circulation.ts';
 import { snapWashRackPosition } from './wash-rack-spatial.ts';
+import type { WashRackVariant } from './wash-rack.ts';
+import type { ShowOfficeVariant } from './show-office.ts';
 import {
   objectSchema,
   polygonSchema,
@@ -85,6 +87,7 @@ export interface StudioState {
   ungroup: () => void;
   tool: Tool;
   recipe: RecipeId;
+  placementVariant: WashRackVariant | ShowOfficeVariant | null;
   presetId: string | null;
   poiRecipe: 'stairs' | 'entrance';
   placementYaw: number;
@@ -122,7 +125,7 @@ export interface StudioState {
   toggleSelection: (selection: Selection) => boolean;
   setFloor: (id: string) => boolean;
   setTool: (tool: Tool, recipe?: RecipeId) => void;
-  beginPlacement: (recipe: RecipeId) => boolean;
+  beginPlacement: (recipe: RecipeId, variant?: WashRackVariant | ShowOfficeVariant) => boolean;
   beginDuplicate: () => boolean;
   cancel: () => void;
   addPoint: (point: [number, number]) => void;
@@ -173,7 +176,7 @@ export function selectionPivot(floor: PlanFloor, selections: Selection[]): [numb
       return object && !object.locked ? [[object.position[0], object.position[1]]] : [];
     }
     const zone = floor.zones.find((item) => item.id === selection.id);
-    if (!zone || zone.locked) return [];
+    if (!zone || zone.locked) {return [];}
     const bounds = polygonBounds(zone.polygon);
     return [[(bounds.minX + bounds.maxX) / 2, (bounds.minZ + bounds.maxZ) / 2]];
   });
@@ -391,6 +394,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
     },
     tool: 'select',
     recipe: 'booth',
+    placementVariant: null,
     presetId: null,
     poiRecipe: 'entrance',
     placementYaw: 0,
@@ -415,6 +419,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       set({
         presetId: preset.id,
         recipe: 'booth',
+        placementVariant: null,
         tool: 'place',
         pointer: null,
         message: `${preset.label} preset selected. Click to place.`,
@@ -429,6 +434,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       set({
         poiRecipe: recipe,
         recipe,
+        placementVariant: null,
         presetId: null,
         tool: 'place',
         pointer: null,
@@ -669,7 +675,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       }
       set({
         tool,
-        ...(recipe ? { recipe, presetId: null } : {}),
+        ...(recipe ? { recipe, presetId: null, placementVariant: null } : {}),
         pointer: null,
         message:
           tool === 'remove'
@@ -679,7 +685,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
               : `${tool.replaceAll('-', ' ')} mode selected.`,
       });
     },
-    beginPlacement: (recipe) => {
+    beginPlacement: (recipe, variant) => {
       let state = get();
       if (unfinished(state) && !commitPendingForm(state)) {
         get().notify(get().message || 'Finish or correct this edit before placing another item.');
@@ -690,15 +696,19 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         state.notify('That item is unavailable.');
         return false;
       }
+      const selectedItem = inventory.find(
+        (item) => item.id === recipe && (item.washRackVariant ?? item.showOfficeVariant) === variant,
+      ) ?? inventory.find((item) => item.id === recipe && !item.washRackVariant && !item.showOfficeVariant);
       set({
         tool: 'place',
         recipe,
+        placementVariant: recipe === 'wash-rack' || recipe === 'show-office' ? (variant ?? null) : null,
         presetId: null,
         pointer: null,
         selection: null,
         selectionSet: [],
         focusId: null,
-        message: `Place ${inventory.find((item) => item.id === recipe)!.name}.`,
+        message: `Place ${selectedItem?.name ?? recipe}.`,
       });
       return true;
     },
@@ -787,7 +797,10 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       const object =
         state.tool === 'place'
           ? {
-              ...withPreset(createObject(state.recipe, [0, 0], floor.objects), state.presetId),
+              ...withPreset(
+                createObject(state.recipe, [0, 0], floor.objects, undefined, state.recipe === 'wash-rack' ? state.placementVariant as WashRackVariant | undefined : undefined, state.recipe === 'show-office' ? state.placementVariant as ShowOfficeVariant | undefined : undefined),
+                state.presetId,
+              ),
               yawRadians: state.placementYaw,
             }
           : selected;
@@ -1120,7 +1133,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
               ? nextBoothNumber(floor.objects, reservedNumbers)
               : '';
             names.push(name);
-            if (boothNumber) reservedNumbers.push(boothNumber);
+            if (boothNumber) {reservedNumbers.push(boothNumber);}
             return {
               ...structuredClone(member),
               id: crypto.randomUUID(),
@@ -1214,7 +1227,14 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       let members: PlanObject[];
       {
         object = withPreset(
-          createObject(state.recipe, point, floor.objects, floorNames(floor)),
+          createObject(
+            state.recipe,
+            point,
+            floor.objects,
+            floorNames(floor),
+            state.recipe === 'wash-rack' ? state.placementVariant as WashRackVariant | undefined : undefined,
+            state.recipe === 'show-office' ? state.placementVariant as ShowOfficeVariant | undefined : undefined,
+          ),
           state.presetId,
         );
         object.yawRadians = state.placementYaw;
@@ -1324,7 +1344,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
         const updates = (state.pendingObjects ?? []).map((object) => objectSchema.safeParse(object));
         const invalid = updates.find((result) => !result.success);
         if (invalid) {
-          if (invalid.success) return false;
+          if (invalid.success) {return false;}
           set({ message: invalid.error.issues[0]?.message ?? 'Check selected object properties.' });
           return false;
         }
@@ -1353,7 +1373,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           set({ message: error });
           return false;
         }
-        if (!get().commitFloor(candidateFloor)) return false;
+        if (!get().commitFloor(candidateFloor)) {return false;}
         set({ message: 'Selected items updated.' });
         return true;
       }
@@ -1530,7 +1550,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       const floor = activeFloor(state);
       const objectIds = new Set(selections.filter((item) => item.kind === 'object' && floor.objects.some((object) => object.id === item.id && object.managed)).map((item) => item.id));
       const zoneIds = new Set(selections.filter((item) => item.kind === 'zone').map((item) => item.id));
-      if (!objectIds.size && !zoneIds.size) return;
+      if (!objectIds.size && !zoneIds.size) {return;}
       // Locked entities survive deletion, while other selected entities still proceed.
       const lockedObjects = floor.objects.filter(
         (object) => objectIds.has(object.id) && object.locked,
@@ -1570,7 +1590,11 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
     },
     undo: () => {
       const state = get();
-      // Drafts, selection and tools are interaction state, not document history.
+      if (state.drawing.length) {
+        state.removePoint();
+        return;
+      }
+      // Other staged edits must be applied or discarded before document history changes.
       if (unfinished(state)) {
         return;
       }

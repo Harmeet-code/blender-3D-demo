@@ -254,7 +254,7 @@ function Underlay({ floor }: { floor: Floor }) {
   }, [imageSize, calibration, floor.authoring?.boundary, source?.authoring?.boundary]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
   return geometry ? (
-    <group>
+    <group position={[source?.authoring?.imageOffset?.[0] ?? 0, 0, source?.authoring?.imageOffset?.[1] ?? 0]}>
       <mesh geometry={geometry} receiveShadow>
         <meshStandardMaterial
           map={texture}

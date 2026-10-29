@@ -1,4 +1,9 @@
-import { pointInPolygon, polygonBounds, polygonEdges, segmentDistance } from '@/utils/geometry/polygon.ts';
+import {
+  pointInPolygon,
+  polygonBounds,
+  polygonEdges,
+  segmentDistance,
+} from '@/utils/geometry/polygon.ts';
 import { bakeBooth, boothEdges, boothWorldPoints } from '../../model/booth.ts';
 import { objectPoints } from '../../model/geometry.ts';
 import { isBooth, type PlanDocument, type PlanObject } from '../../model/types.ts';
@@ -9,6 +14,9 @@ import { infoCustomerNode } from '../../model/information.ts';
 import { firstAidEntryLocal } from '../../model/firstaid.ts';
 import { waterApproachNode } from '../../model/water.ts';
 import { washRackApproachLocal, washRackWalkableLocal } from '../../model/wash-rack-spatial.ts';
+import { shippingSpatialLayout, shippingWorldPoint } from '../../model/shipping-spatial.ts';
+import { parkingAnchorPoint } from '../../model/parking-navigation.ts';
+import { diningAnchorPoint } from '../../model/dining-navigation.ts';
 import { circulationEntry } from '../../model/circulation.ts';
 import { type StudioNavigator, type PlanRoute } from '../../model/directions.ts';
 import { buildFloorNavInput, ZONE_AREA } from './input-builder.ts';
@@ -43,7 +51,9 @@ function walkableUnionBoundary(polygons: Point2[][]): Array<[Point2, Point2]> {
     const dx = b[0] - a[0],
       dz = b[1] - a[1],
       lengthSquared = dx * dx + dz * dz;
-    if (lengthSquared < 1e-12) continue;
+    if (lengthSquared < 1e-12) {
+      continue;
+    }
     const cuts = [0, 1];
     for (const [c, d] of edges) {
       const sx = d[0] - c[0],
@@ -54,11 +64,15 @@ function walkableUnionBoundary(polygons: Point2[][]): Array<[Point2, Point2]> {
       if (Math.abs(denominator) > 1e-10) {
         const t = (qx * sz - qz * sx) / denominator,
           u = (qx * dz - qz * dx) / denominator;
-        if (t > 1e-9 && t < 1 - 1e-9 && u >= -1e-9 && u <= 1 + 1e-9) cuts.push(t);
+        if (t > 1e-9 && t < 1 - 1e-9 && u >= -1e-9 && u <= 1 + 1e-9) {
+          cuts.push(t);
+        }
       } else if (Math.abs(qx * dz - qz * dx) < 1e-9) {
         for (const point of [c, d]) {
           const t = ((point[0] - a[0]) * dx + (point[1] - a[1]) * dz) / lengthSquared;
-          if (t > 1e-9 && t < 1 - 1e-9) cuts.push(t);
+          if (t > 1e-9 && t < 1 - 1e-9) {
+            cuts.push(t);
+          }
         }
       }
     }
@@ -66,7 +80,9 @@ function walkableUnionBoundary(polygons: Point2[][]): Array<[Point2, Point2]> {
     for (let index = 1; index < cuts.length; index++) {
       const from = cuts[index - 1]!,
         to = cuts[index]!;
-      if (to - from < 1e-9) continue;
+      if (to - from < 1e-9) {
+        continue;
+      }
       const start: Point2 = [a[0] + dx * from, a[1] + dz * from],
         end: Point2 = [a[0] + dx * to, a[1] + dz * to],
         middle: Point2 = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2],
@@ -76,7 +92,9 @@ function walkableUnionBoundary(polygons: Point2[][]): Array<[Point2, Point2]> {
         ];
       const leftInside = insideUnion([middle[0] + normal[0], middle[1] + normal[1]]),
         rightInside = insideUnion([middle[0] - normal[0], middle[1] - normal[1]]);
-      if (leftInside !== rightInside) boundary.push([start, end]);
+      if (leftInside !== rightInside) {
+        boundary.push([start, end]);
+      }
     }
   }
   return boundary;
@@ -84,7 +102,9 @@ function walkableUnionBoundary(polygons: Point2[][]): Array<[Point2, Point2]> {
 
 function distanceToSegments(point: Point2, edges: Array<[Point2, Point2]>) {
   let distance = Infinity;
-  for (const [a, b] of edges) distance = Math.min(distance, segmentDistance(point, a, b));
+  for (const [a, b] of edges) {
+    distance = Math.min(distance, segmentDistance(point, a, b));
+  }
   return distance;
 }
 
@@ -151,6 +171,16 @@ export function itemAccessPoint(object: PlanObject, from?: Point2): Point2 {
       const bounds = polygonBounds(washRackApproachLocal(object));
       return local([(bounds.minX + bounds.maxX) / 2, (bounds.minZ + bounds.maxZ) / 2]);
     }
+    case 'shipping':
+      // Route on the supported ground XZ plane to the stair foot; the deck is elevated.
+      return shippingWorldPoint(object, shippingSpatialLayout(object).pedestrianApproachAnchor);
+    case 'parking-lot':
+      return parkingAnchorPoint(object, 'pedestrian-exit') ?? local([0, 0]);
+    case 'dining':
+      return (
+        diningAnchorPoint(object, object.diningHost ? 'host' : 'seat', undefined, from) ??
+        local([0, 0])
+      );
     case 'entrance':
       return local([0, object.dimensions[2] / 2 + 0.55]);
     default: {
@@ -478,7 +508,9 @@ export async function planWayfindingRoute(
           .map((object) => object.portalId)
           .filter((id): id is string => !!id)
       : [...invalidLandings];
-    if (accessible) disabledPortals.push(...invalidLandings);
+    if (accessible) {
+      disabledPortals.push(...invalidLandings);
+    }
     if (disabledPortals) {
       const ramps = new Set(
         document.floors

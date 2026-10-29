@@ -22,8 +22,8 @@ function dimensions(object: PlanObject) {
 
 function yawDelta(a: number, b: number): number {
   let value = (a - b) % (Math.PI * 2);
-  if (value > Math.PI) value -= Math.PI * 2;
-  if (value < -Math.PI) value += Math.PI * 2;
+  if (value > Math.PI) {value -= Math.PI * 2;}
+  if (value < -Math.PI) {value += Math.PI * 2;}
   return Math.abs(value);
 }
 
@@ -60,7 +60,7 @@ function projectedDelta(
 
 /** Compatible side-by-side bays whose physical edges meet within join tolerance. */
 function sideOfNeighbor(object: PlanObject, neighbor: PlanObject): 'left' | 'right' | null {
-  if (!sameRowConstruction(object, neighbor) || object.id === neighbor.id) return null;
+  if (!sameRowConstruction(object, neighbor) || object.id === neighbor.id) {return null;}
   const axisX = localXAxis(object),
     axisZ = localZAxis(object),
     dx = projectedDelta(object.position, neighbor.position, axisX),
@@ -68,7 +68,7 @@ function sideOfNeighbor(object: PlanObject, neighbor: PlanObject): 'left' | 'rig
     size = dimensions(object),
     other = dimensions(neighbor),
     clearance = Math.abs(dx) - (size.width + other.width) / 2;
-  if (Math.abs(dz) > ROW_JOIN_TOLERANCE || Math.abs(clearance) > ROW_JOIN_TOLERANCE) return null;
+  if (Math.abs(dz) > ROW_JOIN_TOLERANCE || Math.abs(clearance) > ROW_JOIN_TOLERANCE) {return null;}
   return dx < 0 ? 'left' : 'right';
 }
 
@@ -77,10 +77,10 @@ export function washRackRowConnections(
   siblings: readonly PlanObject[],
 ): WashRackRowConnections {
   const result: WashRackRowConnections = { left: false, right: false };
-  if (!isWashRack(object) || !object.washRackVariant) return result;
+  if (!isWashRack(object) || !object.washRackVariant) {return result;}
   for (const sibling of siblings) {
     const side = sideOfNeighbor(object, sibling);
-    if (side) result[side] = true;
+    if (side) {result[side] = true;}
   }
   return result;
 }
@@ -91,18 +91,18 @@ export function snapWashRackPosition(
   siblings: readonly PlanObject[],
   position: readonly [number, number] = object.position,
 ): Point2 {
-  if (!isWashRack(object) || !object.washRackVariant) return [position[0], position[1]];
+  if (!isWashRack(object) || !object.washRackVariant) {return [position[0], position[1]];}
   const axisX = localXAxis(object),
     axisZ = localZAxis(object),
     size = dimensions(object);
   let best: { point: Point2; score: number } | null = null;
   for (const sibling of siblings) {
-    if (!sameRowConstruction(object, sibling) || sibling.id === object.id) continue;
+    if (!sameRowConstruction(object, sibling) || sibling.id === object.id) {continue;}
     const dx = projectedDelta(position, sibling.position, axisX),
       dz = projectedDelta(position, sibling.position, axisZ),
       other = dimensions(sibling),
       gap = Math.abs(dx) - (size.width + other.width) / 2;
-    if (Math.abs(gap) > ROW_SNAP_TOLERANCE || Math.abs(dz) > ROW_SNAP_TOLERANCE) continue;
+    if (Math.abs(gap) > ROW_SNAP_TOLERANCE || Math.abs(dz) > ROW_SNAP_TOLERANCE) {continue;}
     const side = dx < 0 ? -1 : 1;
     const targetX = sibling.position[0] - axisX[0] * side * (size.width + other.width) / 2;
     const targetZ = sibling.position[1] - axisX[1] * side * (size.width + other.width) / 2;
@@ -168,4 +168,4 @@ export function washRackWalkableLocal(object: PlanObject): Point2[] {
 export function washRackApproachLocal(object: PlanObject): Point2[] {
   const { depth } = dimensions(object);
   return canonicalToCenterLocal([rectangle(-0.75, -2.5, 0.75, 0)], depth)[0]!;
-}\n
+}

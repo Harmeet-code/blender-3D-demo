@@ -20,15 +20,23 @@ export const parkingDesignSchema = z.object({
   seed: z.number().int().min(1).max(9999).default(42),
   showVehicles: z.boolean().default(true),
   showPoles: z.boolean().default(true),
+  /** Render a capacity/utilization overlay over the generated stall manifest. */
+  heatmap: z.boolean().default(false),
   /**
    * Manual bay overrides keyed by fractional (u, v) coordinates of the lot
-   * bounding box, e.g. "0.42,0.10": "ev". Survives re-layout because the key
-   * tracks the location rather than the generated bay index.
+   * bounding box, e.g. "0.42,0.10": "ev" or { type: "ev", pinned: true }.
+   * Legacy string values remain supported; coordinate keys survive re-layout.
    */
   overrides: z
     .record(
       z.string().regex(/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/),
-      z.enum(['standard', 'accessible', 'ev', 'motorcycle', 'vip', 'loading']),
+      z.union([
+        z.enum(['standard', 'accessible', 'ev', 'motorcycle', 'vip', 'loading']),
+        z.object({
+          type: z.enum(['standard', 'accessible', 'ev', 'motorcycle', 'vip', 'loading']),
+          pinned: z.boolean().default(true),
+        }),
+      ]),
     )
     .default({}),
 });
