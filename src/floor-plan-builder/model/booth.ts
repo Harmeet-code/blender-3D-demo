@@ -215,18 +215,11 @@ export function boothDesignError(object: PlanObject): string | null {
   const physical = bakeBooth(object);
   const design = object.boothDesign,
     edges = boothEdges(physical);
-  const [w, h, d] = physical.dimensions;
-  if (object.recipe === 'booth' && (w < 2 || w > 12 || d < 2 || d > 12 || h < 2.2 || h > 4.5)) {
-    return 'Shell-scheme booths require width/depth 2–12 m and height 2.2–4.5 m.';
-  }
   if (object.recipe === 'polygon-booth') {
-    if (h < 2.2 || h > 6 || object.polygon.length > 32) {
-      return 'Polygon booths require height 2.2–6 m and at most 32 vertices.';
+    if (object.polygon.length > 32) {
+      return 'Polygon booths support at most 32 vertices.';
     }
     for (const edge of edges) {
-      if (edge.length < 0.8) {
-        return `Edge ${edge.index + 1} must be at least 0.8 m.`;
-      }
       const previous = edges[(edge.index + edges.length - 1) % edges.length]!;
       const cosine = -(
         previous.tangent[0] * edge.tangent[0] +

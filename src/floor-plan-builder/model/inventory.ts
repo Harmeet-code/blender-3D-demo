@@ -23,7 +23,7 @@ import { shippingDefaultDoorStates, shippingDefaultVariant } from './shipping.ts
 import { diningObjectDefaults, standaloneChairDefaults } from './dining.ts';
 import { showOfficeDefaultVariant, showOfficeDefaults, showOfficeProfiles, showOfficeVariants, type ShowOfficeVariant } from './show-office.ts';
 
-const dimension = z.number().finite().min(0.1).max(1000);
+const dimension = z.number().finite().positive();
 const dimensions = z.tuple([dimension, dimension, dimension]);
 export const inventoryRecipeSchema = z
   .object({
@@ -50,26 +50,19 @@ export const inventoryRecipeSchema = z
     collidable: z.boolean(),
     color: z.string().regex(/^#[0-9a-f]{6}$/i),
     renderer: z.enum(recipes),
-    minDimensions: dimensions,
-    maxDimensions: dimensions,
     material: z.object({
       roughness: z.number().finite().min(0).max(1),
       metalness: z.number().finite().min(0).max(1),
     }),
   })
   .refine(
-    (recipe) =>
-      recipe.id === recipe.renderer &&
-      recipe.dimensions.every(
-        (value, axis) =>
-          value >= recipe.minDimensions[axis]! && value <= recipe.maxDimensions[axis]!,
-      ),
-    'Recipe dimensions must respect their limits and bind the matching procedural renderer.',
+    (recipe) => recipe.id === recipe.renderer,
+    'Recipe must bind the matching procedural renderer.',
   );
 export type InventoryRecipe = z.infer<typeof inventoryRecipeSchema>;
 const definitions: Omit<
   InventoryRecipe,
-  'renderer' | 'minDimensions' | 'maxDimensions' | 'material' | 'catalogId'
+  'renderer' | 'material' | 'catalogId'
 >[] = [
   {
     id: 'booth',
@@ -355,8 +348,6 @@ export const inventory: InventoryRecipe[] = definitions
             ? `show-office:${definition.showOfficeVariant}`
             : definition.id,
         renderer: definition.id,
-        minDimensions: [0.1, 0.1, 0.1] as [number, number, number],
-        maxDimensions: [1000, 1000, 1000] as [number, number, number],
         material: {
           roughness: definition.id === 'barn-tent' ? 0.85 : 0.65,
           metalness: definition.category === 'Connectors' ? 0.15 : 0,

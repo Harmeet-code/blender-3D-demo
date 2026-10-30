@@ -6,7 +6,6 @@ import { finiteNumberSchema, point2Schema } from '@/types/spatial.ts';
 import type { BuildingLayout, Floor, Room } from '@/features/building/model/building-schema.ts';
 import {
   isSimplePolygon,
-  signedArea,
   polygonEdges,
   segmentsIntersect,
 } from '@/utils/geometry/polygon.ts';
@@ -55,10 +54,6 @@ export const polygonSchema = z
     (points) => points.length <= 256 && isSimplePolygon(points),
     'Use distinct vertices and a simple polygon without crossings.',
   )
-  .refine(
-    (points) => Math.abs(signedArea(points)) >= 0.01,
-    'Polygon area must be at least 0.01 m².',
-  )
   .superRefine((points, context) => {
     if (points.length > 256) {
       return;
@@ -91,7 +86,7 @@ export const polygonSchema = z
     }
   });
 const text = z.string().max(2048);
-const positive = finiteNumberSchema.positive().max(1000);
+const positive = finiteNumberSchema.positive();
 export const objectSchema = z
   .object({
     id: z.string().min(1).max(256),

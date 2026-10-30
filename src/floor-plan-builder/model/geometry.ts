@@ -26,27 +26,21 @@ import {
 } from './shipping-spatial.ts';
 import { diningVendorServiceWindow } from './dining.ts';
 import { ShapeUtils, Vector2 } from 'three';
-import { boothDesignError, boothNavigationPolygons, polygonGap, sharesBoothWall } from './booth.ts';
-import { tentCollisionLocal, tentDesignError } from './tent.ts';
-import { entranceCollisionLocal, entranceDesignError, entranceDimensionLimits } from './entrance.ts';
-import { benchDesignError, benchObstacleLocal } from './bench.ts';
-import { tableDesignError, tableObstacleLocal } from './table.ts';
-import { barrierDesignError, barrierObstacleLocal } from './barrier.ts';
-import { planterDesignError, planterObstacleLocal } from './planter.ts';
-import { binDesignError } from './bin.ts';
-import { washroomDesignError, washroomObstacleLocal } from './washroom.ts';
-import { kidsDesignError, kidsObstacleLocal } from './kids.ts';
-import { avatarDesignError } from './avatar.ts';
-import { infoDesignError, infoObstaclesLocal } from './information.ts';
-import { kioskDesignError, kioskQueueLocal } from './kiosk.ts';
-import { waterDesignError } from './water.ts';
-import { firstAidDesignError } from './firstaid.ts';
-import { exitDesignError, exitClearLocal, exitCollisionFor } from './exit.ts';
+import { boothNavigationPolygons, polygonGap, sharesBoothWall } from './booth.ts';
+import { tentCollisionLocal } from './tent.ts';
+import { entranceCollisionLocal } from './entrance.ts';
+import { benchObstacleLocal } from './bench.ts';
+import { tableObstacleLocal } from './table.ts';
+import { barrierObstacleLocal } from './barrier.ts';
+import { planterObstacleLocal } from './planter.ts';
+import { washroomObstacleLocal } from './washroom.ts';
+import { kidsObstacleLocal } from './kids.ts';
+import { infoObstaclesLocal } from './information.ts';
+import { kioskQueueLocal } from './kiosk.ts';
+import { exitClearLocal, exitCollisionFor } from './exit.ts';
 import {
   circulationApproaches,
-  circulationError,
   circulationHeight,
-  fitCirculation,
 } from './circulation.ts';
 import {
   washRackApproachLocal,
@@ -387,39 +381,8 @@ export function insideBoundary(points: [number, number][], boundary: [number, nu
   return true;
 }
 export function placementError(object: PlanObject, floor: PlanFloor): string | null {
-  const designError =
-    boothDesignError(object) ??
-    circulationError(object) ??
-    tentDesignError(object) ??
-    entranceDesignError(object) ??
-    washroomDesignError(object) ??
-    kidsDesignError(object) ??
-    avatarDesignError(object) ??
-    infoDesignError(object) ??
-    kioskDesignError(object) ??
-    waterDesignError(object) ??
-    firstAidDesignError(object) ??
-    exitDesignError(object) ??
-    benchDesignError(object) ??
-    tableDesignError(object) ??
-    barrierDesignError(object) ??
-    planterDesignError(object) ??
-    binDesignError(object);
-  if (designError) {
-    return designError;
-  }
-  const definition = inventory.find((item) => item.id === object.recipe);
-  if (
-    object.managed &&
-    definition &&
-    object.dimensions.some(
-      (value, axis) =>
-        !Number.isFinite(value) ||
-        value < definition.minDimensions[axis]! ||
-        value > definition.maxDimensions[axis]!,
-    )
-  ) {
-    return 'Use dimensions between 0.1 and 1000 meters for inventory objects.';
+  if (object.dimensions.some((value) => !Number.isFinite(value) || value <= 0)) {
+    return 'Object dimensions must be positive finite numbers.';
   }
   if (
     object.recipe === 'barn-tent' &&
@@ -807,10 +770,6 @@ export function resizeObject(
   height: number,
   depth: number,
 ): PlanObject {
-  // Avatar proportions are a locked ergonomic benchmark — ignore resizes.
-  if (object.recipe === 'avatar') {
-    return object;
-  }
   const bounds = polygonBounds(object.polygon);
   const previousWidth = bounds.maxX - bounds.minX,
     previousDepth = bounds.maxZ - bounds.minZ;
@@ -829,10 +788,11 @@ export function resizeObject(
   ) {
     resized.circulationDesign = {
       ...object.circulationDesign,
-      clearWidth: object.circulationDesign.layout === 'switchback' ? (width - 0.2) / 2 : width,
+      autoSize: false,
+      clearWidth: object.circulationDesign.layout === 'switchback' ? Math.max(Number.EPSILON, (width - 0.2) / 2) : width,
     };
   }
-  return fitCirculation(resized);
+  return resized;
 }
 
 /**
@@ -871,95 +831,11 @@ export function rotatePosition(
   return [pivot[0] + rx * cosine + rz * sine, pivot[1] - rx * sine + rz * cosine];
 }
 
-const connectorResizePresets: Partial<Record<PlanObject['recipe'], readonly [number, number][]>> = {
-  stairs: [
-    [2, 7.48],
-    [2.5, 7.48],
-    [3, 7.48],
-    [2, 9],
-    [2.5, 9],
-    [3, 9],
-  ],
-  elevator: [
-    [2.5, 2.5],
-    [3, 3],
-    [3.5, 3.5],
-  ],
-  escalator: [
-    [2, 7.2],
-    [2.5, 7.2],
-    [3, 7.2],
-    [2, 9],
-    [2.5, 9],
-    [3, 9],
-  ],
-};
-
-/**
- * A ramp is dimensioned by its accessible slope, not by a free width/depth pair: the clear width
- * stays within 1.2–3 m and the run keeps a 1:12–1:20 slope with the landings counted outside it.
- */
-export function rampResizeLimits(object: PlanObject): {
-  width: [number, number];
-  depth: [number, number];
-} {
-  const design = object.circulationDesign;
-  const landing = design?.landingLength ?? 1.5;
-  const rise = object.dimensions[1] > 0 ? object.dimensions[1] : 0.5;
-  const switchback = design?.layout === 'switchback';
-  const flights = switchback ? 2 : Math.max(1, Math.ceil(rise / 0.76));
-  const landings = switchback ? 2 * landing : (flights + 1) * landing;
-  const depth = (ratio: number) => (switchback ? (rise * ratio) / 2 : rise * ratio) + landings;
-  return {
-    width: switchback ? [2.6, 6.2] : [1.2, 3],
-    depth: [depth(12), depth(20)],
-  };
-}
-
-/** Keep an accessible ramp inside its slope band instead of the generic dimension range. */
-export function resizeRampSafely(
-  object: PlanObject,
-  width: number,
-  height: number,
-  depth: number,
-): PlanObject {
-  const limits = rampResizeLimits(object);
-  const safeWidth = Math.min(limits.width[1], Math.max(limits.width[0], width));
-  const safeDepth = Math.min(20, Math.max(limits.depth[0], Math.min(limits.depth[1], depth)));
-  return resizeObject(object, safeWidth, height, safeDepth);
-}
-
-/** Keep vertical connectors on validated footprint presets while retaining ordinary numeric editing. */
+/** Resize without imposing recipe-specific dimension limits. */
 export function resizeObjectSafely(
-  object: PlanObject,
-  width: number,
-  height: number,
-  depth: number,
+  object: PlanObject, width: number, height: number, depth: number,
 ): PlanObject {
-  if (object.recipe === 'entrance') {
-    const dimensions = [width, height, depth].map((value, axis) => {
-      const [min, max] = entranceDimensionLimits[axis]!;
-      return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : object.dimensions[axis]!;
-    }) as [number, number, number];
-    return resizeObject(object, ...dimensions);
-  }
-  if (object.recipe === 'ramp') {
-    return resizeRampSafely(object, width, height, depth);
-  }
-  const presets = connectorResizePresets[object.recipe];
-  if (!presets) {
-    return resizeObject(object, width, height, depth);
-  }
-  const safe = presets.reduce((best, candidate) => {
-    const score =
-      ((candidate[0] - width) / Math.max(width, 0.1)) ** 2 +
-      ((candidate[1] - depth) / Math.max(depth, 0.1)) ** 2;
-    const bestScore =
-      ((best[0] - width) / Math.max(width, 0.1)) ** 2 +
-      ((best[1] - depth) / Math.max(depth, 0.1)) ** 2;
-    return score < bestScore ? candidate : best;
-  });
-  return resizeObject(object, safe[0], height, safe[1]);
+  return resizeObject(object, width, height, depth);
 }
 
 export function resizeFromPointer(
@@ -981,8 +857,8 @@ export function resizeFromPointer(
   };
   const a = local(start),
     b = local(point);
-  let width = Math.max(0.1, object.dimensions[0] + (b[0]! - a[0]!) * signs[0] * (centered ? 2 : 1));
-  let depth = Math.max(0.1, object.dimensions[2] + (b[1]! - a[1]!) * signs[1] * (centered ? 2 : 1));
+  let width = Math.max(Number.EPSILON, object.dimensions[0] + (b[0]! - a[0]!) * signs[0] * (centered ? 2 : 1));
+  let depth = Math.max(Number.EPSILON, object.dimensions[2] + (b[1]! - a[1]!) * signs[1] * (centered ? 2 : 1));
   if (aspect) {
     let factor =
       Math.abs(width / object.dimensions[0] - 1) >= Math.abs(depth / object.dimensions[2] - 1)
@@ -993,12 +869,12 @@ export function resizeFromPointer(
         Math.max(snap, Math.round((object.dimensions[0] * factor) / snap) * snap) /
         object.dimensions[0];
     }
-    factor = Math.max(factor, 0.1 / Math.min(object.dimensions[0], object.dimensions[2]));
+    factor = Math.max(factor, Number.EPSILON / Math.min(object.dimensions[0], object.dimensions[2]));
     width = object.dimensions[0] * factor;
     depth = object.dimensions[2] * factor;
   } else if (snap > 0) {
-    width = Math.max(0.1, Math.round(width / snap) * snap);
-    depth = Math.max(0.1, Math.round(depth / snap) * snap);
+    width = Math.max(Number.EPSILON, Math.round(width / snap) * snap);
+    depth = Math.max(Number.EPSILON, Math.round(depth / snap) * snap);
   }
   return resizeObjectSafely(object, width, object.dimensions[1], depth);
 }

@@ -45,8 +45,11 @@ export function AvatarObject({
   const near: boolean = true;
   const invalidate = useThree((state) => state.invalidate);
   const clock = useMemo(() => ({ elapsed: 0 }), []);
-  const [sx, sy, sz] = object.scale;
-  const lock: [number, number, number] = [1 / sx, 1 / sy, 1 / sz];
+  const lock: [number, number, number] = [
+    object.dimensions[0] / 0.65,
+    object.dimensions[1] / 1.8,
+    object.dimensions[2] / 0.65,
+  ];
 
   useFrame((_, delta) => {
     if (object.avatarAnimated && !ghost && !forceDetail && upper.current) {

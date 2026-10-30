@@ -60,8 +60,8 @@ export function BoothFields({
         stretched.
       </p>
       {error && (
-        <p className="fp-error" role="alert">
-          {error}
+        <p className="fp-muted">
+          Construction guideline (not enforced): {error}
         </p>
       )}
       <Label>

@@ -208,7 +208,7 @@ export function BoothScreenLabelLayer({
       );
       const top = Math.max(
         4,
-        Math.min(size.height - LABEL_HEIGHT - 4, label.screenY - LABEL_HEIGHT / 2),
+        Math.min(size.height - LABEL_HEIGHT - 4, label.screenY - LABEL_HEIGHT - 16),
       );
       const firstColumn = Math.floor(left / COLLISION_CELL_SIZE);
       const lastColumn = Math.floor((left + labelMetrics.width) / COLLISION_CELL_SIZE);

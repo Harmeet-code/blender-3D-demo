@@ -17,8 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { polygonBounds } from '@/utils/geometry/polygon.ts';
 import { activeFloor, unfinished, type StudioStore } from '../model/store.ts';
-import { resizeObjectSafely, rampResizeLimits } from '../model/geometry.ts';
-import { entranceDimensionLimits } from '../model/entrance.ts';
+import { resizeObjectSafely } from '../model/geometry.ts';
 import {
   isBooth,
   isConnector,
@@ -79,7 +78,7 @@ function NumberInput({
   onChange: (value: number) => void;
   min?: number;
   max?: number;
-  step?: number;
+  step?: number | 'any';
   disabled?: boolean;
 }) {
   return (
@@ -276,9 +275,6 @@ function ObjectFields({
     }
   };
   const validation = objectSchema.safeParse(object);
-  const safeConnectorPreset = ['stairs', 'elevator', 'escalator'].includes(object.recipe);
-  const isRamp = object.recipe === 'ramp';
-  const rampLimits = isRamp ? rampResizeLimits(object) : null;
   const wallLike = /wall|barrier|fence/i.test(object.recipe);
   const dimensionLabels = wallLike
     ? ['Length (m)', 'Height (m)', 'Thickness (m)']
@@ -397,38 +393,8 @@ function ObjectFields({
               key={label}
               label={label}
               value={object.dimensions[axis]!}
-              disabled={
-                (safeConnectorPreset && axis === 1) ||
-                (isRamp && axis === 1) ||
-                (axis === 2 &&
-                  Boolean(object.circulationDesign?.autoSize) &&
-                  object.circulationDesign?.role !== 'upper' &&
-                  object.recipe !== 'elevator')
-              }
-              min={
-                object.recipe === 'entrance'
-                  ? entranceDimensionLimits[axis]![0]
-                  : rampLimits
-                  ? rampLimits[axis === 0 ? 'width' : 'depth'][0]
-                  : object.boothDesign
-                    ? (axis === 1 ? 2.2 : object.recipe === 'booth' ? 2 : 0.1) / object.scale[axis]!
-                    : 0.1
-              }
-              max={
-                object.recipe === 'entrance'
-                  ? entranceDimensionLimits[axis]![1]
-                  : rampLimits
-                  ? rampLimits[axis === 0 ? 'width' : 'depth'][1]
-                  : object.boothDesign
-                    ? (axis === 1
-                        ? object.recipe === 'booth'
-                          ? 4.5
-                          : 6
-                        : object.recipe === 'booth'
-                          ? 12
-                          : 1000) / object.scale[axis]!
-                    : 1000
-              }
+              min={Number.MIN_VALUE}
+              step="any"
               onChange={(value) => dimension(axis, value)}
             />
           ))}
@@ -488,17 +454,6 @@ function ObjectFields({
             ))}
           </div>
         )}
-        {safeConnectorPreset && (
-          <p className="fp-muted">
-            Connector footprints use safe width/depth presets; height follows the floor rise.
-          </p>
-        )}
-        {isRamp && (
-          <p className="fp-muted">
-            Ramps keep an accessible slope: {rampLimits?.width[0]}–{rampLimits?.width[1]} m clear
-            width and a 1:12–1:20 run. The rise follows the floor it connects.
-          </p>
-        )}
         {!object.circulationDesign && !isConnector(object.recipe) && (
           <details className="fp-settings-group">
             <summary>Advanced scale</summary>
@@ -508,8 +463,8 @@ function ObjectFields({
                   key={label}
                   label={label}
                   value={object.scale[axis]!}
-                  disabled={axis === 1 && ['information', 'water'].includes(object.recipe)}
-                  min={0.01}
+                  min={Number.MIN_VALUE}
+                  step="any"
                   onChange={(value) => {
                     const scale = [...object.scale] as [number, number, number];
                     scale[axis] = value;
@@ -1075,7 +1030,6 @@ function ObjectFields({
                 />
                 “You are here” pin
               </label>
-              <p className="fp-muted">Scale and dimensions are locked to the 1.8 m benchmark.</p>
             </>
           )}
           {object.recipe === 'barn-tent' && (

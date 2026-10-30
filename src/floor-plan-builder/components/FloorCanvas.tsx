@@ -88,6 +88,7 @@ import {
   isWithinScreenRadius,
   movePolygonVertex,
   removePolygonVertex,
+  positionAboveObject,
 } from '../model/viewport-interactions.ts';
 
 interface Bridge {
@@ -99,6 +100,42 @@ interface AlignTarget {
   kind: 'endpoint' | 'edge' | 'wall';
   points: [number, number][];
   id: string;
+}
+interface HoverInfo {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  context: string;
+}
+
+function ObjectHoverTooltip({ object, anchor }: { object: PlanObject; anchor: HoverInfo }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<[number, number]>([230, 100]);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) {
+      return;
+    }
+    const measure = () => {
+      const { width, height } = element.getBoundingClientRect();
+      setSize((previous) => previous[0] === width && previous[1] === height ? previous : [width, height]);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const position = positionAboveObject([anchor.x, anchor.y], size, [anchor.width, anchor.height]);
+  return (
+    <div ref={ref} className="fp-hover-tooltip" role="tooltip"
+      style={{ ...position, maxWidth: Math.max(1, anchor.width - 16), pointerEvents: 'none' }}>
+      <strong>{object.boothNumber || '—'} · {object.name || 'Unnamed booth'}</strong>
+      <span><i className="fp-status-dot" style={{ background: statusColors[object.status] }} />{object.status}</span>
+      <span>Price: {formatPrice(object.price)}</span>
+    </div>
+  );
 }
 interface AlignEdge {
   target: AlignTarget;
@@ -193,6 +230,25 @@ const ObjectLayer = memo(
     );
   },
 );
+
+/** Guides must render after the transparent floor image as well as opaque scene geometry. */
+function GroundGuide({ points, color = '#000000', contrast = true }: {
+  points: [number, number][];
+  color?: string;
+  contrast?: boolean;
+}) {
+  const vertices = points.map(([x, z]): [number, number, number] => [x, 0.08, z]);
+  return (
+    <>
+      {contrast && (
+        <Line points={vertices} color="#ffffff" lineWidth={7} transparent opacity={1}
+          depthTest={false} depthWrite={false} renderOrder={999} raycast={() => {}} />
+      )}
+      <Line points={vertices} color={color} lineWidth={4} transparent opacity={1}
+        depthTest={false} depthWrite={false} renderOrder={1000} raycast={() => {}} />
+    </>
+  );
+}
 /**
  * World distance covered by the snap threshold. The camera scale is evaluated at the pointer
  * and at the far corner of the floor, so a candidate that sits further from the camera than
@@ -633,8 +689,6 @@ export function FloorSurface({
   imageSize,
   click,
   move,
-  imageOffset,
-  pointerUp,
   pointerDown,
 }: {
   floor: PlanFloor;
@@ -642,11 +696,11 @@ export function FloorSurface({
   imageSize: [number, number] | null;
   click: (event: ThreeEvent<MouseEvent>) => void;
   move: (event: ThreeEvent<PointerEvent>) => void;
-  imageOffset?: [number, number];
-  pointerUp?: (event: ThreeEvent<PointerEvent>) => void;
   pointerDown: (event: ThreeEvent<PointerEvent>) => void;
 }) {
   const bounds = polygonBounds(floor.boundary);
+  // Continue displaying offsets from drafts saved by earlier versions.
+  const imageOffset = floor.source.authoring?.imageOffset;
   const shape = useMemo(() => {
     const value = new Shape();
     floor.boundary.forEach(([x, z], i) => (i ? value.lineTo(x, -z) : value.moveTo(x, -z)));
@@ -724,7 +778,6 @@ export function FloorSurface({
         onClick={click}
         onPointerDown={pointerDown}
         onPointerMove={move}
-        onPointerUp={pointerUp}
         receiveShadow
       >
         <shapeGeometry
@@ -948,23 +1001,6 @@ export function FloorCanvas({
     onPointerUp: () => {},
     onContextMenu: () => {},
   });
-  const [imageSelected, setImageSelected] = useState(false);
-  const [imageMoveMode, setImageMoveMode] = useState(false);
-  const [imagePreviewOffset, setImagePreviewOffset] = useState<[number, number] | null>(null);
-  const imageDrag = useRef<{ pointerId: number; start: [number, number]; offset: [number, number]; next: [number, number] } | null>(null);
-  const imageOffset = imagePreviewOffset ?? floor.source.authoring?.imageOffset ?? [0, 0];
-  useEffect(() => {
-    setImageSelected(false);
-    setImageMoveMode(false);
-    setImagePreviewOffset(null);
-    imageDrag.current = null;
-  }, [floor.source.id]);
-  useEffect(() => {
-    if (state.tool !== 'select') {
-      setImageSelected(false);
-      setImageMoveMode(false);
-    }
-  }, [state.tool]);
   const [dragging, setDragging] = useState(false),
     [orbiting, setOrbiting] = useState(false),
     [contextLost, setContextLost] = useState(false);
@@ -1043,9 +1079,7 @@ export function FloorCanvas({
     alignCache.current = geometry;
     return geometry;
   };
-  const [hover, setHover] = useState<{ id: string; x: number; y: number; context: string } | null>(
-    null,
-  );
+  const [hover, setHover] = useState<HoverInfo | null>(null);
   /**
    * The hover tooltip is stamped with the context that produced it. A changed
    * floor, revision, tool or camera invalidates the stamp, so a stale tooltip is
@@ -1713,6 +1747,36 @@ export function FloorCanvas({
       toast.error(store.getState().message || 'That footprint edit is not valid.');
     }
   };
+  const queueHover = (object: PlanObject, event: ThreeEvent<PointerEvent>) => {
+    const rect = element.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+    if (hoverTimer.current !== null) {
+      clearTimeout(hoverTimer.current);
+    }
+    setHover(null);
+    const camera = bridge.current.camera;
+    let top = event.clientY - rect.top;
+    if (camera) {
+      for (const [x, z] of objectPoints(object, object.polygon)) {
+        for (const y of [floor.source.heightOffset, floor.source.heightOffset + visualHeight(object)]) {
+          const point = new Vector3(x, y, z).project(camera);
+          if (point.z >= -1 && point.z <= 1) {
+            top = Math.min(top, (1 - point.y) * rect.height / 2);
+          }
+        }
+      }
+    }
+    const next: HoverInfo = {
+      id: object.id, x: event.clientX - rect.left, y: top,
+      width: rect.width, height: rect.height, context: hoverContext,
+    };
+    hoverTimer.current = setTimeout(() => {
+      hoverTimer.current = null;
+      setHover(next);
+    }, 500);
+  };
   // Refresh a single latest-state dispatch object instead of building six inline closures for
   // every object. ObjectLayer callbacks stay stable and resolve the current scene state here.
   const latestObjectEventDispatch: ObjectEventDispatch = {
@@ -1722,30 +1786,11 @@ export function FloorCanvas({
         return;
       }
       event.stopPropagation();
-      const rect = element.current?.getBoundingClientRect();
-      if (rect) {
-        if (hoverTimer.current !== null) {
-          clearTimeout(hoverTimer.current);
-        }
-        setHover(null);
-        const next = {
-          id,
-          x: Math.max(8, Math.min(rect.width - 180, event.clientX - rect.left + 12)),
-          y: Math.max(8, Math.min(rect.height - 90, event.clientY - rect.top + 12)),
-          context: hoverContext,
-        };
-        hoverTimer.current = setTimeout(() => {
-          hoverTimer.current = null;
-          setHover(next);
-        }, 500);
-      }
+      queueHover(object, event);
     },
     onPointerOut: clearHover,
     onClick: (id, event) => {
       event.stopPropagation();
-      if (imageMoveMode) {return;}
-      setImageSelected(false);
-      setImageMoveMode(false);
       const object = floor.objects.find((item) => item.id === id);
       if (!object || (playback && playbackMode !== 'overview')) {
         return;
@@ -1834,23 +1879,7 @@ export function FloorCanvas({
       if (!active || active.id !== id || active.handle || active.pointerId !== event.pointerId) {
         if (state.tool === 'select' && isBooth(object)) {
           if (!dragging && !orbiting) {
-            if (hoverTimer.current !== null) {
-              clearTimeout(hoverTimer.current);
-            }
-            setHover(null);
-            const rect = element.current?.getBoundingClientRect();
-            if (rect) {
-              const next = {
-                id,
-                x: Math.max(8, Math.min(rect.width - 180, event.clientX - rect.left + 12)),
-                y: Math.max(8, Math.min(rect.height - 90, event.clientY - rect.top + 12)),
-                context: hoverContext,
-              };
-              hoverTimer.current = setTimeout(() => {
-                hoverTimer.current = null;
-                setHover(next);
-              }, 500);
-            }
+            queueHover(object, event);
           }
           event.stopPropagation();
         }
@@ -1959,11 +1988,6 @@ export function FloorCanvas({
   }, [state.tool]);
   useEffect(() => {
     const stop = () => {
-      if (imageDrag.current) {
-        imageDrag.current = null;
-        setImagePreviewOffset(null);
-        setDragging(false);
-      }
       if (marquee.current) {
         marquee.current = null;
         setMarqueeFrame(null);
@@ -2101,11 +2125,6 @@ export function FloorCanvas({
       }}
       onPointerCancel={(event) => {
         clearHover();
-        if (imageDrag.current?.pointerId === event.pointerId) {
-          imageDrag.current = null;
-          setImagePreviewOffset(null);
-          setDragging(false);
-        }
         if (event.pointerId === vertexDrag.current?.pointerId) {
           const active = vertexDrag.current;
           vertexDrag.current = null;
@@ -2119,11 +2138,6 @@ export function FloorCanvas({
         }
       }}
       onLostPointerCapture={(event) => {
-        if (imageDrag.current?.pointerId === event.pointerId) {
-          imageDrag.current = null;
-          setImagePreviewOffset(null);
-          setDragging(false);
-        }
         if (drag.current?.pointerId === event.pointerId) {
           endDrag(undefined, true);
         }
@@ -2299,66 +2313,9 @@ export function FloorCanvas({
                   floor={floor}
                   texture={image.texture}
                   imageSize={image.size}
-                  imageOffset={imageOffset as [number, number]}
-                  click={(event) => {
-                    if (imageMoveMode) {
-                      event.stopPropagation();
-                      return;
-                    }
-                    if (image.texture && store.getState().tool === 'select') {
-                      setImageSelected(true);
-                    }
-                    click(event);
-                  }}
-                  pointerDown={(event) => {
-                    if (!imageMoveMode || event.button !== 0) {
-                      beginMarquee(event);
-                      return;
-                    }
-                    const point = bridge.current.project(event.clientX, event.clientY);
-                    if (!point) {return;}
-                    event.stopPropagation();
-                    const offset: [number, number] = [...imageOffset] as [number, number];
-                    imageDrag.current = { pointerId: event.pointerId, start: point, offset, next: offset };
-                    setDragging(true);
-                    if (event.target && 'setPointerCapture' in event.target && typeof event.target.setPointerCapture === 'function') {
-                      event.target.setPointerCapture(event.pointerId);
-                    }
-                  }}
-                  pointerUp={(event) => {
-                    const active = imageDrag.current;
-                    if (!active || active.pointerId !== event.pointerId) {return;}
-                    event.stopPropagation();
-                    imageDrag.current = null;
-                    setDragging(false);
-                    const current = store.getState();
-                    const currentFloor = activeFloor(current);
-                    const authoring = currentFloor.source.authoring ?? {
-                      boundary: currentFloor.boundary.map((point) => metresToSource(point, currentFloor.source.coordinateSystem)),
-                      spawn: metresToSource(currentFloor.spawn, currentFloor.source.coordinateSystem),
-                      obstacles: [], instances: [], underlayOpacity: 0.85, imageSize: image.size ?? undefined,
-                    };
-                    if (active.next[0] !== active.offset[0] || active.next[1] !== active.offset[1]) {
-                      if (!current.commitFloor({ ...currentFloor, source: { ...currentFloor.source, authoring: { ...authoring, imageSize: authoring.imageSize ?? image.size ?? undefined, imageOffset: active.next } } })) {
-                        toast.error(store.getState().message || 'Could not move the floor image.');
-                      }
-                    }
-                    setImagePreviewOffset(null);
-                    if (event.target && 'releasePointerCapture' in event.target && typeof event.target.releasePointerCapture === 'function') {
-                      event.target.releasePointerCapture(event.pointerId);
-                    }
-                  }}
+                  click={click}
+                  pointerDown={beginMarquee}
                   move={(event) => {
-                    const active = imageDrag.current;
-                    if (active?.pointerId === event.pointerId) {
-                      event.stopPropagation();
-                      const point = bridge.current.project(event.clientX, event.clientY);
-                      if (point) {
-                        active.next = [active.offset[0] + point[0] - active.start[0], active.offset[1] + point[1] - active.start[1]];
-                        setImagePreviewOffset(active.next);
-                      }
-                      return;
-                    }
                     setHover(null);
                     if (state.tool !== 'select' || debug) {
                       store
@@ -2501,7 +2458,6 @@ export function FloorCanvas({
                 {selectedObject &&
                   state.tool === 'resize' &&
                   !selectedObject.locked &&
-                  selectedObject.recipe !== 'avatar' &&
                   (() => {
                     const candidate =
                       state.pendingObject && objectSchema.safeParse(state.pendingObject).success
@@ -2516,9 +2472,17 @@ export function FloorCanvas({
                     ];
                     const positions = objectPoints(candidate, corners);
                     return positions.map(([x, z], index) => (
-                      <mesh
+                      <Html
                         key={index}
                         position={[x, candidate.dimensions[1] * candidate.scale[1] + 0.25, z]}
+                        center
+                        style={{ pointerEvents: 'auto' }}
+                      >
+                      <button
+                        type="button"
+                        aria-label={`Resize corner ${index + 1}`}
+                        title={`Drag to resize from corner ${index + 1}`}
+                        className="fp-resize-handle"
                         onClick={(event) => event.stopPropagation()}
                         onPointerDown={(event) => {
                           if (event.button !== 0) {
@@ -2552,13 +2516,7 @@ export function FloorCanvas({
                             handle: [index === 0 || index === 3 ? -1 : 1, index < 2 ? -1 : 1],
                           };
                           setDragging(true);
-                          if (
-                            event.target &&
-                            'setPointerCapture' in event.target &&
-                            typeof event.target.setPointerCapture === 'function'
-                          ) {
-                            event.target.setPointerCapture(event.pointerId);
-                          }
+                          event.currentTarget.setPointerCapture(event.pointerId);
                         }}
                         onPointerMove={(event) => {
                           const active = drag.current;
@@ -2605,13 +2563,21 @@ export function FloorCanvas({
                               drag.current.invalidMessage ??=
                                 'Keep the whole object inside the floor boundary.';
                             }
-                            endDrag(event);
+                            endDrag();
+                            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                              event.currentTarget.releasePointerCapture(event.pointerId);
+                            }
+                          }
+                        }}
+                        onPointerCancel={(event) => {
+                          event.stopPropagation();
+                          if (event.pointerId === drag.current?.pointerId) {
+                            endDrag(undefined, true);
                           }
                         }}
                       >
-                        <boxGeometry args={[0.3, 0.3, 0.3]} />
-                        <meshBasicMaterial color="#000000" depthTest={false} />
-                      </mesh>
+                      </button>
+                      </Html>
                     ));
                   })()}
                 {state.tool === 'edit-footprint' &&
@@ -2787,19 +2753,12 @@ export function FloorCanvas({
                     ghost
                   />
                 ))}
-                {state.tool === 'move' && selectedObject &&
-                  (pendingMembers.length ? pendingMembers : ghostMembers).map((member) => {
+                {['move', 'resize'].includes(state.tool) && selectedObject &&
+                  (pendingMembers.length ? pendingMembers : ghostMembers.length ? ghostMembers : [selectedObject]).map((member) => {
                     const outline = objectPoints(member, member.polygon);
                     if (outline.length < 3) {return null;}
                     return (
-                      <Line
-                        key={`move-outline:${member.id}`}
-                        points={[...outline, outline[0]!].map(([x, z]) => [x, 0.08, z])}
-                        color="#000000"
-                        lineWidth={2}
-                        depthTest={false}
-                        renderOrder={1000}
-                      />
+                      <GroundGuide key={`transform-outline:${member.id}`} points={[...outline, outline[0]!]} />
                     );
                   })}
                 {alignmentGuide && (
@@ -2864,8 +2823,8 @@ export function FloorCanvas({
                       aria-hidden="true"
                       style={{
                         display: 'block',
-                        width: 22,
-                        height: 22,
+                        width: 30,
+                        height: 30,
                         border: '3px solid #75e3c1',
                         borderRadius: '50%',
                         background: 'rgba(11, 46, 39, 0.72)',
@@ -2875,10 +2834,8 @@ export function FloorCanvas({
                   </Html>
                 )}
                 {drawing.length >= 2 && (
-                  <Line
-                    points={drawing.map(([x, z]) => [x, 0.08, z])}
-                    depthTest={false}
-                    renderOrder={1000}
+                  <GroundGuide
+                    points={drawing}
                     color={
                       drawingInvalid
                         ? '#ff7777'
@@ -2886,7 +2843,7 @@ export function FloorCanvas({
                           ? '#000000'
                           : '#e3bf81'
                     }
-                    lineWidth={2}
+                    contrast={!drawingInvalid && (state.tool === 'rectangle' || state.tool === 'polygon')}
                   />
                 )}
                 <RouteVisuals
@@ -2915,7 +2872,7 @@ export function FloorCanvas({
                     center
                     style={{ pointerEvents: 'none' }}
                   >
-                    <span className="fp-label">{selectedObject.name}</span>
+                    <span className="fp-label" style={{ transform: 'translateY(-24px)' }}>{selectedObject.name}</span>
                   </Html>
                 )}
               </group>
@@ -2928,36 +2885,8 @@ export function FloorCanvas({
           </Canvas>
         </ErrorBoundary>
       )}
-      {!playback && imageSelected && image.texture && (
-        <div className="fp-selection-actions" style={{ left: 12, top: 12, transform: 'none' }} role="toolbar" aria-label="Floor image actions" onPointerDown={(event) => event.stopPropagation()}>
-          <span className="fp-muted">Floor image</span>
-          <button type="button" className="fp-image-move-button" aria-pressed={imageMoveMode} onClick={() => {
-            if (!imageMoveMode && unfinished(store.getState())) {
-              toast.error('Apply or discard the current edit before moving the image.');
-              return;
-            }
-            setImageMoveMode((value) => !value);
-            store.getState().select(null);
-            store.getState().setTool('select');
-          }}>{imageMoveMode ? 'Done moving' : 'Move image'}</button>
-          {imageMoveMode && <span className="fp-muted">Drag the image on the floor</span>}
-        </div>
-      )}
       {!playback && hovered && activeHover && (
-        <div
-          className="fp-hover-tooltip"
-          role="tooltip"
-          style={{ left: activeHover.x, top: activeHover.y, pointerEvents: 'none' }}
-        >
-          <strong>
-            {hovered.boothNumber || '—'} · {hovered.name || 'Unnamed booth'}
-          </strong>
-          <span>
-            <i className="fp-status-dot" style={{ background: statusColors[hovered.status] }} />
-            {hovered.status}
-          </span>
-          <span>Price: {formatPrice(hovered.price)}</span>
-        </div>
+        <ObjectHoverTooltip object={hovered} anchor={activeHover} />
       )}
       {!playback && debug && (
         <div className="fp-debug-panel" aria-label="Coordinate debug">

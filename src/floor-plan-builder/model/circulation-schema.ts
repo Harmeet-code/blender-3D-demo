@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const circulationDesignSchema = z.object({
   layout: z.enum(['straight', 'switchback']).default('straight'),
   autoSize: z.boolean().default(true),
-  clearWidth: z.number().finite().min(1.2).max(4).default(2),
+  clearWidth: z.number().finite().positive().default(2),
   landingLength: z.number().finite().min(1.5).max(3).default(1.5),
   going: z.number().finite().min(0.25).max(0.32).default(0.28),
   slopeRatio: z.number().finite().min(12).max(20).default(12),

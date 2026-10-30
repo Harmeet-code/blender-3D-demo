@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  POLYGON_CLOSE_RADIUS_PX,
+  positionAboveObject,
   insertPolygonVertex,
   isPrimaryCanvasClick,
   isWithinScreenRadius,
@@ -19,14 +21,19 @@ const square: [number, number][] = [
 ];
 
 describe('screen-space authoring interactions', () => {
+  test('places object information above the object while keeping it on screen', () => {
+    expect(positionAboveObject([400, 300], [200, 80], [800, 600])).toEqual({ left: 300, top: 200 });
+    expect(positionAboveObject([790, 30], [200, 80], [800, 600])).toEqual({ left: 592, top: 8 });
+    expect(positionAboveObject([0, 590], [200, 80], [800, 600])).toEqual({ left: 8, top: 490 });
+  });
   test('keeps polygon closure radius constant as world-to-screen scale changes', () => {
     for (const scale of [0.25, 1, 8]) {
       const project = ([x, z]: readonly [number, number]) => [x * scale, z * scale] as const;
       const firstCorner = project(square[0]!);
-      expect(isWithinScreenRadius([firstCorner[0] + 15, firstCorner[1]], firstCorner, 16)).toBe(
+      expect(isWithinScreenRadius([firstCorner[0] + 21, firstCorner[1]], firstCorner, POLYGON_CLOSE_RADIUS_PX)).toBe(
         true,
       );
-      expect(isWithinScreenRadius([firstCorner[0] + 17, firstCorner[1]], firstCorner, 16)).toBe(
+      expect(isWithinScreenRadius([firstCorner[0] + 23, firstCorner[1]], firstCorner, POLYGON_CLOSE_RADIUS_PX)).toBe(
         false,
       );
     }

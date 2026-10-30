@@ -998,8 +998,8 @@
 .fp-selection-actions { position: absolute; z-index: 20; top: 14px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px; max-width: calc(100% - 16px); box-sizing: border-box; padding: 4px; border: 1px solid var(--fp-border); border-radius: 10px; background: #101718eF; box-shadow: 0 8px 28px #0006; }
 .fp-selection-actions[style] { transform: none; }
 .fp-selection-actions [data-slot='button'] { gap: 5px; }
-.fp-image-move-button { padding: 6px 10px; border: 1px solid var(--fp-border); border-radius: 6px; background: #243434; color: #fff; cursor: pointer; }
-.fp-image-move-button[aria-pressed='true'] { background: #3d6964; }
+.fp-resize-handle { width: 22px; height: 22px; padding: 0; border: 2px solid #fff; border-radius: 4px; background: #000; box-shadow: 0 1px 5px #0008; cursor: nwse-resize; touch-action: none; }
+.fp-resize-handle:focus-visible { outline: 2px solid #49d7f4; outline-offset: 2px; }
 .fp-inventory-item-readonly { cursor: default; }
 .fp-inventory-item-readonly:hover { border-color: var(--fp-border); background: #ffffff06; }
 .fp-rotation-ring { width: 92px; height: 92px; border: 3px solid #72d6e9; border-radius: 999px; background: #13212435; box-shadow: 0 0 0 1px #0c171a99, 0 0 20px #42c6df88; cursor: grab; touch-action: none; outline: none; }

@@ -1,8 +1,22 @@
 export type ScreenPoint = readonly [number, number];
 export type ProjectWorldPoint = (point: readonly [number, number]) => ScreenPoint | null;
 
-export const POLYGON_CLOSE_RADIUS_PX = 16;
+export const POLYGON_CLOSE_RADIUS_PX = 22;
 export const FOOTPRINT_HANDLE_RADIUS_PX = 18;
+
+/** Keep an information card above its anchor and inside the viewport when space permits. */
+export function positionAboveObject(
+  anchor: ScreenPoint,
+  card: ScreenPoint,
+  viewport: ScreenPoint,
+  gap = 20,
+): { left: number; top: number } {
+  const margin = 8;
+  return {
+    left: Math.max(margin, Math.min(anchor[0] - card[0] / 2, viewport[0] - card[0] - margin)),
+    top: Math.max(margin, Math.min(anchor[1] - card[1] - gap, viewport[1] - card[1] - margin)),
+  };
+}
 
 export function isPrimaryCanvasClick(button: number, movementPx: number, thresholdPx = 3): boolean {
   return button === 0 && Number.isFinite(movementPx) && movementPx <= thresholdPx;

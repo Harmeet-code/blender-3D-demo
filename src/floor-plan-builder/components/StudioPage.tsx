@@ -380,7 +380,7 @@ function SelectionActions({
         left: Math.max(8, Math.min(anchor.x - toolbarWidth / 2, anchor.width - toolbarWidth - 8)),
         top: Math.max(
           8,
-          Math.min(anchor.y - toolbarHeight - 12, anchor.height - toolbarHeight - 8),
+          Math.min(anchor.y - toolbarHeight - 28, anchor.height - toolbarHeight - 8),
         ),
         maxWidth: 'calc(100% - 16px)',
       }
@@ -417,7 +417,7 @@ function SelectionActions({
           }
           aria-label="Resize selected item"
           disabled={
-            selectedLocked || selectedObject.recipe === 'avatar' || state.selectionSet.length > 1
+            selectedLocked || state.selectionSet.length > 1
           }
           onClick={() => state.setTool('resize')}
         >
@@ -1601,7 +1601,6 @@ export default function StudioPage() {
                     disabled={
                       !selectedObject ||
                       selectedObject.locked ||
-                      selectedObject.recipe === 'avatar' ||
                       state.selectionSet.length > 1
                     }
                     onClick={() => state.setTool('resize')}

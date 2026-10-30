@@ -32,7 +32,7 @@ export function CirculationFields({
               ...object,
               scale: [1, 1, 1],
               circulationDesign: circulationDesignSchema.parse({
-                clearWidth: Math.min(4, Math.max(1.2, object.dimensions[0])),
+                clearWidth: object.dimensions[0],
               }),
             }),
           )
@@ -49,7 +49,7 @@ export function CirculationFields({
     value: number,
     onChange: (value: number) => void,
     min: number,
-    max: number,
+    max: number | undefined,
     step = 0.1,
   ) => (
     <Label className="fp-field">
@@ -76,8 +76,8 @@ export function CirculationFields({
     <fieldset className="fp-form">
       <legend>Connector construction</legend>
       {issue && (
-        <p className="fp-error" role="alert">
-          {issue}
+        <p className="fp-muted">
+          Construction guideline (not enforced): {issue}
         </p>
       )}
       <p className="fp-muted">
@@ -106,8 +106,8 @@ export function CirculationFields({
                 'Clear flight width (m)',
                 design.clearWidth,
                 (clearWidth) => update({ clearWidth }),
-                1.2,
-                object.recipe === 'ramp' ? 3 : 4,
+                Number.MIN_VALUE,
+                undefined,
               )}
               {numeric(
                 'Landing length (m)',
@@ -187,8 +187,8 @@ export function CirculationFields({
                 'Escalator clear housing width (m)',
                 design.clearWidth,
                 (clearWidth) => update({ clearWidth }),
-                1.6,
-                2.4,
+                Number.MIN_VALUE,
+                undefined,
               )}
               {numeric(
                 'Operating speed (m/s)',

@@ -8,7 +8,7 @@ function makeStore() {
 }
 
 describe('editor placement and document history', () => {
-  test('image movement persists independently of objects and can be undone', () => {
+  test('legacy image offsets survive saving and undo without moving objects', () => {
     const store = makeStore();
     store.getState().beginPlacement('chair');
     expect(store.getState().place([5, 5])).toBe(true);
@@ -23,7 +23,7 @@ describe('editor placement and document history', () => {
     store.getState().undo();
     expect(store.getState().document.floors[0]!.source.authoring?.imageOffset).toBeUndefined();
   });
-  test('resized entrance can be applied and saved at its dimension limits', () => {
+  test('resized entrance can be applied and saved beyond its former limits', () => {
     const store = makeStore();
     store.getState().beginPlacement('entrance');
     expect(store.getState().place([10, 10])).toBe(true);
@@ -33,9 +33,9 @@ describe('editor placement and document history', () => {
     expect(store.getState().apply()).toBe(true);
     const saved = decodeLayout(encodeLayout(store.getState().document));
     const dimensions = saved.floors[0]!.objects[0]!.dimensions;
-    expect(dimensions[0]).toBeCloseTo(8);
+    expect(dimensions[0]).toBeCloseTo(9);
     expect(dimensions[1]).toBeCloseTo(3);
-    expect(dimensions[2]).toBeCloseTo(0.4);
+    expect(dimensions[2]).toBeCloseTo(0.1);
   });
   test('undo removes unfinished rectangle and polygon points before committed history', () => {
     for (const tool of ['rectangle', 'polygon', 'zone-rectangle', 'zone-polygon'] as const) {
