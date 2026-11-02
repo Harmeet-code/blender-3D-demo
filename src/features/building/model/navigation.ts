@@ -64,20 +64,23 @@ interface CachedFloorMesh {
   mesh: NavMesh;
 }
 
-const floorMeshes = new Map<string, CachedFloorMesh>();
+const floorMeshes = new Map<string, Map<string, CachedFloorMesh>>();
 
 export function clearNavigationCache(nextLayout?: NormalizedLayout) {
-  for (const [floorId, { query, mesh, signature }] of floorMeshes) {
-    if (
-      nextLayout &&
-      nextLayout.floors.some((floor) => floor.id === floorId) &&
-      navigationFloorKey(nextLayout, floorId) === signature
-    ) {
-      continue;
+  for (const [floorId, cachedMeshes] of floorMeshes) {
+    for (const [cacheKey, { query, mesh, signature }] of cachedMeshes) {
+      if (
+        nextLayout &&
+        nextLayout.floors.some((floor) => floor.id === floorId) &&
+        navigationFloorKey(nextLayout, floorId) === signature
+      ) {
+        continue;
+      }
+      query.destroy();
+      mesh.destroy();
+      cachedMeshes.delete(cacheKey);
     }
-    query.destroy();
-    mesh.destroy();
-    floorMeshes.delete(floorId);
+    if (cachedMeshes.size === 0) {floorMeshes.delete(floorId);}
   }
 }
 
@@ -122,17 +125,18 @@ async function floorQuery(
   paints: AreaPaint[] = [],
   wayfinding = false,
   agentRadiusM?: number,
-): Promise<NavMeshQuery | null> {
+): Promise<CachedFloorMesh | null> {
   if (agentRadiusM !== undefined && (!Number.isFinite(agentRadiusM) || agentRadiusM <= 0)) {
     return null;
   }
-  const cached = floorMeshes.get(floorId);
   const signature = navigationFloorKey(layout, floorId);
   const profileSignature =
     agentRadiusM === undefined ? '' : `agent-radius:${agentRadiusM.toPrecision(12)}:`;
   const areaSignature = `${profileSignature}${wayfinding ? '0.4m:' : 'legacy:'}${paintHash(paints)}`;
-  if (cached && cached.signature === signature && cached.areaSignature === areaSignature) {
-    return cached.query;
+  const cacheKey = JSON.stringify([signature, areaSignature]);
+  const cached = floorMeshes.get(floorId)?.get(cacheKey);
+  if (cached) {
+    return cached;
   }
   const positions: number[] = [];
   const indices: number[] = [];
@@ -217,6 +221,9 @@ async function floorQuery(
     return null;
   }
   await ensureInitialized();
+  // Other requests may have completed the same build while Recast initialized.
+  const initializedCache = floorMeshes.get(floorId)?.get(cacheKey);
+  if (initializedCache) {return initializedCache;}
   const generate = paints.length
     ? (
         vertices: number[],
@@ -262,13 +269,15 @@ async function floorQuery(
     return null;
   }
   const query = new NavMeshQuery(generated.navMesh);
-  if (cached) {
-    cached.query.destroy();
-    cached.mesh.destroy();
+  const result: CachedFloorMesh = { signature, areaSignature, query, mesh: generated.navMesh };
+  let floorCache = floorMeshes.get(floorId);
+  if (!floorCache) {
+    floorCache = new Map();
+    floorMeshes.set(floorId, floorCache);
   }
-  floorMeshes.set(floorId, { signature, areaSignature, query, mesh: generated.navMesh });
+  floorCache.set(cacheKey, result);
 
-  return query;
+  return result;
 }
 
 export interface FloorRouteOptions {
@@ -286,15 +295,8 @@ async function floorHandles(
   wayfinding = false,
   agentRadiusM?: number,
 ) {
-  const query = await floorQuery(layout, floorId, paints, wayfinding, agentRadiusM);
-  if (!query) {
-    return null;
-  }
-  const cached = floorMeshes.get(floorId);
-  if (!cached) {
-    return null;
-  }
-  return { mesh: cached.mesh, query };
+  const cached = await floorQuery(layout, floorId, paints, wayfinding, agentRadiusM);
+  return cached ? { mesh: cached.mesh, query: cached.query } : null;
 }
 
 /**

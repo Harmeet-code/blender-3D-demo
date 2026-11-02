@@ -1,4 +1,5 @@
 import type { PortalType } from '@/features/building/model/building-schema.ts';
+import type { AreaQueryFilter } from '@/features/building/model/navigation-protocol.ts';
 import { NavigationClient } from '@/features/building/model/navigation-client.ts';
 import { normalizeLayout } from '@/features/building/model/normalize-layout.ts';
 import { isFloorPointClear } from '@/features/building/model/floor-point-clear.ts';
@@ -50,11 +51,7 @@ export interface WayfindingPlanOptions {
   }[];
   /** Per-floor area paint pieces (zone type → area/flags). */
   navAreas?: Record<string, { polygon: [number, number][]; area: number; flags: number }[]>;
-  queryFilter?: {
-    includeFlags?: number;
-    excludeFlags?: number;
-    areaCosts?: readonly (readonly [number, number])[];
-  };
+  queryFilter?: AreaQueryFilter;
   disabledPortals?: readonly string[];
   enabledPortalTypes?: readonly PortalType[];
   straight?: boolean;
