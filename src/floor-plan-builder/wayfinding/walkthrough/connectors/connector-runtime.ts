@@ -64,6 +64,8 @@ export interface ConnectorFrame {
 
 export interface ConnectorTraversalRequest {
   record: ConnectorRecord;
+  /** Portal selected by routing; prevents resolving a different connector record by floor alone. */
+  portalId: string;
   fromFloorId: string;
   toFloorId: string;
   role: 'staff' | 'visitor';
@@ -71,8 +73,10 @@ export interface ConnectorTraversalRequest {
   /** Must run the shared capsule gate on every proposed movement sample. */
   validateSweep(fromFeet: Point3, toFeet: Point3): { clear: boolean; reason?: string };
   validateEndpoint(floorId: string, feet: Point3): { clear: boolean; reason?: string };
-  /** Elevator cabin transitions need an integration-owned collision context switch. */
-  validateElevatorRide?(from: ConnectorPoint, to: ConnectorPoint): { clear: boolean; reason?: string };
+  /** Must establish that these authored samples belong to the selected portal/physical instance. */
+  validatePathBinding(path: ConnectorPath, portalId: string): boolean;
+  /** Must validate the full continuous ride in the cabin collision context, including intermediate poses. */
+  validateElevatorRide?(from: ConnectorPoint, to: ConnectorPoint): { clear: boolean; continuous: boolean; reason?: string };
 }
 
 export interface ConnectorTraversalPlan {
@@ -108,7 +112,9 @@ function invalid(record: ConnectorRecord, reason: string): ConnectorFrame {
 
 /** Resolve a connector only from complete, linked authoring evidence. Missing geometry fails closed. */
 export function resolveConnectorTraversal(request: ConnectorTraversalRequest): ConnectorTraversalPlan | ConnectorFrame {
+  if (!request || !request.record || !Array.isArray(request.record.stops)) return invalid({ id: '', stops: [] } as ConnectorRecord, 'Connector request is incomplete.');
   const { record, fromFloorId, toFloorId, role } = request;
+  if (!request.portalId || request.portalId !== record.portalId) return invalid(record, 'Selected portal does not match this connector.');
   if (!record.enabled) return invalid(record, 'This connector is disabled.');
   if (record.allowedRoles && !record.allowedRoles.includes(role)) return invalid(record, 'This connector is unavailable for the current role.');
   if (request.accessibleOnly && !record.accessible) return invalid(record, 'This connector is not marked accessible.');
@@ -118,10 +124,18 @@ export function resolveConnectorTraversal(request: ConnectorTraversalRequest): C
   const from = record.stops.find((stop) => stop.floorId === fromFloorId);
   const to = record.stops.find((stop) => stop.floorId === toFloorId);
   if (!from || !to || from === to) return invalid(record, 'The requested floors are not distinct authored stops on this connector.');
+  if (record.kind !== 'elevator' && record.kind !== 'stairs' && record.kind !== 'ramp' && record.kind !== 'escalator') return invalid(record, 'Connector kind is unsupported.');
+  if (record.speedMps !== undefined && (!Number.isFinite(record.speedMps) || record.speedMps <= 0)) return invalid(record, 'Connector speed must be finite and positive.');
+  if (record.transferSeconds !== undefined && (!Number.isFinite(record.transferSeconds) || record.transferSeconds < 0)) return invalid(record, 'Connector transfer duration must be finite and non-negative.');
   if (record.kind !== 'elevator') {
     const path = record.path;
-    if (!path || path.points.length < 2 || !path.points.every(finitePoint) || !Number.isFinite(path.widthM) || path.widthM <= 0 || !path.authoredInstanceId || !path.source) {
+    if (!path || path.points.length < 2 || !path.points.every(finitePoint) || !Number.isFinite(path.widthM) || path.widthM <= 0 || !path.authoredInstanceId?.trim() || (path.source !== 'document' && path.source !== 'existing-asset-metadata')) {
       return invalid(record, 'A linked authored traversable path and width are required for this connector.');
+    }
+    try {
+      if (typeof request.validatePathBinding !== 'function' || !request.validatePathBinding(path, request.portalId)) return invalid(record, 'Authored path is not bound to the selected portal instance.');
+    } catch {
+      return invalid(record, 'Authored path binding could not be verified.');
     }
     const atFrom = distance(path.points[0]!, from.entry) <= distance(path.points.at(-1)!, from.entry) ? 0 : path.points.length - 1;
     const atTo = atFrom === 0 ? path.points.length - 1 : 0;
@@ -129,13 +143,22 @@ export function resolveConnectorTraversal(request: ConnectorTraversalRequest): C
       return invalid(record, 'Authored path endpoints do not bind to the requested floor stops.');
     }
     const points = atFrom === 0 ? [...path.points] : reverse(path.points);
-    for (let index = 1; index < points.length; index++) {
-      const result = request.validateSweep(points[index - 1] as Point3, points[index] as Point3);
-      if (!result.clear) return invalid(record, result.reason ?? `Capsule clearance blocked at path sample ${index}.`);
-    }
-    for (const stop of [from, to]) {
-      const result = request.validateEndpoint(stop.floorId, stop.entry as Point3);
-      if (!result.clear) return invalid(record, result.reason ?? `Capsule cannot stand at the ${stop.floorId} landing.`);
+    // The endpoint tolerance only selects orientation. Validate the actual gaps that traversal will cross.
+    try {
+      for (const [stop, endpoint] of [[from, points[0]!], [to, points.at(-1)!]] as const) {
+        const result = request.validateSweep(stop.entry as Point3, endpoint as Point3);
+        if (!result?.clear) return invalid(record, result?.reason ?? `Capsule clearance blocked between the ${stop.floorId} stop and path.`);
+      }
+      for (let index = 1; index < points.length; index++) {
+        const result = request.validateSweep(points[index - 1] as Point3, points[index] as Point3);
+        if (!result?.clear) return invalid(record, result?.reason ?? `Capsule clearance blocked at path sample ${index}.`);
+      }
+      for (const stop of [from, to]) {
+        const result = request.validateEndpoint(stop.floorId, stop.entry as Point3);
+        if (!result?.clear) return invalid(record, result?.reason ?? `Capsule cannot stand at the ${stop.floorId} landing.`);
+      }
+    } catch {
+      return invalid(record, 'Connector capsule clearance could not be verified.');
     }
     return {
       connectorId: record.id, portalId: record.portalId, kind: record.kind, from, to,
@@ -146,13 +169,21 @@ export function resolveConnectorTraversal(request: ConnectorTraversalRequest): C
   if (record.stops.length < 2 || !Number.isFinite(record.transferSeconds) || record.transferSeconds! <= 0) {
     return invalid(record, 'Elevator requires explicit stops and a positive authored transfer duration.');
   }
-  for (const stop of [from, to]) {
-    const result = request.validateEndpoint(stop.floorId, stop.entry as Point3);
-    if (!result.clear) return invalid(record, result.reason ?? `Capsule cannot stand at the ${stop.floorId} elevator landing.`);
+  try {
+    for (const stop of [from, to]) {
+      const result = request.validateEndpoint(stop.floorId, stop.entry as Point3);
+      if (!result?.clear) return invalid(record, result?.reason ?? `Capsule cannot stand at the ${stop.floorId} elevator landing.`);
+    }
+  } catch {
+    return invalid(record, 'Elevator landing clearance could not be verified.');
   }
   if (!request.validateElevatorRide) return invalid(record, 'Elevator cabin collision context is not connected.');
-  const ride = request.validateElevatorRide(from.entry, to.entry);
-  if (!ride.clear) return invalid(record, ride.reason ?? 'Elevator ride clearance is unavailable.');
+  try {
+    const ride = request.validateElevatorRide(from.entry, to.entry);
+    if (!ride?.clear || ride.continuous !== true) return invalid(record, ride?.reason ?? 'Continuous elevator ride clearance is unavailable.');
+  } catch {
+    return invalid(record, 'Continuous elevator ride clearance could not be verified.');
+  }
   return {
     connectorId: record.id, portalId: record.portalId, kind: record.kind, from, to,
     points: [from.entry, to.entry], speedMps: record.speedMps ?? 1, transferSeconds: record.transferSeconds!,
