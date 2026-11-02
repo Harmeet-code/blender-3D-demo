@@ -9,7 +9,7 @@ import { WalkthroughLayer } from '../../wayfinding/walkthrough/WalkthroughLayer.
 import { useWayfindingRoute } from '../../wayfinding/navigation/use-wayfinding-route.ts';
 import { useWayfindingStore, selectActiveResult } from '../../wayfinding/store/wayfinding-store.ts';
 import { usePlaybackStore } from '../../wayfinding/store/playback-store.ts';
-import type { RouteRequest } from '../../wayfinding/model/route-schema.ts';
+import type { RouteRequest, RouteResult } from '../../wayfinding/model/route-schema.ts';
 import { MotionLabTelemetryProbe, MotionLabInputProbe, type MotionLabInputState, type MotionLabTelemetry, type RecordedInput } from './motion-lab/TelemetryProbe.tsx';
 import { runSharedRouteFuzzer, simulateSharedRoute, STANDARD_ROUTE_FIXTURES, type FixtureSummary } from './motion-lab/diagnostics.ts';
 import { createMotionLabDocument, createMotionLabZones, MOTION_LAB_ROLE_AREAS, MOTION_LAB_STOPS } from './motion-lab/world.ts';
@@ -23,11 +23,40 @@ function downloadJson(filename: string, value: unknown) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function sparkline(frames: MotionLabTelemetry[], metric: (frame: MotionLabTelemetry) => number) {
-  const values = frames.map(metric).filter(Number.isFinite);
-  if (!values.length) return '';
-  const min = Math.min(...values), max = Math.max(...values), span = max - min || 1;
-  return values.map((value, index) => `${values.length <= 1 ? 100 : (index / (values.length - 1)) * 200},${34 - ((value - min) / span) * 30}`).join(' ');
+type ReplayContext = {
+  routeRequest: RouteRequest;
+  routeResult: RouteResult;
+  routeOption: 'shortest' | 'accessible';
+  role: Role;
+  floorId: string;
+  characterConfigId: typeof CHARACTER_CONFIG.id;
+};
+
+function currentReplayContext(activeRoute: RouteResult | null, role: Role, floorId: string): ReplayContext | null {
+  const state = useWayfindingStore.getState();
+  if (!activeRoute || !state.request) return null;
+  return { routeRequest: state.request, routeResult: activeRoute, routeOption: state.option, role, floorId, characterConfigId: CHARACTER_CONFIG.id };
+}
+
+function snapshotReplayContext(context: ReplayContext): ReplayContext {
+  return JSON.parse(JSON.stringify(context)) as ReplayContext;
+}
+
+function sparkline(frames: MotionLabTelemetry[], metric: (frame: MotionLabTelemetry) => number | null) {
+  const values = frames.map(metric);
+  const finite = values.filter((value): value is number => value !== null && Number.isFinite(value));
+  if (!finite.length) return '';
+  const min = Math.min(...finite), max = Math.max(...finite), span = max - min || 1;
+  const path: string[] = [];
+  let inSegment = false;
+  values.forEach((value, index) => {
+    if (value === null || !Number.isFinite(value)) { inSegment = false; return; }
+    const x = values.length <= 1 ? 100 : (index / (values.length - 1)) * 200;
+    const y = 34 - ((value - min) / span) * 30;
+    path.push(`${inSegment ? 'L' : 'M'}${x},${y}`);
+    inSegment = true;
+  });
+  return path.join(' ');
 }
 
 function vectorLength(value: readonly number[]) {
@@ -110,6 +139,7 @@ export default function MotionLab() {
   const [videoRecording, setVideoRecording] = useState(false);
   const telemetry = useRef<MotionLabTelemetry[]>([]);
   const inputTape = useRef<RecordedInput[]>([]);
+  const inputTapeContext = useRef<ReplayContext | null>(null);
   const heldInput = useRef<MotionLabInputState>({ forward: 0, strafe: 0, sprint: false });
   const captureMode = useRef<'idle' | 'record' | 'replay'>('idle');
   const replayEpoch = useRef(0);
@@ -122,6 +152,9 @@ export default function MotionLab() {
   const routeFailure = useWayfindingStore((state) => state.outcome?.failure ?? state.failure);
   const routeOption = useWayfindingStore((state) => state.option);
   const activeRoute = useWayfindingStore(selectActiveResult);
+  const liveReplayContext = currentReplayContext(activeRoute, role, floorId);
+  const replayMatchesContext = !!inputTape.current.length && !!inputTapeContext.current && !!liveReplayContext
+    && JSON.stringify(inputTapeContext.current) === JSON.stringify(liveReplayContext);
   const setRouteOption = useWayfindingStore((state) => state.setOption);
   const playback = usePlaybackStore((state) => state.session);
   const playbackStatus = usePlaybackStore((state) => state.status);
@@ -210,10 +243,12 @@ export default function MotionLab() {
   const fixtureOutcomesMatch = fixtureResults !== null && fixtureResults.length === STANDARD_ROUTE_FIXTURES.length && fixtureResults.every((result) => result.actualOutcome === result.expectedOutcome);
 
   const startInputRecord = () => {
-    if (!activeRoute) { setStatusMessage('Find a route before recording walker inputs'); return; }
+    const provenance = currentReplayContext(activeRoute, role, floorId);
+    if (!provenance) { setStatusMessage('Find a resolved route request before recording walker inputs'); return; }
     usePlaybackStore.getState().begin(activeRoute, document, floorId);
     usePlaybackStore.getState().toggle();
     inputTape.current = [];
+    inputTapeContext.current = snapshotReplayContext(provenance);
     telemetry.current = [];
     setInputCount(0);
     captureMode.current = 'record';
@@ -225,13 +260,18 @@ export default function MotionLab() {
     setStatusMessage(`Input recording stopped · ${inputTape.current.length} samples`);
   };
   const replayInputs = () => {
-    if (!inputTape.current.length || !activeRoute) { setStatusMessage('Record inputs from a resolved route before replay'); return; }
+    const currentContext = currentReplayContext(activeRoute, role, floorId);
+    if (!inputTape.current.length || !inputTapeContext.current || !currentContext) { setStatusMessage('Record inputs from a resolved route before replay'); return; }
+    if (JSON.stringify(inputTapeContext.current) !== JSON.stringify(currentContext)) {
+      setStatusMessage('Replay blocked: current route request/result, route policy, role, floor, or character profile differs from the recorded tape.');
+      return;
+    }
     usePlaybackStore.getState().begin(activeRoute, document, floorId);
     usePlaybackStore.getState().toggle();
     telemetry.current = [];
     replayEpoch.current++;
     captureMode.current = 'replay';
-    setStatusMessage(`Replaying ${inputTape.current.length} input ticks from the same route start`);
+    setStatusMessage(`Replaying ${inputTape.current.length} input ticks with matching recorded route provenance`);
   };
 
   const startVideoCapture = async () => {
@@ -296,6 +336,7 @@ export default function MotionLab() {
               <div>resolved tick {liveFrame?.frame.tick ?? 0} · {liveFrame?.frame.locomotion ?? 'idle'} · floor {liveFrame?.frame.floorId ?? '—'}</div>
               <div>pos {liveFrame?.frame.position.map((value) => value.toFixed(2)).join(', ') ?? '—'} · yaw {liveFrame?.frame.yawRadians.toFixed(2) ?? '—'} rad</div>
               <div>speed {currentSpeed.toFixed(2)} m/s · accel {liveFrame ? vectorLength(liveFrame.accelerationMps2).toFixed(2) : '—'} · jerk {liveFrame ? vectorLength(liveFrame.jerkMps3).toFixed(2) : '—'}</div>
+              {liveFrame?.derivativeResetReason && <div className="text-amber-200">Derivative baseline reset: {liveFrame.derivativeResetReason}</div>}
               <div>clearance {liveFrame?.clearance.clear === null ? 'connector validator only' : liveFrame?.clearance.clear ? 'capsule sweep clear' : 'blocked / unavailable'} · feet {liveFrame?.feet.basis === 'connector-foot-data-unavailable' ? 'connector samples unavailable' : liveFrame ? `${liveFrame.feet.stance[0] ? 'L stance estimate' : 'L swing estimate'}, ${liveFrame.feet.stance[1] ? 'R stance estimate' : 'R swing estimate'}` : '—'}</div>
               {liveFrame?.clearance.reason && <div className="max-w-lg whitespace-normal text-amber-200">{liveFrame.clearance.blockerId ?? liveFrame.clearance.reason}</div>}
             </div>
@@ -321,35 +362,41 @@ export default function MotionLab() {
 
             <section className="space-y-2 border-t border-slate-700 pt-3">
               <h2 className="font-medium">Resolved telemetry</h2>
-              <p className="text-xs text-slate-400">Sampled from the mounted follower after its frame update. Velocity, acceleration and jerk are finite differences over the observed frame interval.</p>
+              <p className="text-xs text-slate-400">Observational telemetry sampled after the mounted follower frame update. Velocity, acceleration and jerk use observed frame intervals; a boundary frame resets derivatives on playback or floor changes. Tick is per playback generation, identified in each frame. This is not deterministic fixed-tick output, and no numeric motion thresholds have been approved.</p>
               <svg viewBox="0 0 200 38" className="h-12 w-full rounded bg-slate-950 p-1" role="img" aria-label="Observed speed, acceleration and jerk trends">
-                <polyline points={sparkline(trail, (frame) => vectorLength(frame.frame.velocity))} fill="none" stroke="#60a5fa" strokeWidth="1.5" />
-                <polyline points={sparkline(trail, (frame) => vectorLength(frame.accelerationMps2))} fill="none" stroke="#fbbf24" strokeWidth="1.2" />
-                <polyline points={sparkline(trail, (frame) => vectorLength(frame.jerkMps3))} fill="none" stroke="#f472b6" strokeWidth="1.2" />
+                <path d={sparkline(trail, (frame) => vectorLength(frame.frame.velocity))} fill="none" stroke="#60a5fa" strokeWidth="1.5" />
+                <path d={sparkline(trail, (frame) => vectorLength(frame.accelerationMps2))} fill="none" stroke="#fbbf24" strokeWidth="1.2" />
+                <path d={sparkline(trail, (frame) => vectorLength(frame.jerkMps3))} fill="none" stroke="#f472b6" strokeWidth="1.2" />
               </svg>
               <p className="text-xs text-slate-400">Blue speed · amber acceleration · pink jerk; series normalize independently. Gaze vector: {liveFrame?.gazeDirection.map((value) => value.toFixed(2)).join(', ') ?? '—'}.</p>
+              <svg viewBox="0 0 200 38" className="h-12 w-full rounded bg-slate-950 p-1" role="img" aria-label="Recent clearance decisions and estimated left and right foot stance states">
+                <path d={sparkline(trail, (frame) => frame.clearance.clear === null ? null : Number(frame.clearance.clear))} fill="none" stroke="#2dd4bf" strokeWidth="1.5" />
+                <path d={sparkline(trail, (frame) => Number(frame.feet.stance[0]))} fill="none" stroke="#c084fc" strokeWidth="1.2" />
+                <path d={sparkline(trail, (frame) => Number(frame.feet.stance[1]))} fill="none" stroke="#f9a8d4" strokeWidth="1.2" />
+              </svg>
+              <p className="text-xs text-slate-400">Teal clearance decision (gaps mean unavailable) · purple/pink left/right stance estimates. Feet are gait estimates, not measured contact; unavailable connector clearance remains unverified.</p>
               <p className="text-xs text-slate-400">Flat-walk feet are world targets from the shared gait phase; contact is an estimate, not Rapier foot contact. Connector-specific foot samples are unavailable here. Capsule gate reports clear/blocker/source; the shared validator does not expose numeric wall clearance.</p>
               <p className="text-xs text-slate-400">Floor transition: {liveFrame?.floorInteraction.changedFromFloorId ? `${liveFrame.floorInteraction.changedFromFloorId} → ${liveFrame.floorInteraction.floorId}` : liveFrame?.floorInteraction.floorId ?? '—'} · connector phase {liveFrame?.floorInteraction.connectorPhase ?? 'none'}.</p>
-              <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!telemetry.current.length} onClick={() => downloadJson('motion-lab-runtime-telemetry.json', { schemaVersion: 1, frames: telemetry.current })}>Export telemetry</button>
+              <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!telemetry.current.length} onClick={() => downloadJson('motion-lab-runtime-telemetry.json', { schemaVersion: 2, frames: telemetry.current })}>Export telemetry</button>
             </section>
 
             <section className="space-y-2 border-t border-slate-700 pt-3">
               <h2 className="font-medium">Input record / replay</h2>
-              <p className="text-xs text-slate-400">Fixed 30 Hz held-input samples restart the selected route from its start. Rapier and render scheduling still determine resolved trajectory details.</p>
+              <p className="text-xs text-slate-400">Fixed 30 Hz held-input samples are bound to the recorded route request/result, route option, role, floor, and character profile. Rapier and render scheduling still determine resolved trajectory details, so replay is not deterministic.</p>
               <div className="flex flex-wrap gap-2">
-                {captureMode.current === 'record' ? <button className="rounded bg-rose-800 px-2 py-2 text-xs" onClick={stopInputRecord}>Stop input record</button> : <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!activeRoute} onClick={startInputRecord}>Record inputs</button>}
-                <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!inputTape.current.length || !activeRoute} onClick={replayInputs}>Replay from route start</button>
-                <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!inputTape.current.length} onClick={() => downloadJson('motion-lab-input-tape.json', { schemaVersion: 1, samples: inputTape.current })}>Export tape</button>
+                {captureMode.current === 'record' ? <button className="rounded bg-rose-800 px-2 py-2 text-xs" onClick={stopInputRecord}>Stop input record</button> : <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!liveReplayContext || !!playback} onClick={startInputRecord}>Record inputs</button>}
+                <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!replayMatchesContext || !!playback} onClick={replayInputs}>Replay recorded context</button>
+                <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!inputTape.current.length} onClick={() => downloadJson('motion-lab-input-tape.json', { schemaVersion: 2, provenance: inputTapeContext.current, samples: inputTape.current })}>Export tape</button>
               </div>
-              <p className="font-mono text-xs text-slate-400">{inputCount} samples · tape is transient local input, separate from video capture</p>
+              <p className="font-mono text-xs text-slate-400">{inputCount} samples · {inputTapeContext.current ? replayMatchesContext ? 'recorded provenance matches' : 'recorded provenance does not match current route context' : 'no recorded provenance'} · transient local input, separate from video capture</p>
             </section>
 
             <section className="space-y-2 border-t border-slate-700 pt-3">
-              <h2 className="font-medium">Shared steering / capsule fixtures</h2>
-              <p className="text-xs text-slate-400">Uses W1 CHARACTER_CONFIG, W3 validateCapsuleSweep and W4 steerRoute. Fixtures author their own single-floor obstacles.</p>
+              <h2 className="font-medium">Fixed-step headless diagnostics</h2>
+              <p className="text-xs text-slate-400">Uses a 1/30 s pure simulation with W1 CHARACTER_CONFIG, W3 validateCapsuleSweep and W4 steerRoute. It does not submit frames to Rapier and is not numerically comparable to the live observational telemetry.</p>
               <button className="w-full rounded bg-slate-700 px-3 py-2 text-sm" onClick={runFixtures}>Run standard route diagnostics</button>
-              {fixtureResults && <div className="space-y-1 font-mono text-xs text-slate-300">{fixtureResults.map((result) => <div key={result.fixtureId}>{STANDARD_ROUTE_FIXTURES.find((item) => item.id === result.fixtureId)?.label}: {result.actualOutcome} (reference {result.expectedOutcome}) · {result.resolvedMeters.toFixed(2)}/{result.routeMeters.toFixed(2)} m · {result.elapsedSeconds.toFixed(2)} s · stop tick {result.stopTick ?? '—'} · max accel {result.maxAccelerationMps2.toFixed(2)} · max jerk {result.maxJerkMps3.toFixed(2)} · endpoint {result.endpoint.clear ? 'clear' : result.endpoint.blockerId ?? 'blocked'}</div>)}<div className="text-amber-300">Fixture references {fixtureOutcomesMatch ? 'match' : 'differ'}; this is shared-code diagnostic output, not production golden evidence. Numeric wall margin is unavailable from the production validator.</div></div>}
-              <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!fixtureResults} onClick={() => downloadJson('motion-lab-fixture-summary.json', { schemaVersion: 1, fixtures: fixtureResults, references: STANDARD_ROUTE_FIXTURES.map(({ id, points, expectedOutcome }) => ({ id, routeMeters: points.slice(1).reduce((sum, point, index) => sum + Math.hypot(point[0] - points[index]![0], point[1] - points[index]![1], point[2] - points[index]![2]), 0), expectedOutcome })), limitations: ['No connector/floor-transition fixture is available in this synthetic one-floor document.', 'The shared capsule gate returns blocker decisions, not a numeric wall-margin measurement.', 'Avatar foot positions are gait-phase targets, not physics contacts.'] })}>Export fixture summaries</button>
+              {fixtureResults && <div className="space-y-1 font-mono text-xs text-slate-300">{fixtureResults.map((result) => <div key={result.fixtureId}>{STANDARD_ROUTE_FIXTURES.find((item) => item.id === result.fixtureId)?.label}: {result.actualOutcome} (reference {result.expectedOutcome}) · {result.resolvedMeters.toFixed(2)}/{result.routeMeters.toFixed(2)} m · {result.elapsedSeconds.toFixed(2)} s · stop tick {result.stopTick ?? '—'} · max accel {result.maxAccelerationMps2.toFixed(2)} · max jerk {result.maxJerkMps3.toFixed(2)} · endpoint {result.endpoint.clear ? 'clear' : result.endpoint.blockerId ?? 'blocked'}</div>)}<div className="text-amber-300">Fixture references {fixtureOutcomesMatch ? 'match' : 'differ'}; this is diagnostic output, not production golden evidence. No numeric motion acceptance thresholds have been approved, so acceleration, jerk, duration, clearance and endpoint metrics do not pass/fail a threshold gate. Numeric wall margin is unavailable.</div></div>}
+              <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!fixtureResults} onClick={() => downloadJson('motion-lab-fixture-summary.json', { schemaVersion: 1, fixtures: fixtureResults, references: STANDARD_ROUTE_FIXTURES.map(({ id, points, expectedOutcome }) => ({ id, routeMeters: points.slice(1).reduce((sum, point, index) => sum + Math.hypot(point[0] - points[index]![0], point[1] - points[index]![1], point[2] - points[index]![2]), 0), expectedOutcome })), thresholdStatus: 'unapproved-not-evaluated', limitations: ['No connector/floor-transition fixture is available in this synthetic one-floor document.', 'The shared capsule gate returns blocker decisions, not a numeric wall-margin measurement.', 'Avatar foot positions are gait-phase targets, not physics contacts.', 'Fixture expectations are authored alongside their generated obstacle scenarios and are diagnostic, not an independent oracle.', 'No numeric acceleration, jerk, duration, clearance, or endpoint thresholds have been approved.'] })}>Export fixture summaries</button>
             </section>
 
             <section className="space-y-2 border-t border-slate-700 pt-3">
@@ -359,7 +406,7 @@ export default function MotionLab() {
               {fuzzerSummary && <p className="font-mono text-xs text-slate-300">seed {fuzzerSummary.seed} · {fuzzerSummary.count} cases · {fuzzerSummary.clear} clear / {fuzzerSummary.blocked} blocked · {fuzzerSummary.mismatches} expected-outcome mismatches. {fuzzerSummary.limitation}</p>}
             </section>
 
-            <p className="border-t border-slate-700 pt-3 text-xs leading-5 text-slate-500">The browser screen-capture prompt starts only after your click. It records the shared walker viewport and saves WebM locally. The demo has no authored connector records; elevator, stair, ramp and escalator telemetry remains dependent on real linked document records.</p>
+            <p className="border-t border-slate-700 pt-3 text-xs leading-5 text-slate-500">The browser screen-capture prompt starts only after your click. It records the shared walker viewport and saves WebM locally. This synthetic demo has no authored connector records; production connector transitions, clearance and foot data are unavailable and remain unverified until real linked records are supplied.</p>
             <div role="status" aria-live="polite" className="rounded bg-slate-800 p-3 text-sm text-emerald-200">{statusMessage}</div>
           </aside>
         </section>

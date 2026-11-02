@@ -190,5 +190,5 @@ export function runSharedRouteFuzzer(seed: number, count = 32) {
     if (summary.actualOutcome !== expectedOutcome) mismatches++;
     if (examples.length < 4) examples.push(summary);
   }
-  return { seed, count, clear, blocked, mismatches, examples, limitation: 'The generator exercises authored 2D single-floor walk paths only; connector/floor/interaction states are not fuzzed.' };
+  return { seed, count, clear, blocked, mismatches, examples, limitation: 'Diagnostic only: expected clear/blocked labels are generated with their obstacle scenarios, so this is not an independent oracle or quality gate. It exercises 2D single-floor walk paths only; connector/floor/interaction states and numeric motion thresholds are not evaluated.' };
 }

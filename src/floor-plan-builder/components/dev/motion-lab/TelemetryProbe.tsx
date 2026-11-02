@@ -17,6 +17,8 @@ export type MotionLabTelemetry = {
   clearance: { clear: boolean | null; blockerId?: string; source?: string; reason?: string; numericMarginM: null };
   floorInteraction: { floorId: string; elevationM: number; changedFromFloorId?: string; connectorId?: string; connectorPhase: string | null };
   contactBasis: 'gait-phase-estimate-not-physics-contact';
+  playbackGeneration?: number;
+  derivativeResetReason?: 'playback-generation' | 'floor-transition' | 'invalid-delta' | null;
 };
 
 export type RecordedInput = { tick: number; forward: -1 | 0 | 1; strafe: -1 | 0 | 1; sprint: boolean };
@@ -148,19 +150,23 @@ export function MotionLabTelemetryProbe({
     if (generationChanged) {
       last.current = { position, floorId, velocity: [0, 0, 0], acceleration: [0, 0, 0], traveledMeters: 0, generation: session.generation };
       footPlant.current = createFootPlantState();
+      tick.current = 0;
+      lastPublish.current = 0;
     }
     const previous = last.current!;
     const dtSeconds = Number.isFinite(rawDelta) && rawDelta > 0 ? rawDelta : 0;
     const sameFloor = previous.floorId === floorId;
+    const floorChanged = !sameFloor;
+    const resetDerivatives = generationChanged || floorChanged || dtSeconds <= 0;
     const velocity: Vec3 = !generationChanged && sameFloor && dtSeconds > 0
       ? [(position[0] - previous.position[0]) / dtSeconds, (position[1] - previous.position[1]) / dtSeconds, (position[2] - previous.position[2]) / dtSeconds]
       : [0, 0, 0];
     const displacementMeters = generationChanged ? 0 : Math.hypot(position[0] - previous.position[0], position[1] - previous.position[1], position[2] - previous.position[2]);
     const traveledMeters = previous.traveledMeters + displacementMeters;
-    const acceleration: Vec3 = dtSeconds > 0
+    const acceleration: Vec3 = !resetDerivatives && dtSeconds > 0
       ? [(velocity[0] - previous.velocity[0]) / dtSeconds, (velocity[1] - previous.velocity[1]) / dtSeconds, (velocity[2] - previous.velocity[2]) / dtSeconds]
       : [0, 0, 0];
-    const jerk: Vec3 = dtSeconds > 0
+    const jerk: Vec3 = !resetDerivatives && dtSeconds > 0
       ? [(acceleration[0] - previous.acceleration[0]) / dtSeconds, (acceleration[1] - previous.acceleration[1]) / dtSeconds, (acceleration[2] - previous.acceleration[2]) / dtSeconds]
       : [0, 0, 0];
     const locomotion: TelemetryFrame['locomotion'] = state.status === 'paused' && state.message
@@ -215,6 +221,8 @@ export function MotionLabTelemetryProbe({
       clearance: { clear: clearance.clear, blockerId: clearance.blockerId, source: clearance.source, reason: clearance.reason, numericMarginM: null },
       floorInteraction: { floorId, elevationM: floor?.source.heightOffset ?? position[1], ...(sameFloor ? {} : { changedFromFloorId: previous.floorId }), ...(leg?.connector?.id ? { connectorId: leg.connector.id } : {}), connectorPhase: runtime.phase.includes('Elevator') || runtime.phase.includes('Stairs') || runtime.phase.includes('Ramp') || runtime.phase.includes('Escalator') ? runtime.phase : null },
       contactBasis: 'gait-phase-estimate-not-physics-contact',
+      playbackGeneration: session.generation,
+      derivativeResetReason: generationChanged ? 'playback-generation' : floorChanged ? 'floor-transition' : dtSeconds <= 0 ? 'invalid-delta' : null,
     };
     frames.current.push(record);
     if (frames.current.length > 30000) frames.current.shift();
