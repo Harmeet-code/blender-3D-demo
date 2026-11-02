@@ -244,8 +244,8 @@ export function CameraRig({
       if (state.status === 'playing' && previousState.status !== 'playing') {
         // Auto-walk owns the camera while active. Release both browser lock and any
         // pointer capture acquired for manual look before the first route frame.
-        if (document.pointerLockElement) {
-          try { document.exitPointerLock(); } catch { /* Browser may already be releasing it. */ }
+        if (typeof globalThis.document !== 'undefined' && globalThis.document.pointerLockElement) {
+          try { globalThis.document.exitPointerLock(); } catch { /* Browser may already be releasing it. */ }
         }
         up();
       }
