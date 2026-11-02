@@ -10,7 +10,7 @@ import { useWayfindingRoute } from '../../wayfinding/navigation/use-wayfinding-r
 import { useWayfindingStore, selectActiveResult } from '../../wayfinding/store/wayfinding-store.ts';
 import { usePlaybackStore } from '../../wayfinding/store/playback-store.ts';
 import type { RouteRequest, RouteResult } from '../../wayfinding/model/route-schema.ts';
-import { MotionLabTelemetryProbe, MotionLabInputProbe, type MotionLabInputState, type MotionLabTelemetry, type RecordedInput } from './motion-lab/TelemetryProbe.tsx';
+import { MotionLabTelemetryPanel, MotionLabTelemetryProbe, MotionLabInputProbe, type MotionLabInputState, type MotionLabTelemetry, type RecordedInput } from './motion-lab/TelemetryProbe.tsx';
 import { runSharedRouteFuzzer, simulateSharedRoute, STANDARD_ROUTE_FIXTURES, type FixtureSummary } from './motion-lab/diagnostics.ts';
 import { createMotionLabDocument, createMotionLabZones, MOTION_LAB_CONNECTOR_STATUS, MOTION_LAB_FLOORS, MOTION_LAB_ROLE_AREAS, MOTION_LAB_STOPS, routeAllowsRestricted } from './motion-lab/world.ts';
 import { SchemaWallGeometry } from './motion-lab/SchemaWallGeometry.tsx';
@@ -375,6 +375,7 @@ export default function MotionLab() {
             <Canvas shadows camera={{ position: [0, 10, 15], fov: 52 }}>
               <MotionLabStage document={document} floorId={selectedFloorId} role={role} activeRoute={activeRoute} destination={destination} destinationFloorId={destinationStop.floorId} telemetry={telemetry} onFrame={onTelemetry} captureMode={captureMode} heldInput={heldInput} inputTape={inputTape} replayEpoch={replayEpoch} onInputCount={onInputCount} onReplayComplete={onReplayComplete} onFloor={onFloor} />
             </Canvas>
+            <MotionLabTelemetryPanel active={!!playback} />
             <div className="pointer-events-none absolute left-3 top-3 max-w-[95%] rounded-md bg-slate-950/90 px-3 py-2 font-mono text-xs text-emerald-200" aria-live="polite">
               <div>resolved tick {liveFrame?.frame.tick ?? 0} · {liveFrame?.frame.locomotion ?? 'idle'} · floor {liveFrame?.frame.floorId ?? '—'}</div>
               <div>pos {liveFrame?.frame.position.map((value) => value.toFixed(2)).join(', ') ?? '—'} · yaw {liveFrame?.frame.yawRadians.toFixed(2) ?? '—'} rad</div>
