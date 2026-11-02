@@ -1,6 +1,7 @@
 import boothSizeMetadata from '@/assets/metadata/booth-sizes.v1.json';
 import { getProceduralAssetIds } from '@/features/assets/catalog/procedural-assets.ts';
 import { getAssetCatalog } from '@/features/assets/model/catalog.ts';
+import type { AssetMetadata } from '@/features/assets/model/asset-schema.ts';
 import type { ConnectorDescriptor, InteractionDescriptor, Role } from '../contracts.ts';
 import {
   checkConnectorRouteAccess,
@@ -72,7 +73,7 @@ export interface BuildWalkItemRegistryInput {
   accessibleOnly?: boolean;
 }
 
-const metadataById = new Map(getAssetCatalog().map((item) => [item.id, item]));
+const metadataById = new Map<string, AssetMetadata>(getAssetCatalog().map((item) => [item.id, item]));
 const sizedBoothIds = new Set((boothSizeMetadata as readonly { id: string }[]).map((item) => item.id));
 
 function usesForTarget(
@@ -84,11 +85,11 @@ function usesForTarget(
   const declared = interactions.flatMap((descriptor) => descriptor.targetId === targetId
     ? descriptor.actions.flatMap((action) => action.kind === 'use' ? [{ descriptor, action }] : [])
     : []);
-  if (declared.length === 0) return [{ status: 'unavailable', reason: 'No existing use handler is declared.' }];
+  if (declared.length === 0) {return [{ status: 'unavailable', reason: 'No existing use handler is declared.' }];}
   return declared.map(({ descriptor, action }) => {
     const matchingHandlers = handlers.filter((item) => item.capability === action.capability && item.handlerId.trim() && typeof item.execute === 'function');
-    if (matchingHandlers.length === 0) return { status: 'unavailable', descriptorId: descriptor.id, capability: action.capability, label: action.label, reason: 'No executable use handler is registered.' };
-    if (matchingHandlers.length > 1) return { status: 'unavailable', descriptorId: descriptor.id, capability: action.capability, label: action.label, reason: 'Multiple executable handlers are registered for this capability.' };
+    if (matchingHandlers.length === 0) {return { status: 'unavailable', descriptorId: descriptor.id, capability: action.capability, label: action.label, reason: 'No executable use handler is registered.' };}
+    if (matchingHandlers.length > 1) {return { status: 'unavailable', descriptorId: descriptor.id, capability: action.capability, label: action.label, reason: 'Multiple executable handlers are registered for this capability.' };}
     const handler = matchingHandlers[0]!;
     const access = checkWalkUseAccess(role, descriptor, action.capability, handlers, !action.commits);
     if (!access.allowed && !access.reason.startsWith('Confirmation is required')) {

@@ -43,7 +43,7 @@ const ZERO_MOVE: CapsuleMoveResult = { displacement: [0, 0, 0], grounded: false,
  * Mount beneath the existing Rapier Physics provider. Position and size are derived from
  * CHARACTER_CONFIG; the controller, not a second visual collider, resolves each request.
  */
-export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCapsuleProps>(function KinematicCapsule(
+export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCapsuleProps>((
   {
     feetPosition = [0, 0, 0],
     validateSweep,
@@ -55,7 +55,7 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
     ...groupProps
   },
   forwardedRef,
-) {
+) => {
   const bodyRef = useRef<RapierRigidBody>(null);
   const colliderRef = useRef<RapierCollider>(null);
   const { world } = useRapier();
@@ -91,7 +91,7 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
     const body = bodyRef.current;
     const collider = colliderRef.current;
     const activeController = controller.current;
-    if (!desired || !body || !collider || !activeController) return;
+    if (!desired || !body || !collider || !activeController) {return;}
 
     pendingMove.current = null;
     const current = body.translation();

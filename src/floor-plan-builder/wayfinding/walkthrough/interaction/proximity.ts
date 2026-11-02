@@ -56,7 +56,7 @@ export class ProximityInteractionRuntime {
   }
 
   useUnavailableReason(capability?: string): string | null {
-    if (!this.focused) return 'No target is focused.';
+    if (!this.focused) {return 'No target is focused.';}
     const result = checkWalkUseAccess(this.role, this.focused, capability, this.handlers, true);
     return result.allowed ? null : result.reason;
   }
@@ -67,7 +67,7 @@ export class ProximityInteractionRuntime {
     const forwardX = -Math.sin(pose.yawRadians);
     const forwardZ = -Math.cos(pose.yawRadians);
     const distances = this.targets.flatMap((target) => {
-      if (target.allowedRoles && !target.allowedRoles.includes(this.role)) return [];
+      if (target.allowedRoles && !target.allowedRoles.includes(this.role)) {return [];}
       const dx = target.position[0] - x;
       const dy = target.position[1] - y;
       const dz = target.position[2] - z;
@@ -82,13 +82,13 @@ export class ProximityInteractionRuntime {
       .filter(({ target }) => target.proximityEffect)
       .map(({ target }) => [target.id, target] as const));
     for (const [id, target] of this.activeEffects) {
-      if (!activeNow.has(id)) this.onDoorEffect?.(target, false);
+      if (!activeNow.has(id)) {this.onDoorEffect?.(target, false);}
     }
     for (const [id, target] of activeNow) {
-      if (!this.activeEffects.has(id)) this.onDoorEffect?.(target, true);
+      if (!this.activeEffects.has(id)) {this.onDoorEffect?.(target, true);}
     }
     this.activeEffects.clear();
-    for (const [id, target] of activeNow) this.activeEffects.set(id, target);
+    for (const [id, target] of activeNow) {this.activeEffects.set(id, target);}
 
     const candidates = distances
       .filter(({ inRange, inFront }) => inRange && inFront)
@@ -97,8 +97,8 @@ export class ProximityInteractionRuntime {
     if (next !== this.focused) {
       this.focused = next;
       this.dwellMs = 0;
-      if (!next) this.publish({ status: 'idle' });
-      else this.publish({ status: 'nearby', descriptorId: next.id, targetId: next.targetId });
+      if (!next) {this.publish({ status: 'idle' });}
+      else {this.publish({ status: 'nearby', descriptorId: next.id, targetId: next.targetId });}
     } else if (next) {
       this.dwellMs += dtMs;
       const dwellRequired = next.infoDwellMs ?? 350;
@@ -110,11 +110,11 @@ export class ProximityInteractionRuntime {
   }
 
   async inspect(): Promise<void> {
-    if (this.inFlight) return;
+    if (this.inFlight) {return;}
     const target = this.focused;
-    if (!target) return;
+    if (!target) {return;}
     const denied = target.allowedRoles && !target.allowedRoles.includes(this.role);
-    if (denied) return this.publish({ status: 'denied', descriptorId: target.id, reason: `Inspect is unavailable to the ${this.role} role.` });
+    if (denied) {return this.publish({ status: 'denied', descriptorId: target.id, reason: `Inspect is unavailable to the ${this.role} role.` });}
     if (!target.actions.some((action) => action.kind === 'inspect')) {
       return this.publish({ status: 'denied', descriptorId: target.id, reason: 'No inspect action is declared for this target.' });
     }
@@ -134,15 +134,15 @@ export class ProximityInteractionRuntime {
   }
 
   async use(capability?: string, confirmed = false): Promise<void> {
-    if (this.inFlight) return;
+    if (this.inFlight) {return;}
     const target = this.focused;
-    if (!target) return;
+    if (!target) {return;}
     const access = checkWalkUseAccess(this.role, target, capability, this.handlers, confirmed);
     if (!access.allowed) {
       if (access.reason.startsWith('Confirmation is required')) {
         this.pendingCapability = capability;
         this.publish({ status: 'confirmation-required', descriptorId: target.id, action: 'use' });
-      } else this.publish({ status: 'denied', descriptorId: target.id, reason: access.reason });
+      } else {this.publish({ status: 'denied', descriptorId: target.id, reason: access.reason });}
       return;
     }
     const action = target.actions.find((candidate) => candidate.kind === 'use' && candidate.capability === capability);
@@ -166,7 +166,7 @@ export class ProximityInteractionRuntime {
   }
 
   clear(): void {
-    for (const target of this.activeEffects.values()) this.onDoorEffect?.(target, false);
+    for (const target of this.activeEffects.values()) {this.onDoorEffect?.(target, false);}
     this.activeEffects.clear();
     this.focused = null;
     this.dwellMs = 0;

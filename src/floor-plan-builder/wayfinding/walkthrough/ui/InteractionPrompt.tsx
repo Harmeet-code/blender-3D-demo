@@ -10,7 +10,7 @@ export function InteractionPrompt({
   target: InteractionTarget | null;
   state: InteractionState;
 }) {
-  if (!target) return null;
+  if (!target) {return null;}
   const busy = runtime.isBusy || state.status === 'committing';
   const hasInspect = target.actions.some((action) => action.kind === 'inspect');
   const useActions = target.actions.filter((action): action is Extract<InteractionAction, { kind: 'use' }> => action.kind === 'use');
@@ -45,7 +45,7 @@ export function InteractionPrompt({
         {hasInspect && <button type="button" disabled={busy} className="rounded bg-cyan-700 px-3 py-2 hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runtime.inspect()}>Inspect</button>}
         {useActions.map((action) => {
           const ready = runtime.canUse(action.capability);
-          if (!ready) return null;
+          if (!ready) {return null;}
           const confirming = state.status === 'confirmation-required' && runtime.confirmationCapability === action.capability;
           return confirming ? (
             <span key={action.capability} className="flex gap-2">

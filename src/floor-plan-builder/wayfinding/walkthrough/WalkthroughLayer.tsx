@@ -97,6 +97,7 @@ function Runtime({
     }),
     [role, interactionTargets],
   );
+  const inspectedTarget = interactionTargets.find((target) => target.id === inspectedTargetId);
   const clearance = useCapsuleClearance();
   const connectorRecords = useMemo(
     () => runtime.path.legs.flatMap((leg) => {
@@ -107,26 +108,27 @@ function Runtime({
   );
   const connectorPoint = (point: readonly [number, number, number]): [number, number, number] => [point[0], point[1] + originY, point[2]];
   const connectorPlans = useMemo(() => new Map(runtime.path.legs.flatMap((leg, index) => {
-    if (leg.kind === 'walk') return [];
+    if (leg.kind === 'walk') {return [];}
     const record = connectorRecords.find((item) => item.id === leg.connector?.id && item.portalId === leg.connector?.portalId);
-    if (!record || !leg.toFloorId) return [];
+    const toFloorId = leg.toFloorId;
+    if (!record || !toFloorId) {return [];}
     const resolution = resolveConnectorTraversal({
       record,
       portalId: record.portalId,
       fromFloorId: leg.floorId,
-      toFloorId: leg.toFloorId,
+      toFloorId,
       role,
       accessibleOnly: session.route.option === 'accessible',
       validatePathBinding: (path, portalId) => {
         const portal = document.baseline.portals.find((item) => item.id === portalId);
         const instance = document.floors.flatMap((floor) => floor.objects).find((object) => object.id === path.authoredInstanceId);
-        return !!portal && portal.type === leg.kind && portal.connects.includes(leg.floorId) && portal.connects.includes(leg.toFloorId) &&
+        return !!portal && portal.type === leg.kind && portal.connects.includes(leg.floorId) && portal.connects.includes(toFloorId) &&
           !!instance && instance.id === record.id && instance.portalId === portal.id && instance.recipe === leg.kind;
       },
       validateSweep: (from, to) => clearance.validateConnectorSweep(record.id, connectorPoint(from), connectorPoint(to), CHARACTER_CONFIG),
       validateEndpoint: (floorId, feet) => clearance.validateConnectorEndpoint(record.id, floorId, connectorPoint(feet), CHARACTER_CONFIG),
       validateElevatorRide: (_from, _to) => {
-        if (leg.kind !== 'elevator' || !leg.connector || leg.points.length !== 4) return { clear: false, continuous: false, reason: 'Elevator cabin path is incomplete.' };
+        if (leg.kind !== 'elevator' || !leg.connector || leg.points.length !== 4) {return { clear: false, continuous: false, reason: 'Elevator cabin path is incomplete.' };}
         // The scene has no authored shaft aperture, cabin/door colliders, or moving cabin
         // context. Dimension checks and a clearance-map sweep cannot prove an elevator ride safe.
         return { clear: false, continuous: false, reason: 'Elevator traversal is unavailable until shaft, slab apertures, cabin, and door collision geometry are integrated.' };
@@ -158,7 +160,7 @@ function Runtime({
     },
     () => {
       const state = usePlaybackStore.getState();
-      if (state.status === 'playing') state.toggle();
+      if (state.status === 'playing') {state.toggle();}
     },
   );
   useEffect(() => {
@@ -167,7 +169,7 @@ function Runtime({
       manualDirection.set(0, 0, 0);
       invalidate();
     };
-    const visibility = () => { if (window.document.hidden) clearMotion(); };
+    const visibility = () => { if (window.document.hidden) {clearMotion();} };
     window.addEventListener('blur', clearMotion);
     window.document.addEventListener('visibilitychange', visibility);
     return () => {
@@ -198,8 +200,9 @@ function Runtime({
     if (body.current) {
       rig.bind(body.current);
     }
-    if (!smoothedPath.current) for (const leg of runtime.path.legs) {
-      if (leg.kind !== 'walk') continue;
+    if (!smoothedPath.current) {
+      for (const leg of runtime.path.legs) {
+      if (leg.kind !== 'walk') {continue;}
       const smoothed = smoothRouteCorners(leg.points, {
         validateSegment: (from, to) =>
           clearance.validateSweep(
@@ -215,7 +218,7 @@ function Runtime({
       leg.points = smoothed.points;
       leg.lengths = smoothed.lengths;
       leg.length = smoothed.length;
-    }
+    }}
     let offset = 0;
     for (const leg of runtime.path.legs) {
       leg.offset = offset;
@@ -266,7 +269,7 @@ function Runtime({
     const [dx, dy, dz] = result.displacement;
     const travelled = Math.hypot(dx, dy, dz);
     runtime.position = [runtime.position[0] + dx, runtime.position[1] + dy, runtime.position[2] + dz];
-    if (queued?.kind !== 'connector') runtime.gaitDistance += Math.hypot(dx, dz);
+    if (queued?.kind !== 'connector') {runtime.gaitDistance += Math.hypot(dx, dz);}
     if (queued?.kind === 'route') {
       const { intent, from } = queued;
       const displacementError = Math.hypot(
@@ -338,7 +341,7 @@ function Runtime({
       } else if (leg.kind !== 'walk') {
         const resolution = connectorPlans.get(runtime.leg);
         if (!resolution || 'stage' in resolution) {
-          state.fail('Connector route is blocked: ' + (resolution && 'reason' in resolution ? resolution.reason : 'no authored connector geometry is linked to this portal.'));
+          state.fail(`Connector route is blocked: ${  resolution && 'reason' in resolution ? resolution.reason : 'no authored connector geometry is linked to this portal.'}`);
         } else {
           const from: [number, number, number] = [...runtime.position];
           const next = cloneFollowerFrame(runtime);
@@ -383,7 +386,7 @@ function Runtime({
           runtime.yaw = intent.targetYawRadians;
           runtime.look = [...intent.gazeTarget];
           runtime.arrived = intent.arrived;
-          if (intent.arrived) state.publish(runtime);
+          if (intent.arrived) {state.publish(runtime);}
         }
       }
     } else if (state.status !== 'playing') {
@@ -391,19 +394,19 @@ function Runtime({
       const held = runtime.connector ? { forward: 0, strafe: 0, sprint: false } : input.current;
       camera.getWorldDirection(forward);
       forward.y = 0;
-      if (forward.lengthSq() < 1e-8) forward.set(-Math.sin(runtime.yaw), 0, -Math.cos(runtime.yaw));
+      if (forward.lengthSq() < 1e-8) {forward.set(-Math.sin(runtime.yaw), 0, -Math.cos(runtime.yaw));}
       forward.normalize();
       right.set(-forward.z, 0, forward.x);
       const moveX = forward.x * held.forward + right.x * held.strafe;
       const moveZ = forward.z * held.forward + right.z * held.strafe;
       const moveLength = Math.hypot(moveX, moveZ);
-      if (moveLength > 1e-6) manualDirection.set(moveX / moveLength, 0, moveZ / moveLength);
+      if (moveLength > 1e-6) {manualDirection.set(moveX / moveLength, 0, moveZ / moveLength);}
       const maxSpeed = held.sprint ? CHARACTER_CONFIG.sprintSpeedMps : CHARACTER_CONFIG.walkSpeedMps;
       const desiredSpeed = moveLength > 1e-6 ? maxSpeed : 0;
       const rate = desiredSpeed > velocity.current ? CHARACTER_CONFIG.accelerationMps2 : CHARACTER_CONFIG.brakingMps2;
       velocity.current += MathUtils.clamp(desiredSpeed - velocity.current, -rate * dt, rate * dt);
       const distance = velocity.current * dt;
-      let yaw = runtime.yaw;
+      let {yaw} = runtime;
       let dx = 0;
       let dz = 0;
       if (manualDirection.lengthSq() > 1e-8 && distance > 1e-7) {
@@ -429,8 +432,8 @@ function Runtime({
       } else {
         runtime.speed = velocity.current;
       }
-      if (held.forward || held.strafe) invalidate();
-      if (velocity.current > 0.001) invalidate();
+      if (held.forward || held.strafe) {invalidate();}
+      if (velocity.current > 0.001) {invalidate();}
     } else if (runtime.arrived && runtime.arrivalTime < 1.1) {
       runtime.arrivalTime += dt;
       invalidate();
@@ -440,13 +443,13 @@ function Runtime({
     }
     if (body.current) {
       body.current.visible = state.mode !== 'first';
-      if (state.mode !== 'first') rig.update(runtime, originY);
+      if (state.mode !== 'first') {rig.update(runtime, originY);}
     }
 
     interactionRuntime.update({ position: runtime.position, yawRadians: runtime.yaw }, dt);
     // Demand mode only needs another frame while the nearby target's dwell is advancing.
     // Once info is published, stationary focus does not require a permanent render loop.
-    if (interactionRuntime.state.status === 'nearby') invalidate();
+    if (interactionRuntime.state.status === 'nearby') {invalidate();}
 
     lastSnapshot.current += dt;
     if (lastSnapshot.current >= 0.1 || (runtime.arrived && state.status === 'playing')) {
@@ -519,11 +522,11 @@ function Runtime({
             target={interactionRuntime.target}
             state={interactionState}
           />
-          {interactionRuntime.target?.id === inspectedTargetId && (
+          {interactionRuntime.target?.id === inspectedTargetId && inspectedTarget && (
             <div className="pointer-events-auto basis-full rounded-lg border border-white/15 bg-slate-950/95 p-3 text-sm text-white shadow-lg">
               <h2 className="font-semibold">Details</h2>
               <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                {interactionRuntime.target.details.map((detail) => (
+                {inspectedTarget.details.map((detail) => (
                   <div key={detail.label} className="contents">
                     <dt className="text-slate-400">{detail.label}</dt>
                     <dd className="break-all">{detail.value}</dd>
@@ -600,7 +603,7 @@ export function WalkthroughLayer(props: {
   if (!session) {
     return null;
   }
-  if (!floor || !collisionFloor) return null;
+  if (!floor || !collisionFloor) {return null;}
   const runtime = (
     <Physics timeStep={1 / 60} updateLoop="independent">
       <CollisionWorld

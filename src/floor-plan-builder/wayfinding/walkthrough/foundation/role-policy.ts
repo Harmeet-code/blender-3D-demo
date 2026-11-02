@@ -46,8 +46,8 @@ export function checkRouteAreaAccess(role: Role, area: RouteAreaPolicy): RoleAcc
 
 export function checkConnectorRouteAccess(role: Role, policy: ConnectorRoutePolicy): RoleAccess {
   const roleAccess = checkRoleGate(role, policy);
-  if (!roleAccess.allowed) return roleAccess;
-  if (!policy.descriptor.enabled) return { allowed: false, reason: 'This connector is disabled.' };
+  if (!roleAccess.allowed) {return roleAccess;}
+  if (!policy.descriptor.enabled) {return { allowed: false, reason: 'This connector is disabled.' };}
   if (policy.accessibleOnly && !policy.descriptor.accessible) {
     return { allowed: false, reason: 'This route requires an accessible connector.' };
   }
@@ -83,14 +83,14 @@ export function checkWalkUseAccess(
   const matches = handlers.filter(
     (candidate) => candidate.capability === action.capability && candidate.handlerId.trim() && typeof candidate.execute === 'function',
   );
-  if (matches.length === 0) return { allowed: false, reason: 'No executable use handler is registered.' };
-  if (matches.length > 1) return { allowed: false, reason: 'Multiple executable handlers are registered for this capability.' };
+  if (matches.length === 0) {return { allowed: false, reason: 'No executable use handler is registered.' };}
+  if (matches.length > 1) {return { allowed: false, reason: 'Multiple executable handlers are registered for this capability.' };}
   const handler = matches[0]!;
   if (handler.commits !== action.commits || action.requiresConfirmation !== action.commits) {
     return { allowed: false, reason: 'The registered handler does not match the action confirmation contract.' };
   }
   const roleAccess = checkRoleGate(role, handler);
-  if (!roleAccess.allowed) return roleAccess;
+  if (!roleAccess.allowed) {return roleAccess;}
   if (handler.commits && !confirmed) {
     return { allowed: false, reason: 'Confirmation is required before this action can run.' };
   }

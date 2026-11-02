@@ -69,7 +69,7 @@ export function createWalkInteractionTargets(
   role: Role,
 ): AdaptedWalkTarget[] {
   const floor = document.floors.find((candidate) => candidate.source.id === floorId);
-  if (!floor) return [];
+  if (!floor) {return [];}
   const floorY = floor.source.heightOffset + originY;
   return floor.objects
     .filter((object) => object.recipe !== 'avatar')

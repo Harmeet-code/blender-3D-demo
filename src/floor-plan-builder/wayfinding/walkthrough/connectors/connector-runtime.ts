@@ -50,9 +50,9 @@ export function connectorRecordForLeg(leg: MotionLeg, document: PlanDocument): C
   const object = leg.connector;
   if (!object || !leg.toFloorId || !object.portalId ||
       (leg.kind !== 'stairs' && leg.kind !== 'ramp' && leg.kind !== 'elevator' && leg.kind !== 'escalator') ||
-      leg.points.length < 2) return null;
+      leg.points.length < 2) {return null;}
   const portal = document.baseline.portals.find((item) => item.id === object.portalId);
-  if (!portal || portal.type !== leg.kind || !portal.connects.includes(leg.floorId) || !portal.connects.includes(leg.toFloorId)) return null;
+  if (!portal || portal.type !== leg.kind || !portal.connects.includes(leg.floorId) || !portal.connects.includes(leg.toFloorId)) {return null;}
   const design = circulationDesign(object);
   const metrics = circulationMetrics(object);
   const first = leg.points[0]!;
@@ -114,9 +114,9 @@ function stairLandingSurfaces(object: NonNullable<MotionLeg['connector']>, baseY
 }
 
 function elevatorDuration(leg: MotionLeg): number {
-  if (leg.points.length !== 4 || !leg.connector) return 0;
+  if (leg.points.length !== 4 || !leg.connector) {return 0;}
   const [a, inside, upper, b] = leg.points;
-  if (!a || !inside || !upper || !b) return 0;
+  if (!a || !inside || !upper || !b) {return 0;}
   const distance3 = (p: ConnectorPoint, q: ConnectorPoint) => Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
   const sourceY = a[1] - leg.baseY;
   const initialY = circulationDesign(leg.connector).cabinLevel === 'upper' ? leg.connector.dimensions[1] : 0;
@@ -183,7 +183,7 @@ const finitePoint = (point: ConnectorPoint) => point.length === 3 && point.every
 const distance = (a: ConnectorPoint, b: ConnectorPoint) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const reverse = <T>(items: readonly T[]) => [...items].reverse();
 
-function invalid(record: ConnectorRecord, reason: string): ConnectorFrame {
+function invalid(record: Pick<ConnectorRecord, 'id' | 'stops'>, reason: string): ConnectorFrame {
   const stop = record.stops[0];
   return {
     connectorId: record.id,
@@ -200,28 +200,28 @@ function invalid(record: ConnectorRecord, reason: string): ConnectorFrame {
 
 /** Resolve a connector only from complete, linked authoring evidence. Missing geometry fails closed. */
 export function resolveConnectorTraversal(request: ConnectorTraversalRequest): ConnectorTraversalPlan | ConnectorFrame {
-  if (!request || !request.record || !Array.isArray(request.record.stops)) return invalid({ id: '', stops: [] } as ConnectorRecord, 'Connector request is incomplete.');
+  if (!request || !request.record || !Array.isArray(request.record.stops)) {return invalid({ id: '', stops: [] }, 'Connector request is incomplete.');}
   const { record, fromFloorId, toFloorId, role } = request;
-  if (!request.portalId || request.portalId !== record.portalId) return invalid(record, 'Selected portal does not match this connector.');
-  if (!record.enabled) return invalid(record, 'This connector is disabled.');
-  if (record.allowedRoles && !record.allowedRoles.includes(role)) return invalid(record, 'This connector is unavailable for the current role.');
-  if (request.accessibleOnly && !record.accessible) return invalid(record, 'This connector is not marked accessible.');
+  if (!request.portalId || request.portalId !== record.portalId) {return invalid(record, 'Selected portal does not match this connector.');}
+  if (!record.enabled) {return invalid(record, 'This connector is disabled.');}
+  if (record.allowedRoles && !record.allowedRoles.includes(role)) {return invalid(record, 'This connector is unavailable for the current role.');}
+  if (request.accessibleOnly && !record.accessible) {return invalid(record, 'This connector is not marked accessible.');}
   if (!record.id || !record.portalId || !record.stops.length || record.stops.some((stop) => !stop.floorId || !finitePoint(stop.entry) || !Number.isFinite(stop.yawRadians))) {
     return invalid(record, 'Connector stop data is incomplete or invalid.');
   }
   const from = record.stops.find((stop) => stop.floorId === fromFloorId);
   const to = record.stops.find((stop) => stop.floorId === toFloorId);
-  if (!from || !to || from === to) return invalid(record, 'The requested floors are not distinct authored stops on this connector.');
-  if (record.kind !== 'elevator' && record.kind !== 'stairs' && record.kind !== 'ramp' && record.kind !== 'escalator') return invalid(record, 'Connector kind is unsupported.');
-  if (record.speedMps !== undefined && (!Number.isFinite(record.speedMps) || record.speedMps <= 0)) return invalid(record, 'Connector speed must be finite and positive.');
-  if (record.transferSeconds !== undefined && (!Number.isFinite(record.transferSeconds) || record.transferSeconds < 0)) return invalid(record, 'Connector transfer duration must be finite and non-negative.');
+  if (!from || !to || from === to) {return invalid(record, 'The requested floors are not distinct authored stops on this connector.');}
+  if (record.kind !== 'elevator' && record.kind !== 'stairs' && record.kind !== 'ramp' && record.kind !== 'escalator') {return invalid(record, 'Connector kind is unsupported.');}
+  if (record.speedMps !== undefined && (!Number.isFinite(record.speedMps) || record.speedMps <= 0)) {return invalid(record, 'Connector speed must be finite and positive.');}
+  if (record.transferSeconds !== undefined && (!Number.isFinite(record.transferSeconds) || record.transferSeconds < 0)) {return invalid(record, 'Connector transfer duration must be finite and non-negative.');}
   if (record.kind !== 'elevator') {
-    const path = record.path;
+    const {path} = record;
     if (!path || path.points.length < 2 || !path.points.every(finitePoint) || !Number.isFinite(path.widthM) || path.widthM <= 0 || !path.authoredInstanceId?.trim() || (path.source !== 'document' && path.source !== 'existing-asset-metadata')) {
       return invalid(record, 'A linked authored traversable path and width are required for this connector.');
     }
     try {
-      if (typeof request.validatePathBinding !== 'function' || !request.validatePathBinding(path, request.portalId)) return invalid(record, 'Authored path is not bound to the selected portal instance.');
+      if (typeof request.validatePathBinding !== 'function' || !request.validatePathBinding(path, request.portalId)) {return invalid(record, 'Authored path is not bound to the selected portal instance.');}
     } catch {
       return invalid(record, 'Authored path binding could not be verified.');
     }
@@ -235,15 +235,15 @@ export function resolveConnectorTraversal(request: ConnectorTraversalRequest): C
     try {
       for (const [stop, endpoint] of [[from, points[0]!], [to, points.at(-1)!]] as const) {
         const result = request.validateSweep(stop.entry as Point3, endpoint as Point3);
-        if (!result?.clear) return invalid(record, result?.reason ?? `Capsule clearance blocked between the ${stop.floorId} stop and path.`);
+        if (!result?.clear) {return invalid(record, result?.reason ?? `Capsule clearance blocked between the ${stop.floorId} stop and path.`);}
       }
       for (let index = 1; index < points.length; index++) {
         const result = request.validateSweep(points[index - 1] as Point3, points[index] as Point3);
-        if (!result?.clear) return invalid(record, result?.reason ?? `Capsule clearance blocked at path sample ${index}.`);
+        if (!result?.clear) {return invalid(record, result?.reason ?? `Capsule clearance blocked at path sample ${index}.`);}
       }
       for (const stop of [from, to]) {
         const result = request.validateEndpoint(stop.floorId, stop.entry as Point3);
-        if (!result?.clear) return invalid(record, result?.reason ?? `Capsule cannot stand at the ${stop.floorId} landing.`);
+        if (!result?.clear) {return invalid(record, result?.reason ?? `Capsule cannot stand at the ${stop.floorId} landing.`);}
       }
     } catch {
       return invalid(record, 'Connector capsule clearance could not be verified.');
@@ -260,15 +260,15 @@ export function resolveConnectorTraversal(request: ConnectorTraversalRequest): C
   try {
     for (const stop of [from, to]) {
       const result = request.validateEndpoint(stop.floorId, stop.entry as Point3);
-      if (!result?.clear) return invalid(record, result?.reason ?? `Capsule cannot stand at the ${stop.floorId} elevator landing.`);
+      if (!result?.clear) {return invalid(record, result?.reason ?? `Capsule cannot stand at the ${stop.floorId} elevator landing.`);}
     }
   } catch {
     return invalid(record, 'Elevator landing clearance could not be verified.');
   }
-  if (!request.validateElevatorRide) return invalid(record, 'Elevator cabin collision context is not connected.');
+  if (!request.validateElevatorRide) {return invalid(record, 'Elevator cabin collision context is not connected.');}
   try {
     const ride = request.validateElevatorRide(from.entry, to.entry);
-    if (!ride?.clear || ride.continuous !== true) return invalid(record, ride?.reason ?? 'Continuous elevator ride clearance is unavailable.');
+    if (!ride?.clear || ride.continuous !== true) {return invalid(record, ride?.reason ?? 'Continuous elevator ride clearance is unavailable.');}
   } catch {
     return invalid(record, 'Continuous elevator ride clearance could not be verified.');
   }
@@ -281,8 +281,8 @@ export function resolveConnectorTraversal(request: ConnectorTraversalRequest): C
 
 /** Convert elapsed route time into explicit connector states; gait advances only over walking stages. */
 export function sampleConnectorTraversal(plan: ConnectorTraversalPlan, elapsedSeconds: number): ConnectorFrame {
-  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) elapsedSeconds = 0;
-  const points = plan.points;
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) {elapsedSeconds = 0;}
+  const {points} = plan;
   const lengths = points.slice(1).map((point, index) => distance(points[index]!, point));
   const total = lengths.reduce((sum, length) => sum + length, 0);
   const speed = Math.max(0.1, plan.speedMps);
@@ -303,9 +303,9 @@ export function sampleConnectorTraversal(plan: ConnectorTraversalPlan, elapsedSe
     else if (phase < 1) { stage = 'exit'; pathProgress = 1; }
     else { stage = 'complete'; pathProgress = 1; }
   } else if (plan.kind === 'escalator') {
-    if (elapsedSeconds < 0.5) stage = 'board-belt';
-    else if (elapsedSeconds < Math.max(0.5, travelSeconds - 0.5)) stage = 'belt-ride';
-    else stage = elapsedSeconds < travelSeconds ? 'disembark' : 'complete';
+    if (elapsedSeconds < 0.5) {stage = 'board-belt';}
+    else if (elapsedSeconds < Math.max(0.5, travelSeconds - 0.5)) {stage = 'belt-ride';}
+    else {stage = elapsedSeconds < travelSeconds ? 'disembark' : 'complete';}
     walking = stage === 'board-belt' || stage === 'belt-ride' || stage === 'disembark';
   } else {
     stage = elapsedSeconds < travelSeconds ? 'traverse' : 'complete';
@@ -314,7 +314,7 @@ export function sampleConnectorTraversal(plan: ConnectorTraversalPlan, elapsedSe
   const targetDistance = progress * total;
   let traversed = 0;
   let feet: ConnectorPoint = points.at(-1) ?? plan.to.entry;
-  let yawRadians = plan.to.yawRadians;
+  let {yawRadians} = plan.to;
   for (let i = 0; i < lengths.length; i++) {
     const segment = lengths[i]!;
     if (targetDistance <= traversed + segment || i === lengths.length - 1) {

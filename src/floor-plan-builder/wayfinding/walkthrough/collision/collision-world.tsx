@@ -29,11 +29,15 @@ interface CollisionWorldValue {
 
 const CollisionWorldContext = createContext<CollisionWorldValue | null>(null);
 
+function connectorProxyId(result: ReturnType<typeof createConnectorSurfaceProxy>): string {
+  return result.supported ? result.proxy.connectorId : result.connectorId;
+}
+
 function extrudedPolygon(polygon: readonly (readonly [number, number])[], bottom: number, top: number) {
-  if (!isValidCollisionPolygon(polygon) || !Number.isFinite(bottom) || !Number.isFinite(top) || top <= bottom) return null;
+  if (!isValidCollisionPolygon(polygon) || !Number.isFinite(bottom) || !Number.isFinite(top) || top <= bottom) {return null;}
   const points = polygon.map(([x, z]) => new Vector2(x, z));
   const faces = ShapeUtils.triangulateShape(points, []);
-  if (faces.length !== points.length - 2) return null;
+  if (faces.length !== points.length - 2) {return null;}
   const vertices = new Float32Array(polygon.length * 2 * 3);
   polygon.forEach(([x, z], i) => {
     const b = i * 3, t = (i + polygon.length) * 3;
@@ -52,14 +56,14 @@ function extrudedPolygon(polygon: readonly (readonly [number, number])[], bottom
 }
 
 function connectorCorridor(record: ConnectorRecord): readonly Point2[] | null {
-  const path = record.path;
-  if (!path || path.points.length < 2 || !Number.isFinite(path.widthM) || path.widthM <= 0) return null;
+  const {path} = record;
+  if (!path || path.points.length < 2 || !Number.isFinite(path.widthM) || path.widthM <= 0) {return null;}
   const directions: Point2[] = [];
   for (let i = 0; i < path.points.length - 1; i++) {
     const a = path.points[i]!, b = path.points[i + 1]!;
     const dx = b[0] - a[0], dz = b[2] - a[2];
     const length = Math.hypot(dx, dz);
-    if (!Number.isFinite(length) || length <= 1e-8) return null;
+    if (!Number.isFinite(length) || length <= 1e-8) {return null;}
     directions.push([dx / length, dz / length]);
   }
   const left: Point2[] = [], right: Point2[] = [];
@@ -72,10 +76,10 @@ function connectorCorridor(record: ConnectorRecord): readonly Point2[] | null {
     else if (i === path.points.length - 1) { nx = pn[0]; nz = pn[1]; }
     else {
       const mx = pn[0] + nn[0], mz = pn[1] + nn[1], ml = Math.hypot(mx, mz);
-      if (ml <= 1e-8) return null;
+      if (ml <= 1e-8) {return null;}
       nx = mx / ml; nz = mz / ml;
       const denominator = nx * nn[0] + nz * nn[1];
-      if (Math.abs(denominator) < 0.2) return null;
+      if (Math.abs(denominator) < 0.2) {return null;}
       scale /= denominator;
     }
     const p = path.points[i]!;
@@ -111,7 +115,7 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
     [connectors],
   );
   const connectorIds = useMemo(() => new Set(connectors.flatMap((connector) => {
-    const surface = connectorSurfaceResults.find((result) => result.connectorId === connector.id);
+    const surface = connectorSurfaceResults.find((result) => connectorProxyId(result) === connector.id);
     return connector.enabled && connector.kind !== 'elevator' && surface?.supported ? [connector.id] : [];
   })), [connectors, connectorSurfaceResults]);
   const physicalFloor = useMemo(() => ({
@@ -163,9 +167,9 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
   }, [connectorMaps, sourceMap.floorId, sourceMap.floorY]);
   const map = useMemo<CollisionMap>(() => {
     const unsupported = [...sourceMap.unsupported];
-    if (!floorShape) unsupported.push({ id: sourceMap.floorId, reason: 'Floor collision proxy could not be triangulated.' });
+    if (!floorShape) {unsupported.push({ id: sourceMap.floorId, reason: 'Floor collision proxy could not be triangulated.' });}
     for (const proxy of proxyShapes) {
-      if (!proxy.shape) unsupported.push({ id: proxy.id, reason: 'Collision proxy could not be triangulated.' });
+      if (!proxy.shape) {unsupported.push({ id: proxy.id, reason: 'Collision proxy could not be triangulated.' });}
     }
     return { ...sourceMap, unsupported };
   }, [sourceMap, floorShape, proxyShapes]);
@@ -175,16 +179,16 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
     validateEndpoint: (feet, profile) => validateCapsuleEndpoint(map, role, feet, profile),
     validateConnectorSweep: (connectorId, from, to, profile) => {
       const connector = connectors.find((item) => item.id === connectorId);
-      if (connector?.kind === 'elevator') return { clear: false, reason: 'Elevator shaft and cabin collision geometry is unavailable.', blockerId: connectorId, source: 'unknown-geometry' };
-      if (!connectorIds.has(connectorId)) return { clear: false, reason: 'Connector is not bound to this collision world.', blockerId: connectorId, source: 'unknown-geometry' };
+      if (connector?.kind === 'elevator') {return { clear: false, reason: 'Elevator shaft and cabin collision geometry is unavailable.', blockerId: connectorId, source: 'unknown-geometry' };}
+      if (!connectorIds.has(connectorId)) {return { clear: false, reason: 'Connector is not bound to this collision world.', blockerId: connectorId, source: 'unknown-geometry' };}
       const boundary = connector && connectorCorridor(connector);
-      if (!boundary) return { clear: false, reason: 'Connector surface footprint is unavailable or malformed.', blockerId: connectorId, source: 'unknown-geometry' };
+      if (!boundary) {return { clear: false, reason: 'Connector surface footprint is unavailable or malformed.', blockerId: connectorId, source: 'unknown-geometry' };}
       const dimensions = profile ?? { radiusM: CHARACTER_CONFIG.radiusM, heightM: CAPSULE_TOTAL_HEIGHT_M };
       const minY = Math.min(from[1], to[1]);
       const maxY = Math.max(from[1], to[1]) + dimensions.heightM;
       const relevant = connectorMaps.filter(({ map: item }) => item.floorY <= maxY && item.floorY + 0.1 >= minY);
       const unsupported = relevant.flatMap(({ map: item }) => item.unsupported);
-      const surfaceResult = connectorSurfaceResults.find((result) => result.connectorId === connectorId);
+      const surfaceResult = connectorSurfaceResults.find((result) => connectorProxyId(result) === connectorId);
       if (surfaceResult && !surfaceResult.supported && connectors.find((item) => item.id === connectorId)?.kind !== 'elevator') {
         unsupported.push({ id: connectorId, reason: surfaceResult.reason });
       }
@@ -196,9 +200,9 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
       }, role, from, to, dimensions);
     },
     validateConnectorEndpoint: (connectorId, floorId, feet, profile) => {
-      if (!connectorIds.has(connectorId)) return { clear: false, reason: 'Connector is not bound to this collision world.', blockerId: connectorId, source: 'unknown-geometry' };
+      if (!connectorIds.has(connectorId)) {return { clear: false, reason: 'Connector is not bound to this collision world.', blockerId: connectorId, source: 'unknown-geometry' };}
       const mapForFloor = connectorMaps.find((item) => item.floor.source.id === floorId)?.map;
-      if (!mapForFloor) return { clear: false, reason: `Connector landing floor ${floorId} is unavailable.`, blockerId: floorId, source: 'unknown-geometry' };
+      if (!mapForFloor) {return { clear: false, reason: `Connector landing floor ${floorId} is unavailable.`, blockerId: floorId, source: 'unknown-geometry' };}
       return validateCapsuleEndpoint(mapForFloor, role, feet, profile);
     },
   }), [map, role, connectors, connectorIds, connectorMap, connectorMaps]);
@@ -224,7 +228,7 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
 /** Access the same gate for both manual motion and route/landing samples. */
 export function useCapsuleClearance(): CollisionWorldValue {
   const value = useContext(CollisionWorldContext);
-  if (!value) throw new Error('useCapsuleClearance must be used under CollisionWorld.');
+  if (!value) {throw new Error('useCapsuleClearance must be used under CollisionWorld.');}
   return value;
 }
 

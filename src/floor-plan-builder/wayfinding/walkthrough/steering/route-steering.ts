@@ -58,7 +58,7 @@ export function smoothRouteCorners(points: readonly Vec3[], options: CornerSmoot
   const segments = options.curveSegments ?? 4;
   const valid = Number.isFinite(radius) && radius >= 0 && Number.isInteger(segments) && segments >= 1 &&
     points.length >= 2 && points.every((point) => point.length === 3 && point.every(Number.isFinite));
-  if (!valid) return null;
+  if (!valid) {return null;}
 
   const out: Vec3[] = [[...points[0]!] as Vec3];
   const validateAppend = (candidate: readonly Vec3[]) => {
@@ -66,7 +66,7 @@ export function smoothRouteCorners(points: readonly Vec3[], options: CornerSmoot
     for (const to of candidate) {
       let accepted = false;
       try { accepted = options.validateSegment(from, to) === true; } catch { accepted = false; }
-      if (!accepted) return false;
+      if (!accepted) {return false;}
       from = to;
     }
     out.push(...candidate.map((point) => [...point] as Vec3));
@@ -80,7 +80,7 @@ export function smoothRouteCorners(points: readonly Vec3[], options: CornerSmoot
     let trim = maxTrim;
     let accepted = false;
     for (let attempt = 0; attempt < 9 && !accepted; attempt++, trim *= 0.5) {
-      if (trim <= 1e-5) break;
+      if (trim <= 1e-5) {break;}
       const start: Vec3 = [
         corner[0] + (a[0] - corner[0]) * (trim / incoming),
         corner[1] + (a[1] - corner[1]) * (trim / incoming),
@@ -103,10 +103,10 @@ export function smoothRouteCorners(points: readonly Vec3[], options: CornerSmoot
       accepted = validateAppend([start, ...curve]);
     }
     if (!accepted) {
-      if (!validateAppend([corner])) return null;
+      if (!validateAppend([corner])) {return null;}
     }
   }
-  if (!validateAppend([points.at(-1)!])) return null;
+  if (!validateAppend([points.at(-1)!])) {return null;}
   const lengths = [0];
   for (let i = 1; i < out.length; i++) {
     const a = out[i - 1]!, b = out[i]!;
@@ -142,7 +142,6 @@ export function steerRoute(input: RouteSteeringInput): RouteSteeringIntent {
     finite(state.distanceM) && finite(state.speedMps) && state.speedMps >= 0 &&
     finite(state.yawRadians) && (input.speedLimitMps === undefined ||
       (finite(input.speedLimitMps) && input.speedLimitMps >= 0));
-  const position: Vec3 = [0, 0, 0];
   const gazeTarget: Vec3 = [0, 0, 0];
   if (!validInput) {
     return { displacement: [0, 0, 0], gazeTarget, targetYawRadians: 0,

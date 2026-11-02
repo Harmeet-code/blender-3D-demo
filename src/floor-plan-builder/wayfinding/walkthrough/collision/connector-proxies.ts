@@ -35,7 +35,7 @@ export function createConnectorSurfaceProxy(record: ConnectorRecord, capsuleDiam
     return { supported: false, connectorId: record.id, reason: 'No usable authored connector path and width are available.' };
   }
   if (record.kind === 'stairs') {
-    const treads = path.treads;
+    const {treads} = path;
     const surfaces = [...(treads ?? []), ...(path.landings ?? [])];
     if (!treads?.length || surfaces.some((tread) => tread.polygon.length !== 4 || !Number.isFinite(tread.y) || tread.polygon.some((point) => point.length !== 2 || !point.every(Number.isFinite)))) {
       return { supported: false, connectorId: record.id, reason: 'Stairs require authored tread polygons and elevations.' };
@@ -69,7 +69,7 @@ export function createConnectorSurfaceProxy(record: ConnectorRecord, capsuleDiam
     const dx = b[0] - a[0];
     const dz = b[2] - a[2];
     const length = Math.hypot(dx, dz);
-    if (length <= 1e-8) return { supported: false, connectorId: record.id, reason: `Path has duplicate or vertically aligned samples at segment ${i}.` };
+    if (length <= 1e-8) {return { supported: false, connectorId: record.id, reason: `Path has duplicate or vertically aligned samples at segment ${i}.` };}
     directions.push([dx / length, dz / length]);
   }
   const vertices = new Float32Array(path.points.length * 2 * 3);
@@ -92,11 +92,11 @@ export function createConnectorSurfaceProxy(record: ConnectorRecord, capsuleDiam
       const mx = previousNormal[0] + nextNormal[0];
       const mz = previousNormal[1] + nextNormal[1];
       const miterLength = Math.hypot(mx, mz);
-      if (miterLength <= 1e-8) return { supported: false, connectorId: record.id, reason: `Path reverses direction at sample ${i}.` };
+      if (miterLength <= 1e-8) {return { supported: false, connectorId: record.id, reason: `Path reverses direction at sample ${i}.` };}
       const miterX = mx / miterLength;
       const miterZ = mz / miterLength;
       const denominator = miterX * nextNormal[0] + miterZ * nextNormal[1];
-      if (Math.abs(denominator) < 0.2) return { supported: false, connectorId: record.id, reason: `Path turn is too tight for a capsule-width surface at sample ${i}.` };
+      if (Math.abs(denominator) < 0.2) {return { supported: false, connectorId: record.id, reason: `Path turn is too tight for a capsule-width surface at sample ${i}.` };}
       const miterScale = halfWidth / denominator;
       sideX = miterX * miterScale;
       sideZ = miterZ * miterScale;

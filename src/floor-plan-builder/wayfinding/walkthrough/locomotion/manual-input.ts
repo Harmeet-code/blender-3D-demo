@@ -46,19 +46,19 @@ export function useManualInput(
       input.current.sprint = held('ShiftLeft', 'ShiftRight');
     };
     const down = (event: KeyboardEvent) => {
-      if (!active) return;
+      if (!active) {return;}
       if (event.code === 'Escape') {
         callbacks.current.onStop();
         clear();
         event.preventDefault();
         return;
       }
-      if (isEditableTarget(event.target)) return;
+      if (isEditableTarget(event.target)) {return;}
       if (event.code === 'KeyV' && !event.repeat) {
         callbacks.current.onToggleView();
         return;
       }
-      if (!movementEnabled) return;
+      if (!movementEnabled) {return;}
       if (/^(KeyW|KeyA|KeyS|KeyD|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|ShiftLeft|ShiftRight)$/.test(event.code)) {
         keys.add(event.code);
         updateKeys();
@@ -71,7 +71,7 @@ export function useManualInput(
       updateKeys();
       invalidate();
     };
-    const visibility = () => { if (document.hidden) clear(); };
+    const visibility = () => { if (document.hidden) {clear();} };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
     window.addEventListener('blur', clear);

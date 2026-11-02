@@ -51,7 +51,7 @@ export function sampleFootPlants(state: FootPlantState, input: FootPlantInput): 
   const { rootPosition: root, yawRadians: yaw, phaseRadians: phase } = input;
   const valid = root.every(Number.isFinite) && Number.isFinite(input.groundY) &&
     Number.isFinite(yaw) && Number.isFinite(phase);
-  if (!valid) return state.anchors as [[number, number, number], [number, number, number]];
+  if (!valid) {return state.anchors as [[number, number, number], [number, number, number]];}
   const forwardX = -Math.sin(yaw), forwardZ = -Math.cos(yaw);
   const rightX = Math.cos(yaw), rightZ = -Math.sin(yaw);
   const result: [[number, number, number], [number, number, number]] = [[0, 0, 0], [0, 0, 0]];
@@ -69,7 +69,10 @@ export function sampleFootPlants(state: FootPlantState, input: FootPlantInput): 
     }
     state.stance[i] = stance;
     if (stance) {
-      result[i] = [...state.anchors[i]] as [number, number, number];
+      const anchor = state.anchors[i];
+      result[i] = anchor
+        ? [...anchor] as [number, number, number]
+        : [root[0], input.groundY, root[2]];
     } else {
       const swing = (cycle - stanceFraction) / (1 - stanceFraction);
       const travel = stride * (0.3 - 0.6 * swing);
