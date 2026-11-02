@@ -26,9 +26,17 @@ export interface ResolvedCapsuleSample {
   physicsTimeSeconds: number;
   physicsDeltaSeconds: number;
   accepted: boolean;
+  movementSource: 'auto-walk' | 'manual' | 'connector' | 'idle';
+  commandedSpeedMps: number | null;
+  playbackRate: number | null;
 }
 
-export type PhysicsMoveStep = (physicsDeltaSeconds: number) => Vector3Tuple | null;
+export type PhysicsMoveStep = (physicsDeltaSeconds: number) => {
+  displacement: Vector3Tuple;
+  movementSource: 'auto-walk' | 'idle';
+  commandedSpeedMps: number;
+  playbackRate: number;
+} | null;
 
 const resolvedMotionListeners = new Set<(sample: ResolvedCapsuleSample) => void>();
 
@@ -40,7 +48,7 @@ export function subscribeResolvedCapsuleMotion(listener: (sample: ResolvedCapsul
 
 export interface KinematicCapsuleHandle {
   /** Queue an intended displacement. Callers in manual and auto-walk share this one gate. */
-  requestMove(displacement: Vector3Tuple): void;
+  requestMove(displacement: Vector3Tuple, movementSource?: 'manual' | 'connector'): void;
   /** Install a persistent producer that advances once for every actual Rapier physics step. */
   requestPhysicsStep(step: PhysicsMoveStep | null): void;
   getFeetPosition(): Vector3Tuple | null;
@@ -83,11 +91,15 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
   const { world } = useRapier();
   const controller = useRef<ReturnType<typeof world.createCharacterController> | null>(null);
   const pendingMove = useRef<Vector3Tuple | null>(null);
+  const pendingMoveSource = useRef<'manual' | 'connector'>('manual');
   const physicsStep = useRef<PhysicsMoveStep | null>(null);
   const physicsTimeSeconds = useRef(0);
   const physicsDeltaSeconds = useRef(0);
   const lastStepAccepted = useRef(true);
   const previousPhysicsPosition = useRef<Vector3Tuple | null>(null);
+  const previousMovementSource = useRef<ResolvedCapsuleSample['movementSource']>('idle');
+  const commandedSpeedMps = useRef<number | null>(null);
+  const playbackRate = useRef<number | null>(null);
   const lastMove = useRef<CapsuleMoveResult>(ZERO_MOVE);
   const callback = useRef(onResolvedMove);
   const sweepValidator = useRef(validateSweep);
@@ -119,14 +131,29 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
     physicsDeltaSeconds.current = physicsDelta;
     physicsTimeSeconds.current += physicsDelta;
     let desired = pendingMove.current;
+    let movementSource: ResolvedCapsuleSample['movementSource'] = desired
+      ? pendingMoveSource.current
+      : 'idle';
+    let commandedSpeed: number | null = null;
+    let commandPlaybackRate: number | null = null;
     pendingMove.current = null;
     if (!desired && physicsStep.current) {
       try {
-        desired = physicsStep.current(physicsDelta);
+        const stepIntent = physicsStep.current(physicsDelta);
+        if (stepIntent) {
+          const { displacement: nextDisplacement, movementSource: nextMovementSource } = stepIntent;
+          desired = nextDisplacement;
+          movementSource = nextMovementSource;
+          commandedSpeed = stepIntent.commandedSpeedMps;
+          commandPlaybackRate = stepIntent.playbackRate;
+        }
       } catch {
         desired = null;
       }
     }
+    previousMovementSource.current = movementSource;
+    commandedSpeedMps.current = commandedSpeed;
+    playbackRate.current = commandPlaybackRate;
     const body = bodyRef.current;
     const collider = colliderRef.current;
     const activeController = controller.current;
@@ -203,6 +230,9 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
       physicsTimeSeconds: physicsTimeSeconds.current,
       physicsDeltaSeconds: physicsDeltaSeconds.current,
       accepted: lastStepAccepted.current,
+      movementSource: previousMovementSource.current,
+      commandedSpeedMps: commandedSpeedMps.current,
+      playbackRate: playbackRate.current,
     };
     previousPhysicsPosition.current = [...resolvedFeetPosition];
     for (const listener of resolvedMotionListeners) {
@@ -211,8 +241,9 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
   });
 
   useImperativeHandle(forwardedRef, () => ({
-    requestMove(displacement) {
+    requestMove(displacement, movementSource = 'manual') {
       pendingMove.current = [displacement[0], displacement[1], displacement[2]];
+      pendingMoveSource.current = movementSource;
     },
     requestPhysicsStep(step) {
       physicsStep.current = step;

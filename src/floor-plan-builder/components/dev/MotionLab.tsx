@@ -1,11 +1,11 @@
 import { Canvas } from '@react-three/fiber';
-import { Line } from '@react-three/drei';
+import { Html, Line } from '@react-three/drei';
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { ProceduralObject } from '../ProceduralObject.tsx';
 import type { PlanDocument } from '../../model/types.ts';
 import type { Role } from '../../wayfinding/walkthrough/contracts.ts';
 import { CHARACTER_CONFIG } from '../../wayfinding/walkthrough/character-config.ts';
-import { WalkthroughLayer } from '../../wayfinding/walkthrough/WalkthroughLayer.tsx';
+import { requestAutoWalkStop, WalkthroughLayer } from '../../wayfinding/walkthrough/WalkthroughLayer.tsx';
 import { useWayfindingRoute } from '../../wayfinding/navigation/use-wayfinding-route.ts';
 import { useWayfindingStore, selectActiveResult } from '../../wayfinding/store/wayfinding-store.ts';
 import { usePlaybackStore } from '../../wayfinding/store/playback-store.ts';
@@ -71,6 +71,28 @@ function sparkline(frames: MotionLabTelemetry[], metric: (frame: MotionLabTeleme
 
 function vectorLength(value: readonly number[]) {
   return Math.hypot(...value);
+}
+
+function AvatarWidthRuler({ floorId, floorY }: { floorId: string; floorY: number }) {
+  const snapshot = usePlaybackStore((state) => state.snapshot);
+  const fallback = MOTION_LAB_STOPS.find((stop) => stop.floorId === floorId) ?? MOTION_LAB_STOPS[0]!;
+  const followsAvatar = snapshot.floorId === floorId;
+  const x = followsAvatar ? snapshot.x : fallback.point[0];
+  const z = followsAvatar ? snapshot.z : fallback.point[1];
+  const halfWidth = CHARACTER_CONFIG.widthM / 2;
+  const y = floorY + 0.025;
+  return (
+    <group position={[x, y, z + 0.45]}>
+      <Line points={[[-halfWidth, 0, 0], [halfWidth, 0, 0]]} color="#06b6d4" lineWidth={3} />
+      <Line points={[[-halfWidth, 0, 0], [-halfWidth, 0.12, 0]]} color="#06b6d4" lineWidth={3} />
+      <Line points={[[halfWidth, 0, 0], [halfWidth, 0.12, 0]]} color="#06b6d4" lineWidth={3} />
+      <Html position={[0, 0.2, 0]} center distanceFactor={8}>
+        <div className="whitespace-nowrap rounded bg-slate-950/90 px-2 py-1 font-mono text-xs font-semibold text-cyan-300">
+          {`${CHARACTER_CONFIG.widthM.toFixed(2)} m width`}
+        </div>
+      </Html>
+    </group>
+  );
 }
 
 function MotionLabStage({
@@ -139,6 +161,7 @@ function MotionLabStage({
         <meshStandardMaterial color="#2f9e74" />
       </mesh>}
       <WalkthroughLayer document={document} floorId={floorId} role={role} roleAreas={MOTION_LAB_ROLE_AREAS} onFloor={(id) => { onFloor(id); return true; }} />
+      <AvatarWidthRuler floorId={floorId} floorY={floor.source.heightOffset} />
       <MotionLabTelemetryProbe document={document} role={role} roleAreas={MOTION_LAB_ROLE_AREAS} frames={telemetry} onFrame={onFrame} />
       <MotionLabInputProbe captureMode={captureMode} heldInput={heldInput} tape={inputTape} replayEpoch={replayEpoch} onSampleCount={onInputCount} onReplayComplete={onReplayComplete} />
     </>
@@ -186,8 +209,15 @@ export default function MotionLab() {
   const setRouteOption = useWayfindingStore((state) => state.setOption);
   const playback = usePlaybackStore((state) => state.session);
   const playbackStatus = usePlaybackStore((state) => state.status);
+  const playbackSpeed = usePlaybackStore((state) => state.speed);
   const playbackMessage = usePlaybackStore((state) => state.message);
   const viewMode = usePlaybackStore((state) => state.mode === 'first' ? 'first' : 'chase');
+
+  useEffect(() => {
+    if (playbackStatus === 'paused' && statusMessage.startsWith('Bounded auto-walk braking')) {
+      setStatusMessage('Auto-walk stopped within the bounded braking path · WASD / arrows can steer manually');
+    }
+  }, [playbackStatus, statusMessage]);
 
   useEffect(() => {
     const held = new Set<string>();
@@ -254,8 +284,12 @@ export default function MotionLab() {
     setStatusMessage('Shared auto-walk started · W1–W5 runtime and capsule controller');
   };
   const toggleWalk = () => {
+    if (playbackStatus === 'playing' && playback && requestAutoWalkStop(playback.runtime)) {
+      setStatusMessage('Bounded auto-walk braking · manual steering resumes after the walker stops');
+      return;
+    }
     usePlaybackStore.getState().toggle();
-    setStatusMessage(playbackStatus === 'playing' ? 'Auto-walk stopped · WASD / arrows can steer manually' : 'Auto-walk resumed');
+    setStatusMessage(playbackStatus === 'playing' ? 'Auto-walk paused' : 'Auto-walk resumed');
   };
   const exitWalk = () => {
     captureMode.current = 'idle';
@@ -375,17 +409,21 @@ export default function MotionLab() {
             <Canvas shadows camera={{ position: [0, 10, 15], fov: 52 }}>
               <MotionLabStage document={document} floorId={selectedFloorId} role={role} activeRoute={activeRoute} destination={destination} destinationFloorId={destinationStop.floorId} telemetry={telemetry} onFrame={onTelemetry} captureMode={captureMode} heldInput={heldInput} inputTape={inputTape} replayEpoch={replayEpoch} onInputCount={onInputCount} onReplayComplete={onReplayComplete} onFloor={onFloor} />
             </Canvas>
-            <MotionLabTelemetryPanel active={!!playback} />
             <div className="pointer-events-none absolute left-3 top-3 max-w-[95%] rounded-md bg-slate-950/90 px-3 py-2 font-mono text-xs text-emerald-200" aria-live="polite">
               <div>resolved tick {liveFrame?.frame.tick ?? 0} · {liveFrame?.frame.locomotion ?? 'idle'} · floor {liveFrame?.frame.floorId ?? '—'}</div>
               <div>pos {liveFrame?.frame.position.map((value) => value.toFixed(2)).join(', ') ?? '—'} · yaw {liveFrame?.frame.yawRadians.toFixed(2) ?? '—'} rad</div>
               <div>speed {currentSpeed.toFixed(2)} m/s · accel {liveFrame ? vectorLength(liveFrame.accelerationMps2).toFixed(2) : '—'} · jerk {liveFrame ? vectorLength(liveFrame.jerkMps3).toFixed(2) : '—'}</div>
+              <div>rendered yaw Δ {liveFrame?.renderedYawDeltaDeg?.toFixed(2) ?? '—'}° · {liveFrame?.renderedYawRateDegPerSec?.toFixed(1) ?? '—'}°/s</div>
               {liveFrame?.derivativeResetReason && <div className="text-amber-200">Derivative baseline reset: {liveFrame.derivativeResetReason}</div>}
               <div>clearance {liveFrame?.clearance.clear === null ? 'connector validator only' : liveFrame?.clearance.clear ? 'capsule sweep clear' : 'blocked / unavailable'} · feet {liveFrame?.feet.basis === 'connector-foot-data-unavailable' ? 'connector samples unavailable' : liveFrame ? `${liveFrame.feet.stance[0] ? 'L stance estimate' : 'L swing estimate'}, ${liveFrame.feet.stance[1] ? 'R stance estimate' : 'R swing estimate'}` : '—'}</div>
               {liveFrame?.clearance.reason && <div className="max-w-lg whitespace-normal text-amber-200">{liveFrame.clearance.blockerId ?? liveFrame.clearance.reason}</div>}
             </div>
           </div>
           <aside className="max-h-[70vh] space-y-4 overflow-y-auto rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <section className="space-y-2">
+              <h2 className="font-medium">Live Motion Acceptance</h2>
+              <MotionLabTelemetryPanel active={!!playback} />
+            </section>
             <section className="space-y-2">
               <h2 className="font-medium">Shared Recast A → B</h2>
               <label className="block text-xs text-slate-400">Runtime role<select disabled={!!playback} className="mt-1 w-full rounded bg-slate-800 px-2 py-2 text-sm text-white" value={role} onChange={(event) => setRole(event.target.value as Role)}><option value="visitor">Visitor</option><option value="staff">Staff</option></select></label>
@@ -403,7 +441,8 @@ export default function MotionLab() {
                 {playback && <button className="rounded bg-slate-700 px-2 py-2 text-xs" onClick={exitWalk}>Exit walk</button>}
               </div>
               {playbackMessage && <p className="text-xs text-amber-200">{playbackMessage}</p>}
-              {playback && <p className="text-xs text-slate-400">Profile: radius {CHARACTER_CONFIG.radiusM.toFixed(2)} m · total height {CHARACTER_CONFIG.heightM.toFixed(2)} m. Manual steering is active while route playback is paused. WalkthroughLayer owns the Rapier capsule, shared sweep gate, avatar rig, camera and distance gait.</p>}
+              <label className="block text-xs text-slate-400">Playback rate<select className="mt-1 w-full rounded bg-slate-800 px-2 py-2 text-sm text-white" value={playbackSpeed} onChange={(event) => usePlaybackStore.getState().setSpeed(Number(event.target.value))}>{[0.5, 1, 2, 4].map((value) => <option key={value} value={value}>{value}×</option>)}</select></label>
+              {playback && <p className="text-xs text-slate-400">Profile: radius {CHARACTER_CONFIG.radiusM.toFixed(2)} m · total height {CHARACTER_CONFIG.heightM.toFixed(2)} m · width {CHARACTER_CONFIG.widthM.toFixed(2)} m. Cyan world ruler spans the configured width; rendered extents are not independently measured. Manual steering resumes after bounded Stop braking completes. WalkthroughLayer owns the Rapier capsule, shared sweep gate, avatar rig, camera and distance gait.</p>}
             </section>
 
             <section className="space-y-2 border-t border-slate-700 pt-3">
@@ -417,7 +456,7 @@ export default function MotionLab() {
 
             <section className="space-y-2 border-t border-slate-700 pt-3">
               <h2 className="font-medium">Resolved telemetry</h2>
-              <p className="text-xs text-slate-400">Observational telemetry sampled after the mounted follower frame update. Velocity, acceleration and jerk use observed frame intervals; a boundary frame resets derivatives on playback or floor changes. Tick is per playback generation, identified in each frame. This is not deterministic fixed-tick output, and no numeric motion thresholds have been approved.</p>
+              <p className="text-xs text-slate-400">Observational telemetry sampled after the mounted follower frame update. Velocity, acceleration and jerk use observed frame intervals; a boundary frame resets derivatives on playback or floor changes. Tick is per playback generation. The separate live panel reports fixed-step auto/manual acceleration and explicit acceptance thresholds; fixture diagnostics remain non-authoritative.</p>
               <svg viewBox="0 0 200 38" className="h-12 w-full rounded bg-slate-950 p-1" role="img" aria-label="Observed speed, acceleration and jerk trends">
                 <path d={sparkline(trail, (frame) => vectorLength(frame.frame.velocity))} fill="none" stroke="#60a5fa" strokeWidth="1.5" />
                 <path d={sparkline(trail, (frame) => vectorLength(frame.accelerationMps2))} fill="none" stroke="#fbbf24" strokeWidth="1.2" />
@@ -450,8 +489,8 @@ export default function MotionLab() {
               <h2 className="font-medium">Fixed-step headless diagnostics</h2>
               <p className="text-xs text-slate-400">Uses a 1/30 s pure simulation with W1 CHARACTER_CONFIG, W3 validateCapsuleSweep and W4 steerRoute. It does not submit frames to Rapier and is not numerically comparable to the live observational telemetry.</p>
               <button className="w-full rounded bg-slate-700 px-3 py-2 text-sm" onClick={runFixtures}>Run standard route diagnostics</button>
-              {fixtureResults && <div className="space-y-1 font-mono text-xs text-slate-300">{fixtureResults.map((result) => <div key={result.fixtureId}>{STANDARD_ROUTE_FIXTURES.find((item) => item.id === result.fixtureId)?.label}: {result.actualOutcome} (reference {result.expectedOutcome}) · {result.resolvedMeters.toFixed(2)}/{result.routeMeters.toFixed(2)} m · {result.elapsedSeconds.toFixed(2)} s · stop tick {result.stopTick ?? '—'} · max accel {result.maxAccelerationMps2.toFixed(2)} · max jerk {result.maxJerkMps3.toFixed(2)} · endpoint {result.endpoint.clear ? 'clear' : result.endpoint.blockerId ?? 'blocked'}</div>)}<div className="text-amber-300">Fixture references {fixtureOutcomesMatch ? 'match' : 'differ'}; this is diagnostic output, not production golden evidence. No numeric motion acceptance thresholds have been approved, so acceleration, jerk, duration, clearance and endpoint metrics do not pass/fail a threshold gate. Numeric wall margin is unavailable.</div></div>}
-              <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!fixtureResults} onClick={() => downloadJson('motion-lab-fixture-summary.json', { schemaVersion: 1, fixtures: fixtureResults, references: STANDARD_ROUTE_FIXTURES.map(({ id, points, expectedOutcome }) => ({ id, routeMeters: points.slice(1).reduce((sum, point, index) => sum + Math.hypot(point[0] - points[index]![0], point[1] - points[index]![1], point[2] - points[index]![2]), 0), expectedOutcome })), thresholdStatus: 'unapproved-not-evaluated', limitations: ['No connector/floor-transition fixture is available in this synthetic one-floor document.', 'The shared capsule gate returns blocker decisions, not a numeric wall-margin measurement.', 'Avatar foot positions are gait-phase targets, not physics contacts.', 'Fixture expectations are authored alongside their generated obstacle scenarios and are diagnostic, not an independent oracle.', 'No numeric acceleration, jerk, duration, clearance, or endpoint thresholds have been approved.'] })}>Export fixture summaries</button>
+              {fixtureResults && <div className="space-y-1 font-mono text-xs text-slate-300">{fixtureResults.map((result) => <div key={result.fixtureId}>{STANDARD_ROUTE_FIXTURES.find((item) => item.id === result.fixtureId)?.label}: {result.actualOutcome} (reference {result.expectedOutcome}) · {result.resolvedMeters.toFixed(2)}/{result.routeMeters.toFixed(2)} m · {result.elapsedSeconds.toFixed(2)} s · stop tick {result.stopTick ?? '—'} · max accel {result.maxAccelerationMps2.toFixed(2)} · max jerk {result.maxJerkMps3.toFixed(2)} · endpoint {result.endpoint.clear ? 'clear' : result.endpoint.blockerId ?? 'blocked'}</div>)}<div className="text-amber-300">Fixture references {fixtureOutcomesMatch ? 'match' : 'differ'}; this is diagnostic output, not production golden evidence. The live panel evaluates acceptance thresholds; fixture values are not evaluated against those gates. Numeric wall margin is unavailable.</div></div>}
+              <button className="rounded bg-slate-700 px-2 py-2 text-xs disabled:opacity-50" disabled={!fixtureResults} onClick={() => downloadJson('motion-lab-fixture-summary.json', { schemaVersion: 1, fixtures: fixtureResults, references: STANDARD_ROUTE_FIXTURES.map(({ id, points, expectedOutcome }) => ({ id, routeMeters: points.slice(1).reduce((sum, point, index) => sum + Math.hypot(point[0] - points[index]![0], point[1] - points[index]![1], point[2] - points[index]![2]), 0), expectedOutcome })), thresholdStatus: 'not-evaluated-in-diagnostic-fixture', limitations: ['No connector/floor-transition fixture is available in this synthetic one-floor document.', 'The shared capsule gate returns blocker decisions, not a numeric wall-margin measurement.', 'Avatar foot positions are gait-phase targets, not physics contacts.', 'Fixture expectations are authored alongside their generated obstacle scenarios and are diagnostic, not an independent oracle.', 'Fixture values do not independently evaluate live acceptance thresholds.'] })}>Export fixture summaries</button>
             </section>
 
             <section className="space-y-2 border-t border-slate-700 pt-3">

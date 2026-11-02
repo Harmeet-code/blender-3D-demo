@@ -36,6 +36,16 @@ type RouteComfortMetric = {
   unavailableReason?: string;
 };
 
+const autoStopRequests = new WeakMap<Follower, () => void>();
+
+/** Request a bounded stop for the currently mounted runtime, if it owns one. */
+export function requestAutoWalkStop(runtime: Follower): boolean {
+  const request = autoStopRequests.get(runtime);
+  if (!request) {return false;}
+  request();
+  return true;
+}
+
 function pointSegmentDistance(point: readonly [number, number], a: readonly [number, number], b: readonly [number, number]) {
   const dx = b[0] - a[0], dz = b[1] - a[1];
   const lengthSq = dx * dx + dz * dz;
@@ -125,12 +135,17 @@ function Runtime({
   callbacks.current = onFloor;
   const rig = useMemo(() => new AvatarRig(), []),
     lastSnapshot = useRef(0);
+  const autoStopRequested = useRef(false),
+    autoTimeScale = useRef<{ generation: number; scale: number } | null>(null),
+    yawFrameAccumulated = useRef(0),
+    lastRenderedYaw = useRef(runtime.yaw);
   const status = usePlaybackStore((state) => state.status),
     mode = usePlaybackStore((state) => state.mode),
     message = usePlaybackStore((state) => state.message);
   const activeFloor = usePlaybackStore((state) => state.snapshot.floorId);
   const invalidate = useThree((state) => state.invalidate);
   const [interactionState, setInteractionState] = useState<InteractionState>({ status: 'idle' });
+  const [autoStopping, setAutoStopping] = useState(false);
   const [inspectedTargetId, setInspectedTargetId] = useState<string | null>(null);
   const [routeComfortMetrics, setRouteComfortMetrics] = useState<RouteComfortMetric[]>([]);
   const [joinedQueueIds, setJoinedQueueIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -265,6 +280,19 @@ function Runtime({
     },
   );
   useEffect(() => {
+    const requestStop = () => {
+      if (usePlaybackStore.getState().status !== 'playing') {return;}
+      autoStopRequested.current = true;
+      setAutoStopping(true);
+      invalidate();
+    };
+    autoStopRequests.set(runtime, requestStop);
+    return () => {
+      autoStopRequests.delete(runtime);
+      autoStopRequested.current = false;
+    };
+  }, [runtime, invalidate]);
+  useEffect(() => {
     const clearMotion = () => {
       velocity.current = 0;
       manualDirection.set(0, 0, 0);
@@ -313,6 +341,10 @@ function Runtime({
           : undefined;
         const smoothed = smoothRouteCorners(leg.points, {
           capsuleRadiusM: CHARACTER_CONFIG.radiusM,
+          // Dense chords keep each fixed-step tangent change small enough for the
+          // acceleration budget to describe the rendered route rather than a few
+          // coarse polygon corners.
+          curveSegments: 64,
           measureClearanceM,
           validateSegment: (from, to) =>
             clearance.validateSweep(
@@ -417,6 +449,11 @@ function Runtime({
         runtime.floorId = leg.floorId;
         runtime.phase = intent.arrived ? 'Arrived' : 'Walking';
         runtime.arrived = intent.arrived;
+        if (intent.stopped) {
+          autoStopRequested.current = false;
+          setAutoStopping(false);
+          usePlaybackStore.getState().toggle();
+        }
       }
     } else if (queued?.kind === 'connector') {
       const error = Math.hypot(
@@ -455,12 +492,24 @@ function Runtime({
     const playback = usePlaybackStore.getState();
     const leg = runtime.path.legs[runtime.leg];
     if (playback.status !== 'playing' || runtime.arrived || !leg || leg.kind !== 'walk') {return null;}
+    const previousScale = autoTimeScale.current;
+    if (previousScale?.generation === session.generation && previousScale.scale !== playback.speed) {
+      // Keep physical velocity continuous when playback rate changes, then let the
+      // route controller approach the new speed under its real-time acceleration cap.
+      runtime.speed *= previousScale.scale / playback.speed;
+    } else if (previousScale?.generation !== session.generation) {
+      // A paused manual interval stores physical speed, while the auto controller
+      // stores playback-time speed. Normalize on each fresh auto segment.
+      runtime.speed /= playback.speed;
+    }
+    autoTimeScale.current = { generation: session.generation, scale: playback.speed };
     const from: [number, number, number] = [...runtime.position];
     const intent = steerRoute({
       leg,
       state: { distanceM: runtime.s, speedMps: runtime.speed, yawRadians: runtime.yaw },
       dtSeconds: physicsDeltaSeconds,
       timeScale: playback.speed,
+      stop: autoStopRequested.current,
       speedLimitMps: CHARACTER_CONFIG.walkSpeedMps,
       validateDisplacement: (position, displacement) => clearance.validateSweep(
         [position[0], position[1] + originY, position[2]],
@@ -469,22 +518,55 @@ function Runtime({
       ).clear,
     });
     if (intent.blocked) {
+      autoStopRequested.current = false;
+      setAutoStopping(false);
       playback.fail('Auto-walk stopped because the avatar capsule sweep is blocked or unsupported.');
       return null;
     }
+    const yawError = Math.atan2(
+      Math.sin(intent.targetYawRadians - runtime.yaw),
+      Math.cos(intent.targetYawRadians - runtime.yaw),
+    );
+    const yawFrameRemaining = Math.max(
+      0,
+      CHARACTER_CONFIG.maxYawDeltaDegPerFrame * Math.PI / 180 - yawFrameAccumulated.current,
+    );
+    const yawStepLimit = Math.min(
+      CHARACTER_CONFIG.maxYawRateDegPerSec * Math.PI / 180 * physicsDeltaSeconds,
+      yawFrameRemaining,
+    );
+    const yawStep = MathUtils.clamp(yawError, -yawStepLimit, yawStepLimit);
+    intent.targetYawRadians = runtime.yaw + yawStep;
+    yawFrameAccumulated.current += Math.abs(yawStep);
     if (intent.displacement.every((value) => Math.abs(value) <= 1e-7)) {
       runtime.speed = intent.speedMps;
       runtime.yaw = intent.targetYawRadians;
       runtime.look = [...intent.gazeTarget];
       runtime.arrived = intent.arrived;
+      if (intent.stopped) {
+        autoStopRequested.current = false;
+        setAutoStopping(false);
+        usePlaybackStore.getState().toggle();
+      }
       if (intent.arrived) {playback.publish(runtime);}
-      return null;
+      return {
+        displacement: [0, 0, 0],
+        movementSource: 'auto-walk',
+        commandedSpeedMps: intent.speedMps * playback.speed,
+        playbackRate: playback.speed,
+      };
     }
     pendingMove.current = { kind: 'route', intent, from };
     pending.current = true;
-    return intent.displacement;
-  }, [runtime, clearance, originY]);
+    return {
+      displacement: intent.displacement,
+      movementSource: 'auto-walk',
+      commandedSpeedMps: intent.speedMps * playback.speed,
+      playbackRate: playback.speed,
+    };
+  }, [runtime, session.generation, clearance, originY]);
   useFrame((_, rawDelta) => {
+    yawFrameAccumulated.current = 0;
     capsule.current?.requestPhysicsStep(autoPhysicsStep);
     const state = usePlaybackStore.getState();
     const dt = window.document.hidden ? 0 : Math.min(rawDelta, 0.1);
@@ -510,7 +592,7 @@ function Runtime({
           if (displacement.some((value) => Math.abs(value) > 1e-7)) {
             pending.current = true;
             pendingMove.current = { kind: 'connector', connectorId: resolution.connectorId, from, displacement, next };
-            capsule.current?.requestMove(displacement);
+            capsule.current?.requestMove(displacement, 'connector');
           } else {
             commitFollowerFrame(runtime, next);
             invalidate();
@@ -519,6 +601,7 @@ function Runtime({
         }
       }
     } else if (state.status !== 'playing') {
+      autoTimeScale.current = null;
       // The authored elevator cabin path owns passenger movement; paused auto-walk cannot steer out into the shaft.
       const held = runtime.connector ? { forward: 0, strafe: 0, sprint: false } : input.current;
       camera.getWorldDirection(forward);
@@ -543,7 +626,8 @@ function Runtime({
         dz = manualDirection.z * distance;
         const targetYaw = Math.atan2(-manualDirection.x, -manualDirection.z);
         const yawDelta = Math.atan2(Math.sin(targetYaw - yaw), Math.cos(targetYaw - yaw));
-        yaw += MathUtils.clamp(yawDelta, -Math.PI * dt, Math.PI * dt);
+        const yawFrameLimit = CHARACTER_CONFIG.maxYawDeltaDegPerFrame * Math.PI / 180;
+        yaw += MathUtils.clamp(yawDelta, -Math.min(Math.PI * dt, yawFrameLimit), Math.min(Math.PI * dt, yawFrameLimit));
         const from: [number, number, number] = [...runtime.position];
         const to: [number, number, number] = [from[0] + dx, from[1], from[2] + dz];
         if (clearance.validateSweep(
@@ -553,7 +637,7 @@ function Runtime({
         ).clear) {
           pending.current = true;
           pendingMove.current = { kind: 'manual', from, displacement: [dx, 0, dz], yaw, speed: velocity.current };
-          capsule.current?.requestMove([dx, 0, dz]);
+          capsule.current?.requestMove([dx, 0, dz], 'manual');
         } else {
           velocity.current = 0;
           runtime.speed = 0;
@@ -568,7 +652,14 @@ function Runtime({
       invalidate();
     }
     if (root.current) {
+      const renderYawDelta = Math.atan2(
+        Math.sin(runtime.yaw - lastRenderedYaw.current),
+        Math.cos(runtime.yaw - lastRenderedYaw.current),
+      );
+      const renderYawLimit = CHARACTER_CONFIG.maxYawDeltaDegPerFrame * Math.PI / 180;
+      runtime.yaw = lastRenderedYaw.current + MathUtils.clamp(renderYawDelta, -renderYawLimit, renderYawLimit);
       root.current.rotation.y = runtime.yaw;
+      lastRenderedYaw.current = runtime.yaw;
     }
     if (body.current) {
       body.current.visible = state.mode !== 'first';
@@ -686,15 +777,16 @@ function Runtime({
             type="button"
             className="pointer-events-auto rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow"
             aria-label={status === 'playing' ? 'Stop auto-walk' : status === 'arrived' ? 'Route complete' : 'Resume auto-walk'}
-            disabled={status === 'arrived'}
+            disabled={status === 'arrived' || autoStopping}
             onClick={(event) => {
               event.stopPropagation();
               releaseCanvasPointerLock();
               autoPausedForUse.current = false;
-              usePlaybackStore.getState().toggle();
+              const playback = usePlaybackStore.getState();
+              if (playback.status !== 'playing' || !requestAutoWalkStop(runtime)) {playback.toggle();}
             }}
           >
-            {status === 'playing' ? 'Stop' : status === 'arrived' ? 'Route complete' : 'Resume'}
+            {status === 'playing' ? autoStopping ? 'Braking…' : 'Stop' : status === 'arrived' ? 'Route complete' : 'Resume'}
           </button>
           <button
             type="button"

@@ -19,6 +19,10 @@ export type MotionLabLiveMetrics = {
   stanceSamples: number;
   autoAccelerationMaxMps2: number | null;
   autoAccelerationSamples: number;
+  autoAccelerationPeakDeltaVelocityMps: number | null;
+  autoAccelerationPeakStepSeconds: number | null;
+  autoAccelerationPeakTimeSeconds: number | null;
+  autoAccelerationPeakVelocityChange: string | null;
   manualAccelerationMaxMps2: number | null;
   manualAccelerationSamples: number;
   clearanceMarginM: number | null;
@@ -26,6 +30,9 @@ export type MotionLabLiveMetrics = {
   windowSeconds: number;
   currentMode: MotionLabTelemetry['movementMode'];
   currentAccelerationMps2: number | null;
+  maxRenderedYawDeltaDeg: number | null;
+  maxRenderedYawRateDegPerSec: number | null;
+  renderedYawSamples: number;
 };
 
 const emptyLiveMetrics: MotionLabLiveMetrics = {
@@ -33,6 +40,10 @@ const emptyLiveMetrics: MotionLabLiveMetrics = {
   stanceSamples: 0,
   autoAccelerationMaxMps2: null,
   autoAccelerationSamples: 0,
+  autoAccelerationPeakDeltaVelocityMps: null,
+  autoAccelerationPeakStepSeconds: null,
+  autoAccelerationPeakTimeSeconds: null,
+  autoAccelerationPeakVelocityChange: null,
   manualAccelerationMaxMps2: null,
   manualAccelerationSamples: 0,
   clearanceMarginM: null,
@@ -40,6 +51,9 @@ const emptyLiveMetrics: MotionLabLiveMetrics = {
   windowSeconds: 0,
   currentMode: 'paused',
   currentAccelerationMps2: null,
+  maxRenderedYawDeltaDeg: null,
+  maxRenderedYawRateDegPerSec: null,
+  renderedYawSamples: 0,
 };
 let liveMetricsSnapshot = emptyLiveMetrics;
 const liveMetricsListeners = new Set<() => void>();
@@ -65,7 +79,7 @@ export function MotionLabTelemetryPanel({ active }: { active: boolean }) {
   const autoAccelerationStatus = liveMetrics.autoAccelerationMaxMps2 === null ? 'UNMEASURED' : liveMetrics.autoAccelerationMaxMps2 <= 2 ? 'PASS' : 'FAIL';
   const clearanceStatus = liveMetrics.clearanceMarginM === null ? 'UNMEASURED' : liveMetrics.clearanceMarginM >= 0 ? 'PASS' : 'FAIL';
   return (
-    <div className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[min(92vw,38rem)] rounded-md bg-slate-950/90 px-3 py-2 font-mono text-xs text-cyan-100 shadow" aria-live="polite">
+    <div className="w-full rounded-md bg-slate-950 px-3 py-3 font-mono text-xs text-cyan-100 shadow" aria-live="polite">
       <div>
         Rendered stance-foot speed P99: {active && stanceP99 !== null
           ? `${stanceP99.toFixed(4)} m/s · n=${liveMetrics.stanceSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · < 0.05 m/s · ${stanceStatus}`
@@ -76,6 +90,7 @@ export function MotionLabTelemetryPanel({ active }: { active: boolean }) {
           ? `auto max ${liveMetrics.autoAccelerationMaxMps2.toFixed(3)} m/s² · n=${liveMetrics.autoAccelerationSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≤ 2.000 m/s² · ${autoAccelerationStatus}`
           : `auto max UNMEASURED · n=${liveMetrics.autoAccelerationSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≤ 2.000 m/s² · ${autoAccelerationStatus}`}
       </div>
+      <div>Auto peak step: {liveMetrics.autoAccelerationPeakDeltaVelocityMps === null ? 'UNMEASURED' : `Δv=${liveMetrics.autoAccelerationPeakDeltaVelocityMps.toFixed(4)} m/s ÷ dt=${liveMetrics.autoAccelerationPeakStepSeconds?.toFixed(5) ?? '—'} s at t=${liveMetrics.autoAccelerationPeakTimeSeconds?.toFixed(3) ?? '—'} s · ${liveMetrics.autoAccelerationPeakVelocityChange}`}</div>
       <div>Manual max acceleration: {liveMetrics.manualAccelerationMaxMps2 === null ? 'UNMEASURED' : `${liveMetrics.manualAccelerationMaxMps2.toFixed(3)} m/s²`} · n={liveMetrics.manualAccelerationSamples} · window {liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s</div>
       <div>
         Sampled capsule-surface margin (centerline-to-edge minus 0.2999 m): {active && liveMetrics.clearanceMarginM !== null
@@ -83,7 +98,8 @@ export function MotionLabTelemetryPanel({ active }: { active: boolean }) {
           : `UNMEASURED · n=${liveMetrics.clearanceSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≥ 0 m · ${clearanceStatus}`}
       </div>
       <div>Current resolved-root acceleration: mode={liveMetrics.currentMode} · {liveMetrics.currentAccelerationMps2 === null ? 'UNMEASURED' : `${liveMetrics.currentAccelerationMps2.toFixed(3)} m/s²`} · gaze lead: UNMEASURED</div>
-      <div className="mt-1 opacity-75">Auto/manual acceleration uses resolved capsule positions sampled after fixed Rapier steps; the current acceleration line remains a render-sampled observation. Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.</div>
+      <div>Rendered yaw maxima: {liveMetrics.maxRenderedYawDeltaDeg === null ? 'UNMEASURED' : `${liveMetrics.maxRenderedYawDeltaDeg.toFixed(2)}°/frame · ${liveMetrics.maxRenderedYawRateDegPerSec?.toFixed(1) ?? '—'}°/s · n=${liveMetrics.renderedYawSamples} · limits 15° / 180°/s · ${liveMetrics.maxRenderedYawDeltaDeg <= 15 && (liveMetrics.maxRenderedYawRateDegPerSec ?? Infinity) <= 180 ? 'PASS' : 'FAIL'}`}</div>
+      <div className="mt-1 opacity-75">Auto/manual acceleration uses resolved capsule positions sampled after fixed Rapier steps and movement-source tags from the capsule controller; bounded auto-stop samples remain in the auto window. The current acceleration line remains render-sampled. Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.</div>
     </div>
   );
 }
@@ -111,6 +127,8 @@ export type MotionLabTelemetry = {
   floorInteraction: { floorId: string; elevationM: number; changedFromFloorId?: string; connectorId?: string; connectorPhase: string | null };
   contactBasis: 'gait-phase-estimate-not-physics-contact';
   playbackGeneration?: number;
+  renderedYawDeltaDeg?: number | null;
+  renderedYawRateDegPerSec?: number | null;
   derivativeResetReason?: 'playback-generation' | 'floor-transition' | 'invalid-delta' | null;
 };
 
@@ -320,14 +338,16 @@ export function MotionLabTelemetryProbe({
   const manualKeys = useRef(new Set<string>());
   const metricClock = useRef(0);
   const physicsMetricClock = useRef(0);
-  const previousPhysicsSample = useRef<{ generation: number; floorId: string; mode: MotionLabTelemetry['movementMode']; velocity: Vec3; accepted: boolean } | null>(null);
+  const previousPhysicsSample = useRef<{ generation: number; floorId: string; mode: MotionLabTelemetry['movementMode']; velocity: Vec3; accepted: boolean; commandedSpeedMps: number | null; playbackRate: number | null } | null>(null);
   const stanceSpeedSamples = useRef<{ value: number; time: number }[]>([]);
-  const autoAccelerationSamples = useRef<{ value: number; time: number }[]>([]);
+  const autoAccelerationSamples = useRef<{ value: number; time: number; deltaVelocityMps: number; stepSeconds: number; fromVelocity: Vec3; toVelocity: Vec3; fromCommandedSpeedMps: number | null; toCommandedSpeedMps: number | null; playbackRate: number | null }[]>([]);
   const manualAccelerationSamples = useRef<{ value: number; time: number }[]>([]);
   const clearanceSamples = useRef<{ value: number; time: number }[]>([]);
+  const renderedYawSamples = useRef<{ deltaDeg: number; rateDegPerSec: number; time: number }[]>([]);
+  const previousRenderedYaw = useRef<{ yaw: number; generation: number } | null>(null);
   const lastPublish = useRef(0);
   useEffect(() => subscribeResolvedCapsuleMotion((sample) => {
-    const session = usePlaybackStore.getState().session;
+    const { session } = usePlaybackStore.getState();
     if (!session) {
       previousPhysicsSample.current = null;
       physicsMetricClock.current = 0;
@@ -338,11 +358,9 @@ export function MotionLabTelemetryProbe({
     physicsMetricClock.current = previous?.generation === generation
       ? physicsMetricClock.current + sample.physicsDeltaSeconds
       : sample.physicsDeltaSeconds;
-    const hasManualDirection = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
-      .some((key) => manualKeys.current.has(key));
-    const mode: MotionLabTelemetry['movementMode'] = hasManualDirection
-      ? 'manual'
-      : usePlaybackStore.getState().status === 'playing' ? 'auto-walk' : 'paused';
+    const mode: MotionLabTelemetry['movementMode'] = sample.movementSource === 'auto-walk'
+      ? 'auto-walk'
+      : sample.movementSource === 'manual' ? 'manual' : 'paused';
     const velocity: Vec3 = [
       sample.displacement[0] / sample.physicsDeltaSeconds,
       sample.displacement[1] / sample.physicsDeltaSeconds,
@@ -351,12 +369,13 @@ export function MotionLabTelemetryProbe({
     const continuous = previous !== null && previous.generation === generation && previous.floorId === runtime.floorId &&
       previous.mode === mode && previous.accepted && sample.accepted;
     if (continuous && mode === 'auto-walk') {
-      const acceleration = Math.hypot(
+      const deltaVelocityMps = Math.hypot(
         velocity[0] - previous.velocity[0],
         velocity[1] - previous.velocity[1],
         velocity[2] - previous.velocity[2],
-      ) / sample.physicsDeltaSeconds;
-      if (Number.isFinite(acceleration)) {autoAccelerationSamples.current.push({ value: acceleration, time: physicsMetricClock.current });}
+      );
+      const acceleration = deltaVelocityMps / sample.physicsDeltaSeconds;
+      if (Number.isFinite(acceleration)) {autoAccelerationSamples.current.push({ value: acceleration, deltaVelocityMps, stepSeconds: sample.physicsDeltaSeconds, fromVelocity: [...previous.velocity], toVelocity: [...velocity], fromCommandedSpeedMps: previous.commandedSpeedMps, toCommandedSpeedMps: sample.commandedSpeedMps, playbackRate: sample.playbackRate, time: physicsMetricClock.current });}
     } else if (continuous && mode === 'manual') {
       const acceleration = Math.hypot(
         velocity[0] - previous.velocity[0],
@@ -371,6 +390,8 @@ export function MotionLabTelemetryProbe({
       mode,
       velocity,
       accepted: sample.accepted,
+      commandedSpeedMps: sample.commandedSpeedMps,
+      playbackRate: sample.playbackRate,
     };
   }), []);
   useEffect(() => {
@@ -417,7 +438,9 @@ export function MotionLabTelemetryProbe({
     }
     const { runtime } = session;
     const hasManualDirection = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].some((key) => manualKeys.current.has(key));
-    const movementMode: MotionLabTelemetry['movementMode'] = status !== 'playing' ? 'paused' : hasManualDirection ? 'manual' : 'auto-walk';
+    const movementMode: MotionLabTelemetry['movementMode'] = status === 'playing'
+      ? 'auto-walk'
+      : hasManualDirection ? 'manual' : 'paused';
     const position: Vec3 = [...runtime.position];
     const { floorId } = runtime;
     const floor = document.floors.find((item) => item.source.id === floorId);
@@ -434,11 +457,21 @@ export function MotionLabTelemetryProbe({
       autoAccelerationSamples.current = [];
       manualAccelerationSamples.current = [];
       clearanceSamples.current = [];
+      renderedYawSamples.current = [];
+      previousRenderedYaw.current = null;
       tick.current = 0;
       lastPublish.current = 0;
     }
     const previous = last.current!;
     const dtSeconds = Number.isFinite(rawDelta) && rawDelta > 0 ? rawDelta : 0;
+    const yawBefore = previousRenderedYaw.current;
+    const renderedYawDeltaDeg = yawBefore?.generation === session.generation && dtSeconds > 0
+      ? Math.abs(Math.atan2(Math.sin(runtime.yaw - yawBefore.yaw), Math.cos(runtime.yaw - yawBefore.yaw))) * 180 / Math.PI
+      : null;
+    const renderedYawRateDegPerSec = renderedYawDeltaDeg !== null && dtSeconds > 0
+      ? renderedYawDeltaDeg / dtSeconds
+      : null;
+    previousRenderedYaw.current = { yaw: runtime.yaw, generation: session.generation };
     const sameFloor = previous.floorId === floorId;
     const floorChanged = !sameFloor;
     const resetDerivatives = generationChanged || floorChanged || dtSeconds <= 0;
@@ -505,6 +538,9 @@ export function MotionLabTelemetryProbe({
     const renderedStanceGroundSpeedMps = renderedSpeedSamples.length ? Math.max(...renderedSpeedSamples) : null;
     if (dtSeconds > 0) {metricClock.current += dtSeconds;}
     const sampleTime = metricClock.current;
+    if (renderedYawDeltaDeg !== null && renderedYawRateDegPerSec !== null) {
+      renderedYawSamples.current.push({ deltaDeg: renderedYawDeltaDeg, rateDegPerSec: renderedYawRateDegPerSec, time: sampleTime });
+    }
     if (renderedStanceGroundSpeedMps !== null && Number.isFinite(renderedStanceGroundSpeedMps)) {
       stanceSpeedSamples.current.push({ value: renderedStanceGroundSpeedMps, time: sampleTime });
     }
@@ -531,6 +567,7 @@ export function MotionLabTelemetryProbe({
     autoAccelerationSamples.current = autoAccelerationSamples.current.filter((sample) => sample.time >= windowStart);
     manualAccelerationSamples.current = manualAccelerationSamples.current.filter((sample) => sample.time >= windowStart);
     clearanceSamples.current = clearanceSamples.current.filter((sample) => sample.time >= windowStart);
+    renderedYawSamples.current = renderedYawSamples.current.filter((sample) => sample.time >= metricClock.current - 5);
     const record: MotionLabTelemetry = {
       frame,
       accelerationMps2: acceleration,
@@ -555,6 +592,8 @@ export function MotionLabTelemetryProbe({
       floorInteraction: { floorId, elevationM: floor?.source.heightOffset ?? position[1], ...(sameFloor ? {} : { changedFromFloorId: previous.floorId }), ...(leg?.connector?.id ? { connectorId: leg.connector.id } : {}), connectorPhase: runtime.phase.includes('Elevator') || runtime.phase.includes('Stairs') || runtime.phase.includes('Ramp') || runtime.phase.includes('Escalator') ? runtime.phase : null },
       contactBasis: 'gait-phase-estimate-not-physics-contact',
       playbackGeneration: session.generation,
+      renderedYawDeltaDeg,
+      renderedYawRateDegPerSec,
       derivativeResetReason: generationChanged ? 'playback-generation' : floorChanged ? 'floor-transition' : dtSeconds <= 0 ? 'invalid-delta' : null,
     };
     frames.current.push(record);
@@ -569,11 +608,21 @@ export function MotionLabTelemetryProbe({
     lastPublish.current += rawDelta;
     if (lastPublish.current >= 0.1) {
       lastPublish.current = 0;
+      const autoPeak = autoAccelerationSamples.current.reduce<(typeof autoAccelerationSamples.current)[number] | null>(
+        (peak, sample) => !peak || sample.value > peak.value ? sample : peak,
+        null,
+      );
       publishLiveMetrics({
         stanceP99Mps: percentile99(stanceSpeedSamples.current.map((sample) => sample.value)),
         stanceSamples: stanceSpeedSamples.current.length,
         autoAccelerationMaxMps2: autoAccelerationSamples.current.length ? Math.max(...autoAccelerationSamples.current.map((sample) => sample.value)) : null,
         autoAccelerationSamples: autoAccelerationSamples.current.length,
+        autoAccelerationPeakDeltaVelocityMps: autoPeak?.deltaVelocityMps ?? null,
+        autoAccelerationPeakStepSeconds: autoPeak?.stepSeconds ?? null,
+        autoAccelerationPeakTimeSeconds: autoPeak?.time ?? null,
+        autoAccelerationPeakVelocityChange: autoPeak
+          ? `[${autoPeak.fromVelocity.map((value) => value.toFixed(2)).join(', ')}] → [${autoPeak.toVelocity.map((value) => value.toFixed(2)).join(', ')}] m/s · commanded ${autoPeak.fromCommandedSpeedMps?.toFixed(2) ?? '—'}→${autoPeak.toCommandedSpeedMps?.toFixed(2) ?? '—'} m/s · rate ${autoPeak.playbackRate?.toFixed(2) ?? '—'}×`
+          : null,
         manualAccelerationMaxMps2: manualAccelerationSamples.current.length ? Math.max(...manualAccelerationSamples.current.map((sample) => sample.value)) : null,
         manualAccelerationSamples: manualAccelerationSamples.current.length,
         clearanceMarginM: numericMarginM,
@@ -581,6 +630,9 @@ export function MotionLabTelemetryProbe({
         windowSeconds: Math.min(5, physicsMetricClock.current),
         currentMode: movementMode,
         currentAccelerationMps2: accelerationSampleValid ? accelerationMagnitude : null,
+        maxRenderedYawDeltaDeg: renderedYawSamples.current.length ? Math.max(...renderedYawSamples.current.map((sample) => sample.deltaDeg)) : null,
+        maxRenderedYawRateDegPerSec: renderedYawSamples.current.length ? Math.max(...renderedYawSamples.current.map((sample) => sample.rateDegPerSec)) : null,
+        renderedYawSamples: renderedYawSamples.current.length,
       });
       onFrame(record);
     }

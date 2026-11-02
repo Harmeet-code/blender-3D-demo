@@ -297,13 +297,20 @@ export function steerRoute(input: RouteSteeringInput): RouteSteeringIntent {
     : 0;
   const cornerSpeedFactor = 1 - cornerSeverity * (1 - CHARACTER_CONFIG.cornerSlowdown.minSpeedFactor);
   const distanceToCorner = corner ? Math.max(0, corner.distanceM - currentDistance) : Number.POSITIVE_INFINITY;
-  const cornerApproachDistance = Math.max(0.5, routeLimit * timeScale * CHARACTER_CONFIG.lookahead.maxSeconds);
-  const curvedApproach = !!corner && corner.turnRadians > slowdownStart && distanceToCorner <= cornerApproachDistance;
-  // Reserve half of the acceleration budget for lateral acceleration through a curve.
-  const tangentialAcceleration = curvedApproach ? MAX_ACCELERATION_MPS2 * 0.5 : MAX_ACCELERATION_MPS2;
+  // The resolved trajectory's acceleration is a vector. Curvature consumes the
+  // normal component of that budget, so only the remaining magnitude is available
+  // for speeding up or braking along the route.
+  const worldSpeed = state.speedMps * timeScale;
+  const estimatedNormalAcceleration = corner && Number.isFinite(corner.radiusM) && corner.radiusM > EPSILON
+    ? Math.min(MAX_ACCELERATION_MPS2 * 0.95, (worldSpeed * worldSpeed) / corner.radiusM)
+    : 0;
+  const tangentialAcceleration = Math.sqrt(Math.max(
+    0,
+    MAX_ACCELERATION_MPS2 ** 2 - estimatedNormalAcceleration ** 2,
+  ));
   const maxAcceleration = tangentialAcceleration / timeScale;
   const curvatureSpeedLimit = corner
-    ? Math.sqrt(MAX_ACCELERATION_MPS2 * 0.85 * corner.radiusM) / timeScale
+    ? Math.sqrt(MAX_ACCELERATION_MPS2 * 0.75 * corner.radiusM) / timeScale
     : Number.POSITIVE_INFINITY;
   const turnSpeed = Math.min(routeLimit * cornerSpeedFactor, curvatureSpeedLimit);
   const cornerBrakingSpeed = Math.sqrt(
@@ -333,8 +340,9 @@ export function steerRoute(input: RouteSteeringInput): RouteSteeringIntent {
     ? Math.atan2(-lookaheadTangent[0], -lookaheadTangent[2])
     : state.yawRadians;
   const yawError = wrapAngle(targetYaw - state.yawRadians);
-  const yawStepLimit = Math.min(MAX_TURN_RATE_RAD_S * dt,
-    CHARACTER_CONFIG.maxYawDeltaDegPerFrame * Math.PI / 180);
+  // Per-rendered-frame delta is enforced by WalkthroughLayer, which can aggregate
+  // multiple physics substeps before the next visible frame. Here only enforce rate.
+  const yawStepLimit = MAX_TURN_RATE_RAD_S * dt;
   const yawStep = Math.max(-yawStepLimit, Math.min(yawStepLimit, yawError));
   const yaw = state.yawRadians + yawStep;
 
