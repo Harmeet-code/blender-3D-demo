@@ -36,6 +36,9 @@ const ParkingLotPreview = import.meta.env.DEV
 const DiningPreview = import.meta.env.DEV
   ? lazy(() => import('./components/DiningPreview.tsx'))
   : null;
+const MotionLab = import.meta.env.DEV
+  ? lazy(() => import('./components/dev/MotionLab.tsx'))
+  : null;
 export function FloorPlanEntry() {
   useLayoutEffect(() => {
     const root = document.documentElement,
@@ -57,7 +60,9 @@ export function FloorPlanEntry() {
             </p>
           }
         >
-          {ParkingLotPreview && new URLSearchParams(location.search).has('parkingPreview') ? (
+          {MotionLab && new URLSearchParams(location.search).has('motionLab') ? (
+            <MotionLab />
+          ) : ParkingLotPreview && new URLSearchParams(location.search).has('parkingPreview') ? (
             <ParkingLotPreview />
           ) : DiningPreview && new URLSearchParams(location.search).has('diningPreview') ? (
             <DiningPreview />
