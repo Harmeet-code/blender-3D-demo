@@ -13,6 +13,7 @@ import { CameraRig } from './CameraRig.tsx';
 import { useManualInput } from './locomotion/manual-input.ts';
 import { KinematicCapsule, type KinematicCapsuleHandle, type CapsuleMoveResult } from './foundation/kinematic-capsule.tsx';
 import { CollisionWorld, useCapsuleClearance } from './collision/collision-world.tsx';
+import type { CollisionMap, RoleAreaPolicy } from './collision/capsule-clearance.ts';
 import { CHARACTER_CONFIG } from './character-config.ts';
 import type { Role } from './contracts.ts';
 import { smoothRouteCorners, steerRoute } from './steering/route-steering.ts';
@@ -26,6 +27,48 @@ import { circulationDesign } from '../../model/circulation.ts';
 import { advanceFollower, type Follower } from './follower.ts';
 import { connectorRecordForLeg, resolveConnectorTraversal } from './connectors/connector-runtime.ts';
 import { UnsupportedShapeList } from '../../components/dev/motion-lab/UnsupportedShapeList.tsx';
+import { pointInPolygon } from '@/utils/geometry/polygon.ts';
+
+type RouteComfortMetric = {
+  floorId: string;
+  clearanceP90M: number | null;
+  targetMet: boolean | null;
+  unavailableReason?: string;
+};
+
+function pointSegmentDistance(point: readonly [number, number], a: readonly [number, number], b: readonly [number, number]) {
+  const dx = b[0] - a[0], dz = b[1] - a[1];
+  const lengthSq = dx * dx + dz * dz;
+  const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[1] - a[1]) * dz) / lengthSq));
+  return Math.hypot(point[0] - a[0] - t * dx, point[1] - a[1] - t * dz);
+}
+
+function polygonEdgeDistance(point: readonly [number, number], polygon: readonly (readonly [number, number])[]) {
+  let minimum = Infinity;
+  for (let index = 0; index < polygon.length; index++) {
+    minimum = Math.min(minimum, pointSegmentDistance(point, polygon[index]!, polygon[(index + 1) % polygon.length]!));
+  }
+  return minimum;
+}
+
+/** Centerline-to-edge distance from the mounted collision snapshot; null means unmeasurable. */
+function centerClearanceM(map: CollisionMap, role: Role, feet: readonly [number, number, number]): number | null {
+  if (map.unsupported.length || map.boundary.length < 3 || !feet.every(Number.isFinite)) {return null;}
+  const point: [number, number] = [feet[0], feet[2]];
+  if (!pointInPolygon(point, map.boundary)) {return null;}
+  let minimum = polygonEdgeDistance(point, map.boundary);
+  const [, lowY] = feet;
+  const highY = lowY + CHARACTER_CONFIG.heightM;
+  for (const item of [...map.obstacles, ...map.blockedAreas]) {
+    if (item.maxY <= lowY || item.minY >= highY) {continue;}
+    minimum = Math.min(minimum, pointInPolygon(point, item.polygon) ? 0 : polygonEdgeDistance(point, item.polygon));
+  }
+  for (const area of map.roleAreas) {
+    if (!area.allowedRoles || area.allowedRoles.includes(role)) {continue;}
+    minimum = Math.min(minimum, pointInPolygon(point, area.polygon) ? 0 : polygonEdgeDistance(point, area.polygon));
+  }
+  return Number.isFinite(minimum) ? minimum : null;
+}
 
 function cloneFollowerFrame(value: Follower): Follower {
   return {
@@ -89,6 +132,7 @@ function Runtime({
   const invalidate = useThree((state) => state.invalidate);
   const [interactionState, setInteractionState] = useState<InteractionState>({ status: 'idle' });
   const [inspectedTargetId, setInspectedTargetId] = useState<string | null>(null);
+  const [routeComfortMetrics, setRouteComfortMetrics] = useState<RouteComfortMetric[]>([]);
   const [joinedQueueIds, setJoinedQueueIds] = useState<ReadonlySet<string>>(() => new Set());
   const [calledElevatorIds, setCalledElevatorIds] = useState<ReadonlySet<string>>(() => new Set());
   const autoPausedForUse = useRef(false);
@@ -163,7 +207,7 @@ function Runtime({
   const connectorPlans = useMemo(() => new Map(runtime.path.legs.flatMap((leg, index) => {
     if (leg.kind === 'walk') {return [];}
     const record = connectorRecords.find((item) => item.id === leg.connector?.id && item.portalId === leg.connector?.portalId);
-    const toFloorId = leg.toFloorId;
+    const { toFloorId } = leg;
     if (!record || !toFloorId) {return [];}
     const resolution = resolveConnectorTraversal({
       record,
@@ -179,7 +223,7 @@ function Runtime({
           !!instance && instance.id === record.id && instance.portalId === portal.id && instance.recipe === leg.kind;
       },
       validateSweep: (from, to) => clearance.validateConnectorSweep(record.id, connectorPoint(from), connectorPoint(to), CHARACTER_CONFIG),
-      validateEndpoint: (floorId, feet) => clearance.validateConnectorEndpoint(record.id, floorId, connectorPoint(feet), CHARACTER_CONFIG),
+      validateEndpoint: (connectorFloorId, feet) => clearance.validateConnectorEndpoint(record.id, connectorFloorId, connectorPoint(feet), CHARACTER_CONFIG),
       validateElevatorRide: (_from, _to) => {
         if (leg.kind !== 'elevator' || !leg.connector || leg.points.length !== 4) {return { clear: false, continuous: false, reason: 'Elevator cabin path is incomplete.' };}
         // The scene has no authored shaft aperture, cabin/door colliders, or moving cabin
@@ -260,24 +304,45 @@ function Runtime({
       rig.bind(body.current);
     }
     if (!smoothedPath.current) {
+      const comfortMetrics: RouteComfortMetric[] = [];
       for (const leg of runtime.path.legs) {
-      if (leg.kind !== 'walk') {continue;}
-      const smoothed = smoothRouteCorners(leg.points, {
-        validateSegment: (from, to) =>
-          clearance.validateSweep(
-            [from[0], from[1] + originY, from[2]],
-            [to[0], to[1] + originY, to[2]],
-            CHARACTER_CONFIG,
-          ).clear,
-      });
-      if (!smoothed) {
-        usePlaybackStore.getState().fail('The route cannot be validated for the full avatar capsule.');
-        break;
+        if (leg.kind !== 'walk') {continue;}
+        const activeMap = leg.floorId === clearance.map.floorId ? clearance.map : null;
+        const measureClearanceM = activeMap && activeMap.unsupported.length === 0
+          ? (point: readonly [number, number, number]) => centerClearanceM(activeMap, role, [point[0], point[1] + originY, point[2]])
+          : undefined;
+        const smoothed = smoothRouteCorners(leg.points, {
+          capsuleRadiusM: CHARACTER_CONFIG.radiusM,
+          measureClearanceM,
+          validateSegment: (from, to) =>
+            clearance.validateSweep(
+              [from[0], from[1] + originY, from[2]],
+              [to[0], to[1] + originY, to[2]],
+              CHARACTER_CONFIG,
+            ).clear,
+        });
+        if (!activeMap) {
+          comfortMetrics.push({ floorId: leg.floorId, clearanceP90M: null, targetMet: null, unavailableReason: `The mounted collision map covers ${clearance.map.floorId}, not this route floor.` });
+        } else if (activeMap.unsupported.length > 0) {
+          const issue = activeMap.unsupported[0]!;
+          comfortMetrics.push({ floorId: leg.floorId, clearanceP90M: null, targetMet: null, unavailableReason: `Unsupported geometry ${issue.id}: ${issue.reason}` });
+        } else if (!smoothed) {
+          comfortMetrics.push({ floorId: leg.floorId, clearanceP90M: null, targetMet: null, unavailableReason: 'The route segment did not pass capsule validation.' });
+        } else if (smoothed.comfortClearanceP90M === null) {
+          comfortMetrics.push({ floorId: leg.floorId, clearanceP90M: null, targetMet: null, unavailableReason: 'One or more route samples could not be measured against the mounted collision map.' });
+        } else {
+          comfortMetrics.push({ floorId: leg.floorId, clearanceP90M: smoothed.comfortClearanceP90M, targetMet: smoothed.comfortTargetMet });
+        }
+        if (!smoothed) {
+          usePlaybackStore.getState().fail('The route cannot be validated for the full avatar capsule.');
+          break;
+        }
+        leg.points = smoothed.points;
+        leg.lengths = smoothed.lengths;
+        leg.length = smoothed.length;
       }
-      leg.points = smoothed.points;
-      leg.lengths = smoothed.lengths;
-      leg.length = smoothed.length;
-    }}
+      setRouteComfortMetrics(comfortMetrics);
+    }
     let offset = 0;
     for (const leg of runtime.path.legs) {
       leg.offset = offset;
@@ -286,7 +351,7 @@ function Runtime({
     runtime.path.length = offset;
     smoothedPath.current = true;
     invalidate();
-  }, [runtime, rig, invalidate, originY, clearance]);
+  }, [runtime, rig, invalidate, originY, clearance, role]);
   useEffect(() => usePlaybackStore.subscribe(() => invalidate()), [invalidate]);
   useEffect(() => {
     const previous = get().frameloop;
@@ -571,7 +636,7 @@ function Runtime({
               {message}
             </div>
           )}
-          {import.meta.env.DEV && <UnsupportedShapeList issues={clearance.map.unsupported} />}
+          {import.meta.env.DEV && <UnsupportedShapeList issues={clearance.map.unsupported} routeComfort={routeComfortMetrics} />}
           {runtime.connector && (
             <div role="status" aria-live="polite" className="pointer-events-auto basis-full rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow">
               Elevator: {runtime.phase}
@@ -649,7 +714,7 @@ export function WalkthroughLayer(props: {
   onFloor: (id: string) => boolean | void;
   originY?: number;
   role?: Role;
-  roleAreas?: readonly import('./collision/capsule-clearance.ts').RoleAreaPolicy[];
+  roleAreas?: readonly RoleAreaPolicy[];
 }) {
   const session = usePlaybackStore((state) => state.session);
   const connectorRecords = useMemo(
