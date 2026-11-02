@@ -8,7 +8,7 @@ export const CHARACTER_CONFIG = characterConfigSchema.parse({
   maxStepM: 0.35,
   walkSpeedMps: 1.4,
   sprintSpeedMps: 3.2,
-  accelerationMps2: 8,
+  accelerationMps2: 2,
   brakingMps2: 12,
   eyeHeightM: 1.6,
   gaitStrideM: 1.35,

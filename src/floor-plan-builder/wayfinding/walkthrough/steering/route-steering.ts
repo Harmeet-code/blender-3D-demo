@@ -33,6 +33,88 @@ export interface RouteSteeringIntent {
   blocked: boolean;
 }
 
+export interface ValidatedRoute {
+  points: Vec3[];
+  lengths: number[];
+  length: number;
+}
+
+export interface CornerSmoothingOptions {
+  /** Maximum distance trimmed from each side of a corner. */
+  cornerRadiusM?: number;
+  /** Number of straight capsule-swept segments used to approximate each curve. */
+  curveSegments?: number;
+  /** Must approve the entire swept capsule between each pair of points. */
+  validateSegment: (from: Vec3, to: Vec3) => boolean;
+}
+
+/**
+ * Round polyline corners without losing the route's clearance guarantee. Every output
+ * chord is swept independently. If a rounded corner fails, its trim is halved until
+ * validated; the raw corner is the final fallback and must pass too.
+ */
+export function smoothRouteCorners(points: readonly Vec3[], options: CornerSmoothingOptions): ValidatedRoute | null {
+  const radius = options.cornerRadiusM ?? 0.25;
+  const segments = options.curveSegments ?? 4;
+  const valid = Number.isFinite(radius) && radius >= 0 && Number.isInteger(segments) && segments >= 1 &&
+    points.length >= 2 && points.every((point) => point.length === 3 && point.every(Number.isFinite));
+  if (!valid) return null;
+
+  const out: Vec3[] = [[...points[0]!] as Vec3];
+  const validateAppend = (candidate: readonly Vec3[]) => {
+    let from = out[out.length - 1]!;
+    for (const to of candidate) {
+      let accepted = false;
+      try { accepted = options.validateSegment(from, to) === true; } catch { accepted = false; }
+      if (!accepted) return false;
+      from = to;
+    }
+    out.push(...candidate.map((point) => [...point] as Vec3));
+    return true;
+  };
+  for (let i = 1; i < points.length - 1; i++) {
+    const a = points[i - 1]!, corner = points[i]!, b = points[i + 1]!;
+    const incoming = Math.hypot(corner[0] - a[0], corner[1] - a[1], corner[2] - a[2]);
+    const outgoing = Math.hypot(b[0] - corner[0], b[1] - corner[1], b[2] - corner[2]);
+    const maxTrim = Math.min(radius, incoming * 0.45, outgoing * 0.45);
+    let trim = maxTrim;
+    let accepted = false;
+    for (let attempt = 0; attempt < 9 && !accepted; attempt++, trim *= 0.5) {
+      if (trim <= 1e-5) break;
+      const start: Vec3 = [
+        corner[0] + (a[0] - corner[0]) * (trim / incoming),
+        corner[1] + (a[1] - corner[1]) * (trim / incoming),
+        corner[2] + (a[2] - corner[2]) * (trim / incoming),
+      ];
+      const end: Vec3 = [
+        corner[0] + (b[0] - corner[0]) * (trim / outgoing),
+        corner[1] + (b[1] - corner[1]) * (trim / outgoing),
+        corner[2] + (b[2] - corner[2]) * (trim / outgoing),
+      ];
+      const curve: Vec3[] = [];
+      for (let j = 1; j <= segments; j++) {
+        const t = j / segments, u = 1 - t;
+        curve.push([
+          u * u * start[0] + 2 * u * t * corner[0] + t * t * end[0],
+          u * u * start[1] + 2 * u * t * corner[1] + t * t * end[1],
+          u * u * start[2] + 2 * u * t * corner[2] + t * t * end[2],
+        ]);
+      }
+      accepted = validateAppend([start, ...curve]);
+    }
+    if (!accepted) {
+      if (!validateAppend([corner])) return null;
+    }
+  }
+  if (!validateAppend([points.at(-1)!])) return null;
+  const lengths = [0];
+  for (let i = 1; i < out.length; i++) {
+    const a = out[i - 1]!, b = out[i]!;
+    lengths.push(lengths[i - 1]! + Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]));
+  }
+  return { points: out, lengths, length: lengths.at(-1)! };
+}
+
 const MAX_ACCELERATION_MPS2 = 2;
 const MAX_TURN_RATE_RAD_S = Math.PI;
 const GAZE_LEAD_SECONDS = 0.5;

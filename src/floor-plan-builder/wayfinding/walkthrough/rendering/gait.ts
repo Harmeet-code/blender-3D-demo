@@ -21,6 +21,68 @@ export interface GaitInput {
   strideM?: number;
 }
 
+export interface FootPlantState {
+  stance: [boolean, boolean];
+  anchors: [number[], number[]];
+}
+
+export interface FootPlantInput {
+  /** Resolved character root position in world coordinates. */
+  rootPosition: [number, number, number];
+  /** Resolved ground height at the foot's touchdown point, including terrain/stairs. */
+  groundY: number;
+  yawRadians: number;
+  phaseRadians: number;
+  strideM?: number;
+  stanceFraction?: number;
+}
+
+export function createFootPlantState(): FootPlantState {
+  return { stance: [false, false], anchors: [[0, 0, 0], [0, 0, 0]] };
+}
+
+/**
+ * Stateful world-space foot targets. Each anchor is captured on stance entry and held
+ * until swing begins; the caller supplies resolved root/ground data and owns IK solving.
+ */
+export function sampleFootPlants(state: FootPlantState, input: FootPlantInput): [[number, number, number], [number, number, number]] {
+  const stride = Math.max(0.1, input.strideM ?? CHARACTER_CONFIG.gaitStrideM);
+  const stanceFraction = Math.max(0.1, Math.min(0.9, input.stanceFraction ?? 0.6));
+  const { rootPosition: root, yawRadians: yaw, phaseRadians: phase } = input;
+  const valid = root.every(Number.isFinite) && Number.isFinite(input.groundY) &&
+    Number.isFinite(yaw) && Number.isFinite(phase);
+  if (!valid) return state.anchors as [[number, number, number], [number, number, number]];
+  const forwardX = -Math.sin(yaw), forwardZ = -Math.cos(yaw);
+  const rightX = Math.cos(yaw), rightZ = -Math.sin(yaw);
+  const result: [[number, number, number], [number, number, number]] = [[0, 0, 0], [0, 0, 0]];
+  for (let i = 0; i < 2; i++) {
+    const side = i === 0 ? -1 : 1;
+    const cycle = ((phase / (Math.PI * 2) + i * 0.5) % 1 + 1) % 1;
+    const stance = cycle < stanceFraction;
+    if (stance && !state.stance[i]) {
+      const ahead = stride * 0.3;
+      state.anchors[i] = [
+        root[0] + rightX * side * 0.1 + forwardX * ahead,
+        input.groundY,
+        root[2] + rightZ * side * 0.1 + forwardZ * ahead,
+      ];
+    }
+    state.stance[i] = stance;
+    if (stance) {
+      result[i] = [...state.anchors[i]] as [number, number, number];
+    } else {
+      const swing = (cycle - stanceFraction) / (1 - stanceFraction);
+      const travel = stride * (0.3 - 0.6 * swing);
+      result[i] = [
+        root[0] + rightX * side * 0.1 + forwardX * travel,
+        input.groundY + Math.sin(swing * Math.PI) * 0.13,
+        root[2] + rightZ * side * 0.1 + forwardZ * travel,
+      ];
+    }
+  }
+  return result;
+}
+
 const TWO_PI = Math.PI * 2;
 
 /** Procedural human gait pose sampled from resolved travel distance. */
