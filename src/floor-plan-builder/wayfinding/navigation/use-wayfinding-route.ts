@@ -4,17 +4,26 @@ import type { PlanDocument } from '../../model/types.ts';
 import { planWayfindingRoute } from './route-service.ts';
 import { useWayfindingStore } from '../store/wayfinding-store.ts';
 import type { WalkableZone } from '../model/zone-schema.ts';
+import type { Role } from '../walkthrough/contracts.ts';
+import {
+  EMPTY_ROUTE_NAVIGATION_POLICY,
+  routeNavigationPolicyKey,
+  type RouteNavigationPolicySource,
+} from '../walkthrough/permissions/route-navigation-policy.ts';
 
 /**
  * Runs route requests against the live document. Re-plans (debounced) when
  * the document revision changes under an active route and reports a
- * non-blocking "updating routes" state via status=routing.
+ * non-blocking "updating routes" state via status=routing. Role defaults to
+ * visitor so existing call sites fail closed; Studio must pass its selected role.
  */
 export function useWayfindingRoute(
   document: PlanDocument,
   revision: number,
   zones: WalkableZone[],
   notify: (message: string) => void,
+  role: Role = 'visitor',
+  rolePolicy: RouteNavigationPolicySource = EMPTY_ROUTE_NAVIGATION_POLICY,
 ) {
   useEffect(() => {
     useWayfindingStore.getState().clear();
@@ -26,10 +35,18 @@ export function useWayfindingRoute(
   const navigator = useMemo(() => new StudioNavigator(), []);
   const runId = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const policyKey = routeNavigationPolicyKey(rolePolicy);
+  const previousAccess = useRef({ role, policyKey });
 
   useEffect(() => () => navigator.dispose(), [navigator]);
 
   useEffect(() => {
+    const accessChanged = previousAccess.current.role !== role || previousAccess.current.policyKey !== policyKey;
+    previousAccess.current = { role, policyKey };
+    if (accessChanged) {
+      // Do not display an outcome computed for a more permissive prior role while replanning.
+      setOutcome(null);
+    }
     if (!request) {
       runId.current++;
       navigator.cancel();
@@ -50,7 +67,7 @@ export function useWayfindingRoute(
     }
     // First plan is immediate; document edits re-plan debounced.
     const previous = useWayfindingStore.getState().outcome;
-    const hadOutcome =
+    const hadOutcome = !accessChanged &&
       !!previous &&
       Object.values(previous.options).every((route) =>
         route.segments.every((segment) => floorIds.has(segment.floorId)),
@@ -60,7 +77,7 @@ export function useWayfindingRoute(
     }
     setStatus('routing');
     const run = () => {
-      planWayfindingRoute(navigator, document, zones, request, controller.signal)
+      planWayfindingRoute(navigator, document, zones, request, controller.signal, role, rolePolicy)
         .then((outcome) => {
           if (runId.current !== id || controller.signal.aborted) {
             return;
@@ -94,5 +111,5 @@ export function useWayfindingRoute(
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request, revision, document, zones, navigator]);
+  }, [request, revision, document, zones, navigator, role, policyKey]);
 }

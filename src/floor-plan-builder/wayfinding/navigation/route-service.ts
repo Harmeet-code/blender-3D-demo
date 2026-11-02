@@ -21,6 +21,13 @@ import { circulationEntry } from '../../model/circulation.ts';
 import { type StudioNavigator, type PlanRoute } from '../../model/directions.ts';
 import { buildFloorNavInput, ZONE_AREA } from './input-builder.ts';
 import type { WalkableZone } from '../model/zone-schema.ts';
+import type { Role } from '../walkthrough/contracts.ts';
+import {
+  createRoleNavigationZones,
+  EMPTY_ROUTE_NAVIGATION_POLICY,
+  roleMayUseRestrictedZones,
+  type RouteNavigationPolicySource,
+} from '../walkthrough/permissions/route-navigation-policy.ts';
 import {
   routeRequestSchema,
   routeResultSchema,
@@ -264,8 +271,10 @@ export function resolveEndpoint(
   endpoint: RouteRequest['start'],
   zones: WalkableZone[],
   from?: Point2,
-  allowRestricted = false,
+  _allowRestricted = false,
+  role: Role = 'visitor',
 ): ResolvedEndpoint | { error: string } {
+  const canUseRestricted = roleMayUseRestrictedZones(role);
   const floor = document.floors.find((item) => item.source.id === endpoint.floorId);
   if (!floor) {
     return { error: 'Unknown floor.' };
@@ -316,7 +325,7 @@ export function resolveEndpoint(
   );
   input.obstacles.push(
     ...floor.zones.filter((zone) => zone.type === 'blocked').map((zone) => zone.polygon),
-    ...(!allowRestricted
+    ...(!canUseRestricted
       ? zones
           .filter((zone) => zone.floorId === floor.source.id && zone.type === 'restricted')
           .map((zone) => zone.polygon)
@@ -340,7 +349,7 @@ export function resolveEndpoint(
   if (endpoint.kind === 'point') {
     return { error: `${label} does not have enough clearance for a route.` };
   }
-  const fallback = nearestFreedom(document.floors, floor.source.id, point, zones, allowRestricted);
+  const fallback = nearestFreedom(document.floors, floor.source.id, point, zones, canUseRestricted);
   if (!fallback) {
     return { error: 'No walkable point on this floor.' };
   }
@@ -429,6 +438,8 @@ export async function planWayfindingRoute(
   zones: WalkableZone[],
   request: RouteRequest,
   signal: AbortSignal,
+  role: Role = 'visitor',
+  rolePolicy: RouteNavigationPolicySource = EMPTY_ROUTE_NAVIGATION_POLICY,
 ): Promise<RouteOutcome> {
   const valid = routeRequestSchema.safeParse(request);
   if (!valid.success) {
@@ -437,23 +448,38 @@ export async function planWayfindingRoute(
   if (signal.aborted) {
     throw new DOMException('Route cancelled', 'AbortError');
   }
+  const roleNavigation = createRoleNavigationZones(document, zones, role, rolePolicy);
+  if (roleNavigation.error) {
+    return { request, options: {}, failure: roleNavigation.error };
+  }
+  const navigationDocument = roleNavigation.document;
+  const navigationZones = roleNavigation.zones;
+  const canUseRestricted = roleMayUseRestrictedZones(role);
   const missingZoneFloor = [request.start.floorId, request.dest.floorId].find(
-    (floorId) => !authoredWalkableZones(zones, floorId).length,
+    (floorId) => !authoredWalkableZones(navigationZones, floorId).length,
   );
   if (missingZoneFloor) {
     return {
       request,
       options: {},
-      failure: `Draw a walkable zone on ${document.floors.find((floor) => floor.source.id === missingZoneFloor)?.source.name ?? 'each route floor'} before testing routes.`,
+      failure: `Draw a walkable zone on ${navigationDocument.floors.find((floor) => floor.source.id === missingZoneFloor)?.source.name ?? 'each route floor'} before testing routes.`,
     };
   }
-  const start = resolveEndpoint(document, request.start, zones, undefined, request.allowRestricted);
+  const start = resolveEndpoint(
+    navigationDocument,
+    request.start,
+    navigationZones,
+    undefined,
+    canUseRestricted,
+    role,
+  );
   const dest = resolveEndpoint(
-    document,
+    navigationDocument,
     request.dest,
-    zones,
+    navigationZones,
     'point' in start ? start.point : undefined,
-    request.allowRestricted,
+    canUseRestricted,
+    role,
   );
   if ('error' in start) {
     return { request, options: {}, failure: `Start: ${start.error}` };
@@ -466,7 +492,7 @@ export async function planWayfindingRoute(
     Math.hypot(start.point[0] - dest.point[0], start.point[1] - dest.point[1]) < 1e-4
   ) {
     const y =
-      document.floors.find((floor) => floor.source.id === start.floorId)?.source.heightOffset ?? 0;
+      navigationDocument.floors.find((floor) => floor.source.id === start.floorId)?.source.heightOffset ?? 0;
     const result: RouteResult = {
       waypoints: [
         [start.point[0], y, start.point[1]],
@@ -489,7 +515,10 @@ export async function planWayfindingRoute(
       instructions: ['You are already here.'],
       option: 'shortest',
       snapped: { start: start.snapped, dest: dest.snapped },
-      warnings: [],
+      warnings:
+        request.allowRestricted && role !== 'staff'
+          ? ['Restricted-zone access was ignored for the visitor role.']
+          : [],
     };
     return {
       request,
@@ -500,9 +529,13 @@ export async function planWayfindingRoute(
     option: 'shortest' | 'accessible',
   ): Promise<{ result?: RouteResult; failure?: string; buildMs?: number }> => {
     const accessible = option === 'accessible';
-    const invalidLandings = invalidConnectorLandings(document, zones, request.allowRestricted);
+    const invalidLandings = invalidConnectorLandings(
+      navigationDocument,
+      navigationZones,
+      canUseRestricted,
+    );
     const disabledPortals = accessible
-      ? document.floors
+      ? navigationDocument.floors
           .flatMap((floor) => floor.objects)
           .filter((object) => object.recipe === 'stairs' || object.recipe === 'escalator')
           .map((object) => object.portalId)
@@ -513,23 +546,23 @@ export async function planWayfindingRoute(
     }
     if (disabledPortals) {
       const ramps = new Set(
-        document.floors
+        navigationDocument.floors
           .flatMap((floor) => floor.objects)
           .filter((object) => object.recipe === 'ramp')
           .map((object) => object.portalId),
       );
       disabledPortals.push(
-        ...document.baseline.portals
+        ...navigationDocument.baseline.portals
           .filter((portal) => portal.type !== 'elevator' && !ramps.has(portal.id))
           .map((portal) => portal.id),
       );
     }
     const navAreas: Record<string, { polygon: Point2[]; area: number; flags: number }[]> = {};
-    for (const floor of document.floors) {
+    for (const floor of navigationDocument.floors) {
       const input = buildFloorNavInput(
         floor.source.id,
         floor.boundary as Point2[],
-        zones,
+        navigationZones,
         floor.objects,
         false,
       );
@@ -539,23 +572,25 @@ export async function planWayfindingRoute(
     }
     const queryFilter = {
       includeFlags: 0xffff,
-      excludeFlags: request.allowRestricted ? 0 : ZONE_AREA.restricted.flags,
+      excludeFlags: canUseRestricted ? 0 : ZONE_AREA.restricted.flags,
       areaCosts: [[ZONE_AREA['queue-area'].area, 3]] as (readonly [number, number])[],
     };
     let route: PlanRoute;
     try {
       route = await navigator.plan(
-        document,
+        navigationDocument,
         { floorId: start.floorId, point: start.point },
         { floorId: dest.floorId, point: dest.point },
         signal,
         {
-          walkableZones: zones.map((zone) => ({
-            id: zone.id,
-            floorId: zone.floorId,
-            polygon: zone.polygon as Point2[],
-            holes: zone.holes as Point2[][],
-          })),
+          walkableZones: navigationZones
+            .filter((zone) => zone.type !== 'restricted')
+            .map((zone) => ({
+              id: zone.id,
+              floorId: zone.floorId,
+              polygon: zone.polygon as Point2[],
+              holes: zone.holes as Point2[][],
+            })),
           navAreas: Object.keys(navAreas).length ? navAreas : undefined,
           queryFilter,
           disabledPortals,
@@ -585,10 +620,10 @@ export async function planWayfindingRoute(
       return { failure: 'A route endpoint does not have enough walkable clearance.' };
     }
     const floorY = (floorId: string) =>
-      document.floors.find((floor) => floor.source.id === floorId)?.source.heightOffset ?? 0;
+      navigationDocument.floors.find((floor) => floor.source.id === floorId)?.source.heightOffset ?? 0;
     const segments = measuredSegments(
       route,
-      document,
+      navigationDocument,
       [start.point[0], floorY(start.floorId), start.point[1]],
       [dest.point[0], floorY(dest.floorId), dest.point[1]],
     );
@@ -596,7 +631,7 @@ export async function planWayfindingRoute(
     const described = {
       lengthM: segments.reduce((sum, segment) => sum + segment.lengthM, 0),
       secondsEta: segments.reduce((sum, segment) => sum + segment.seconds, 0),
-      instructions: segmentInstructions(segments, document, dest.label),
+      instructions: segmentInstructions(segments, navigationDocument, dest.label),
     };
     const parsed = routeResultSchema.safeParse({
       waypoints: waypoints.length >= 2 ? waypoints : [waypoints[0], waypoints[0]],
@@ -609,7 +644,9 @@ export async function planWayfindingRoute(
       warnings: [
         start.warning,
         dest.warning,
-        ...(request.allowRestricted ? ['Route may cross a restricted zone.'] : []),
+        ...(request.allowRestricted && role !== 'staff'
+          ? ['Restricted-zone access was ignored for the visitor role.']
+          : []),
       ].filter((warning): warning is string => !!warning),
     });
     if (!parsed.success) {
