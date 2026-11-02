@@ -4,7 +4,7 @@ import type { Group, PerspectiveCamera } from 'three';
 
 type ViewMode = 'third' | 'first';
 type Vec3 = [number, number, number];
-type InputSample = { forward: number; strafe: number; sprint: boolean; dtSeconds: number };
+type InputSample = { tick: number; forward: -1 | 0 | 1; strafe: -1 | 0 | 1; sprint: boolean };
 type Obstacle = { minX: number; maxX: number; minZ: number; maxZ: number };
 type RouteFixture = { id: string; label: string; points: Vec3[]; obstacles: Obstacle[]; expected: 'clear' | 'blocked' };
 type TelemetryFrame = {
@@ -17,85 +17,141 @@ type TelemetryFrame = {
   traveledMeters: number;
   gaitDistanceMeters: number;
   locomotion: 'idle' | 'walk' | 'run' | 'connector' | 'blocked';
+  accelerationMps2: Vec3 | null;
+  jerkMps3: Vec3 | null;
+  gaze: { yawRadians: number; pitchRadians: number } | null;
+  clearance: { minimumM: number | null; method: 'swept-horizontal-circle-vs-aabb'; capsuleHeightM: null; verticalClearanceM: null };
+  support: { kind: 'flat-demo-floor' | 'unknown'; elevationM: number | null };
+  footContact: 'not-modeled';
+  interaction: 'not-modeled';
 };
-type FixtureResult = { fixtureId: string; result: 'clear' | 'blocked'; frames: TelemetryFrame[]; routeMeters: number; traveledMeters: number; durationSeconds: number; minClearanceM: number };
+type FixtureResult = { fixtureId: string; result: 'clear' | 'blocked'; frames: TelemetryFrame[]; routeMeters: number; traveledMeters: number; durationSeconds: number; minClearanceM: number | null; blockedTick: number | null };
 
 const SIM_DT = 1 / 30;
 const CAPSULE_RADIUS_M = 0.3;
 const WALK_SPEED_MPS = 1.8;
 const SPRINT_SPEED_MPS = 3.2;
+const LIVE_OBSTACLES: Obstacle[] = [
+  { minX: -1.9, maxX: -0.1, minZ: 0.8, maxZ: 2.0 },
+  { minX: 2.4, maxX: 3.8, minZ: -2.2, maxZ: -0.8 },
+];
 const FIXTURES: RouteFixture[] = [
   { id: 'straight-clear', label: 'Straight clear corridor', points: [[0, 0, 0], [6, 0, 0]], obstacles: [], expected: 'clear' },
   { id: 'wall-blocked', label: 'Wall blocks direct route', points: [[0, 0, 0], [6, 0, 0]], obstacles: [{ minX: 2.7, maxX: 3.3, minZ: -1, maxZ: 1 }], expected: 'blocked' },
   { id: 'orthogonal-detour', label: 'Clear authored detour', points: [[0, 0, 0], [0, 0, 2], [6, 0, 2], [6, 0, 0]], obstacles: [{ minX: 2.7, maxX: 3.3, minZ: -1, maxZ: 1 }], expected: 'clear' },
+  { id: 'narrow-gap', label: 'Gap narrower than body diameter', points: [[0, 0, 0], [6, 0, 0]], obstacles: [{ minX: 2, maxX: 4, minZ: -1, maxZ: -0.24 }, { minX: 2, maxX: 4, minZ: 0.24, maxZ: 1 }], expected: 'blocked' },
+];
+
+const ROUTE_STOPS = [
+  { id: 'west-entry', label: 'West entry', position: [-3, 0, 0] as Vec3 },
+  { id: 'north-entry', label: 'North entry', position: [0, 0, -4] as Vec3 },
+  { id: 'east-exit', label: 'East exit', position: [6, 0, 0] as Vec3 },
+  { id: 'south-exit', label: 'South exit', position: [0, 0, 4] as Vec3 },
 ];
 
 const distance3 = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
 const routeLength = (points: Vec3[]) => points.slice(1).reduce((sum, point, index) => sum + distance3(points[index], point), 0);
 
-function clearanceAt(x: number, z: number, obstacles: Obstacle[]) {
-  return obstacles.reduce((nearest, obstacle) => {
-    const dx = Math.max(obstacle.minX - x, 0, x - obstacle.maxX);
-    const dz = Math.max(obstacle.minZ - z, 0, z - obstacle.maxZ);
-    return Math.min(nearest, Math.hypot(dx, dz) - CAPSULE_RADIUS_M);
-  }, Number.POSITIVE_INFINITY);
+function pointSegmentDistance(px: number, pz: number, ax: number, az: number, bx: number, bz: number) {
+  const dx = bx - ax;
+  const dz = bz - az;
+  const lengthSquared = dx * dx + dz * dz;
+  const t = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / lengthSquared));
+  return Math.hypot(px - (ax + t * dx), pz - (az + t * dz));
 }
 
-function sampleRoute(points: Vec3[], stepM = 0.1): Vec3[] {
-  const samples: Vec3[] = [];
-  for (let index = 1; index < points.length; index++) {
-    const from = points[index - 1];
-    const to = points[index];
-    const length = distance3(from, to);
-    const steps = Math.max(1, Math.ceil(length / stepM));
-    for (let step = index === 1 ? 0 : 1; step <= steps; step++) {
-      const t = step / steps;
-      samples.push([from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t, from[2] + (to[2] - from[2]) * t]);
-    }
-  }
-  return samples;
-}
-
-function simulateFixture(fixture: RouteFixture): FixtureResult {
-  const route = sampleRoute(fixture.points);
-  const cumulative = [0];
-  for (let index = 1; index < route.length; index++) cumulative.push(cumulative[index - 1] + distance3(route[index - 1], route[index]));
-  const routeMeters = cumulative[cumulative.length - 1] ?? 0;
-  const positionAtDistance = (meters: number): Vec3 => {
-    const index = cumulative.findIndex((distance) => distance >= meters);
-    const nextIndex = index < 0 ? route.length - 1 : index;
-    if (nextIndex === 0) return route[0] ?? [0, 0, 0];
-    const from = route[nextIndex - 1];
-    const to = route[nextIndex];
-    const segmentLength = cumulative[nextIndex] - cumulative[nextIndex - 1];
-    const t = segmentLength === 0 ? 0 : (meters - cumulative[nextIndex - 1]) / segmentLength;
-    return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t, from[2] + (to[2] - from[2]) * t];
+function segmentIntersectsRect(ax: number, az: number, bx: number, bz: number, rect: Obstacle) {
+  let tMin = 0;
+  let tMax = 1;
+  const clip = (p: number, q: number) => {
+    if (p === 0) return q >= 0;
+    const ratio = q / p;
+    if (p < 0) tMin = Math.max(tMin, ratio);
+    else tMax = Math.min(tMax, ratio);
+    return tMin <= tMax;
   };
+  const dx = bx - ax;
+  const dz = bz - az;
+  return clip(-dx, ax - rect.minX) && clip(dx, rect.maxX - ax) && clip(-dz, az - rect.minZ) && clip(dz, rect.maxZ - az);
+}
+
+function distanceSegmentRect(ax: number, az: number, bx: number, bz: number, rect: Obstacle) {
+  if (segmentIntersectsRect(ax, az, bx, bz, rect)) return 0;
+  const pointRect = (x: number, z: number) => Math.hypot(Math.max(rect.minX - x, 0, x - rect.maxX), Math.max(rect.minZ - z, 0, z - rect.maxZ));
+  const corners: [number, number][] = [[rect.minX, rect.minZ], [rect.maxX, rect.minZ], [rect.maxX, rect.maxZ], [rect.minX, rect.maxZ]];
+  let best = Math.min(pointRect(ax, az), pointRect(bx, bz));
+  for (let index = 0; index < corners.length; index++) {
+    const a = corners[index];
+    const b = corners[(index + 1) % corners.length];
+    best = Math.min(best, pointSegmentDistance(a[0], a[1], ax, az, bx, bz), pointSegmentDistance(ax, az, a[0], a[1], b[0], b[1]), pointSegmentDistance(bx, bz, a[0], a[1], b[0], b[1]));
+  }
+  return best;
+}
+
+function resolveSweptStep(from: Vec3, to: Vec3, obstacles: Obstacle[]) {
+  if (!obstacles.length) return { blocked: false, clearanceM: null as number | null };
+  const clearanceM = Math.min(...obstacles.map((obstacle) => distanceSegmentRect(from[0], from[2], to[0], to[2], obstacle) - CAPSULE_RADIUS_M));
+  return { blocked: clearanceM <= 0, clearanceM };
+}
+
+function interpolateRoute(points: Vec3[], cumulative: number[], meters: number): Vec3 {
+  const nextIndex = Math.max(1, cumulative.findIndex((distance) => distance >= meters));
+  const boundedIndex = Math.min(nextIndex, points.length - 1);
+  const from = points[boundedIndex - 1];
+  const to = points[boundedIndex];
+  const span = cumulative[boundedIndex] - cumulative[boundedIndex - 1];
+  const t = span === 0 ? 0 : Math.max(0, Math.min(1, (meters - cumulative[boundedIndex - 1]) / span));
+  return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t, from[2] + (to[2] - from[2]) * t];
+}
+
+function simulateRoute(fixture: RouteFixture): FixtureResult {
+  const cumulative = [0];
+  for (let index = 1; index < fixture.points.length; index++) cumulative.push(cumulative[index - 1] + distance3(fixture.points[index - 1], fixture.points[index]));
+  const routeMeters = cumulative[cumulative.length - 1] ?? 0;
   const frames: TelemetryFrame[] = [];
   let traveledMeters = 0;
   let tick = 0;
-  let previous = route[0] ?? [0, 0, 0];
+  let previous: Vec3 = fixture.points[0] ?? [0, 0, 0];
   let elapsed = 0;
   let blocked = false;
+  let blockedTick: number | null = null;
+  let minClearanceM: number | null = null;
+  let previousVelocity: Vec3 = [0, 0, 0];
+  let previousAcceleration: Vec3 = [0, 0, 0];
   const tickCount = Math.ceil(routeMeters / (WALK_SPEED_MPS * SIM_DT));
   for (; tick < tickCount; tick++) {
     const targetDistance = Math.min(routeMeters, (tick + 1) * WALK_SPEED_MPS * SIM_DT);
-    const position = positionAtDistance(targetDistance);
-    const candidateClearance = clearanceAt(position[0], position[2], fixture.obstacles);
-    if (candidateClearance < 0) {
+    const position = interpolateRoute(fixture.points, cumulative, targetDistance);
+    const sweep = resolveSweptStep(previous, position, fixture.obstacles);
+    if (sweep.blocked) {
       blocked = true;
-      frames.push({ tick, dtSeconds: SIM_DT, floorId: 'motion-lab-floor-1', position: [...previous], velocity: [0, 0, 0], yawRadians: 0, traveledMeters, gaitDistanceMeters: traveledMeters, locomotion: 'blocked' });
+      blockedTick = tick;
+      frames.push({ tick, dtSeconds: SIM_DT, floorId: 'motion-lab-floor-1', position: [...previous], velocity: [0, 0, 0], yawRadians: 0, traveledMeters, gaitDistanceMeters: traveledMeters, locomotion: 'blocked', accelerationMps2: null, jerkMps3: null, gaze: null, clearance: { minimumM: 0, method: 'swept-horizontal-circle-vs-aabb', capsuleHeightM: null, verticalClearanceM: null }, support: { kind: 'flat-demo-floor', elevationM: 0 }, footContact: 'not-modeled', interaction: 'not-modeled' });
       elapsed += SIM_DT;
       break;
     }
+    minClearanceM = sweep.clearanceM === null ? minClearanceM : Math.min(minClearanceM ?? Number.POSITIVE_INFINITY, sweep.clearanceM);
     const velocity: Vec3 = [(position[0] - previous[0]) / SIM_DT, (position[1] - previous[1]) / SIM_DT, (position[2] - previous[2]) / SIM_DT];
+    const acceleration: Vec3 = [(velocity[0] - previousVelocity[0]) / SIM_DT, (velocity[1] - previousVelocity[1]) / SIM_DT, (velocity[2] - previousVelocity[2]) / SIM_DT];
+    const jerk: Vec3 = [(acceleration[0] - previousAcceleration[0]) / SIM_DT, (acceleration[1] - previousAcceleration[1]) / SIM_DT, (acceleration[2] - previousAcceleration[2]) / SIM_DT];
     traveledMeters += distance3(previous, position);
     elapsed += SIM_DT;
-    frames.push({ tick, dtSeconds: SIM_DT, floorId: 'motion-lab-floor-1', position, velocity, yawRadians: Math.atan2(velocity[0], velocity[2]), traveledMeters, gaitDistanceMeters: traveledMeters, locomotion: 'walk' });
+    frames.push({ tick, dtSeconds: SIM_DT, floorId: 'motion-lab-floor-1', position, velocity, yawRadians: Math.atan2(velocity[0], velocity[2]), traveledMeters, gaitDistanceMeters: traveledMeters, locomotion: 'walk', accelerationMps2: acceleration, jerkMps3: jerk, gaze: null, clearance: { minimumM: sweep.clearanceM, method: 'swept-horizontal-circle-vs-aabb', capsuleHeightM: null, verticalClearanceM: null }, support: { kind: 'flat-demo-floor', elevationM: 0 }, footContact: 'not-modeled', interaction: 'not-modeled' });
+    previousVelocity = velocity;
+    previousAcceleration = acceleration;
     previous = position;
   }
-  const minClearanceM = Math.min(...route.map(([x, , z]) => clearanceAt(x, z, fixture.obstacles)));
-  return { fixtureId: fixture.id, result: blocked ? 'blocked' : 'clear', frames, routeMeters: routeLength(fixture.points), traveledMeters, durationSeconds: elapsed, minClearanceM };
+  return { fixtureId: fixture.id, result: blocked ? 'blocked' : 'clear', frames, routeMeters, traveledMeters, durationSeconds: elapsed, minClearanceM: minClearanceM === null ? null : Math.max(0, minClearanceM), blockedTick };
+}
+
+function validateInputTape(tape: InputSample[]) {
+  if (!Array.isArray(tape) || tape.length > 1_000_000) return false;
+  return tape.every((sample, index) =>
+    Number.isInteger(sample.tick) && sample.tick === index &&
+    (sample.forward === -1 || sample.forward === 0 || sample.forward === 1) &&
+    (sample.strafe === -1 || sample.strafe === 0 || sample.strafe === 1) &&
+    typeof sample.sprint === 'boolean',
+  );
 }
 
 function makeSeededRandom(seed: number) {
@@ -112,26 +168,36 @@ function runSeededFuzzer(seed: number, count: number) {
   let blocked = 0;
   let mismatches = 0;
   for (let index = 0; index < count; index++) {
-    const endX = 4 + random() * 6;
-    const z = (random() - 0.5) * 4;
-    const centerX = 1 + random() * (endX - 2);
-    const halfWidth = 0.15 + random() * 0.8;
-    const halfDepth = 0.15 + random() * 1.2;
+    const startX = -2 + random() * 4;
+    const startZ = -2 + random() * 4;
+    const endX = 4 + random() * 4;
+    const endZ = -3 + random() * 6;
+    const start: Vec3 = [startX, 0, startZ];
+    const end: Vec3 = [endX, 0, endZ];
+    const bend = (index % 3) === 0;
+    const mid: Vec3 = [(startX + endX) / 2, 0, (startZ + endZ) / 2 + (random() - 0.5) * 3];
+    const points = bend ? [start, mid, end] : [start, end];
+    const centerX = mid[0];
+    const centerZ = mid[2];
+    const halfWidth = 0.2 + random() * 0.65;
+    const halfDepth = 0.2 + random() * 0.65;
+    const shouldBlock = index % 2 === 0;
+    const offset = shouldBlock ? 0 : 6;
     const fixture: RouteFixture = {
       id: `fuzz-${index}`,
-      label: 'Seeded direct path',
-      points: [[0, 0, z], [endX, 0, z]],
-      obstacles: [{ minX: centerX - halfWidth, maxX: centerX + halfWidth, minZ: z - halfDepth, maxZ: z + halfDepth }],
-      expected: 'blocked',
+      label: bend ? 'Seeded bent path' : 'Seeded direct path',
+      points,
+      obstacles: [{ minX: centerX - halfWidth, maxX: centerX + halfWidth, minZ: centerZ + offset - halfDepth, maxZ: centerZ + offset + halfDepth }],
+      expected: shouldBlock ? 'blocked' : 'clear',
     };
-    const result = simulateFixture(fixture).result;
+    const result = simulateRoute(fixture).result;
     if (result === 'clear') clear++; else blocked++;
     if (result !== fixture.expected) mismatches++;
   }
   return { seed, count, clear, blocked, mismatches };
 }
 
-const GOLDEN_FIXTURE_SUMMARY = { fixtureCount: 3, clear: 2, blocked: 1, routeMeters: 22 };
+const REFERENCE_FIXTURE_SUMMARIES = FIXTURES.map(({ id, expected }) => ({ fixtureId: id, expectedOutcome: expected }));
 
 function downloadJson(filename: string, value: unknown) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
@@ -140,6 +206,15 @@ function downloadJson(filename: string, value: unknown) {
   link.download = filename;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function sparkline(frames: TelemetryFrame[], metric: (frame: TelemetryFrame) => number | null) {
+  const values = frames.map(metric).filter((value): value is number => value !== null && Number.isFinite(value));
+  if (!values.length) return '';
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  return values.map((value, index) => `${values.length <= 1 ? 100 : (index / (values.length - 1)) * 200},${34 - ((value - min) / span) * 30}`).join(' ');
 }
 
 function MotionLabScene({
@@ -174,6 +249,10 @@ function MotionLabScene({
   const traveled = useRef(0);
   const yaw = useRef(0);
   const statusElapsed = useRef(0);
+  const accumulator = useRef(0);
+  const previousVelocity = useRef<Vec3>([0, 0, 0]);
+  const previousAcceleration = useRef<Vec3>([0, 0, 0]);
+  const lastFrame = useRef<TelemetryFrame | null>(null);
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
@@ -184,7 +263,7 @@ function MotionLabScene({
       }
     };
     const up = (event: KeyboardEvent) => held.current.delete(event.key.toLowerCase());
-    const clear = () => held.current.clear();
+    const clear = () => { held.current.clear(); accumulator.current = 0; };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
     window.addEventListener('blur', clear);
@@ -202,44 +281,73 @@ function MotionLabScene({
     if (observedReplayEpoch.current !== replayEpoch.current) {
       observedReplayEpoch.current = replayEpoch.current;
       replayIndex.current = 0;
-      position.current = [...inputOrigin.current];
+      position.current = [inputOrigin.current[0], inputOrigin.current[1]];
       traveled.current = 0;
       tick.current = 0;
       yaw.current = 0;
+      previousVelocity.current = [0, 0, 0];
+      previousAcceleration.current = [0, 0, 0];
+      accumulator.current = 0;
     }
-    const keys = held.current;
-    let sample: InputSample;
-    if (captureMode.current === 'replay') {
-      const next = inputTape.current[replayIndex.current++];
-      if (!next) {
-        captureMode.current = 'idle';
-        onReplayComplete();
-        sample = { forward: 0, strafe: 0, sprint: false, dtSeconds: delta };
-      } else sample = next;
-    } else {
-      sample = {
-        forward: Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown')),
-        strafe: Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft')),
-        sprint: keys.has('shift'),
-        dtSeconds: delta,
+    const advance = (sample: Omit<InputSample, 'tick'>) => {
+      const x = sample.strafe;
+      const z = -sample.forward;
+      const length = Math.hypot(x, z) || 1;
+      const speed = sample.sprint ? SPRINT_SPEED_MPS : WALK_SPEED_MPS;
+      const before: Vec3 = [position.current[0], 0, position.current[1]];
+      const requested: Vec3 = [before[0] + (x / length) * speed * SIM_DT, 0, before[2] + (z / length) * speed * SIM_DT];
+      const sweep = resolveSweptStep(before, requested, LIVE_OBSTACLES);
+      const current = sweep.blocked ? before : requested;
+      position.current = [current[0], current[2]];
+      const stepDistance = distance3(before, current);
+      traveled.current += stepDistance;
+      if (x || z) yaw.current = Math.atan2(x, sample.forward);
+      const velocity: Vec3 = stepDistance > 0 ? [(current[0] - before[0]) / SIM_DT, 0, (current[2] - before[2]) / SIM_DT] : [0, 0, 0];
+      const acceleration: Vec3 = [(velocity[0] - previousVelocity.current[0]) / SIM_DT, 0, (velocity[2] - previousVelocity.current[2]) / SIM_DT];
+      const jerk: Vec3 = [(acceleration[0] - previousAcceleration.current[0]) / SIM_DT, 0, (acceleration[2] - previousAcceleration.current[2]) / SIM_DT];
+      const frame: TelemetryFrame = {
+        tick: tick.current++, dtSeconds: SIM_DT, floorId: 'motion-lab-floor-1', position: current, velocity,
+        yawRadians: yaw.current, traveledMeters: traveled.current, gaitDistanceMeters: traveled.current,
+        locomotion: sweep.blocked ? 'blocked' : stepDistance === 0 ? 'idle' : sample.sprint ? 'run' : 'walk',
+        accelerationMps2: acceleration, jerkMps3: jerk, gaze: null,
+        clearance: { minimumM: sweep.clearanceM === null ? null : Math.max(0, sweep.clearanceM), method: 'swept-horizontal-circle-vs-aabb', capsuleHeightM: null, verticalClearanceM: null },
+        support: { kind: 'flat-demo-floor', elevationM: 0 }, footContact: 'not-modeled', interaction: 'not-modeled',
       };
-      if (captureMode.current === 'record') inputTape.current.push(sample);
+      previousVelocity.current = velocity;
+      previousAcceleration.current = acceleration;
+      lastFrame.current = frame;
+      telemetry.current.push(frame);
+      if (telemetry.current.length > 30000) telemetry.current.shift();
+      if (captureMode.current === 'record') inputTape.current.push({ tick: inputTape.current.length, ...sample });
+    };
+
+    accumulator.current += Math.min(Math.max(delta, 0), 0.25);
+    let substeps = 0;
+    while (accumulator.current >= SIM_DT && substeps < 8) {
+      let sample: Omit<InputSample, 'tick'>;
+      if (captureMode.current === 'replay') {
+        const next = inputTape.current[replayIndex.current++];
+        if (next) sample = { forward: next.forward, strafe: next.strafe, sprint: next.sprint };
+        else {
+          captureMode.current = 'idle';
+          onReplayComplete();
+          sample = { forward: 0, strafe: 0, sprint: false };
+        }
+      } else {
+        const keys = held.current;
+        sample = {
+          forward: (Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown'))) as -1 | 0 | 1,
+          strafe: (Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'))) as -1 | 0 | 1,
+          sprint: keys.has('shift'),
+        };
+      }
+      advance(sample);
+      accumulator.current -= SIM_DT;
+      substeps++;
     }
-    const x = sample.strafe;
-    const z = -sample.forward;
-    const length = Math.hypot(x, z) || 1;
-    const dt = captureMode.current === 'replay' ? sample.dtSeconds : delta;
-    const speed = sample.sprint ? SPRINT_SPEED_MPS : WALK_SPEED_MPS;
-    const before: Vec3 = [position.current[0], 0, position.current[1]];
-    position.current[0] += (x / length) * speed * dt;
-    position.current[1] += (z / length) * speed * dt;
-    const current: Vec3 = [position.current[0], 0, position.current[1]];
-    const stepDistance = distance3(before, current);
-    traveled.current += stepDistance;
-    if (x || z) yaw.current = Math.atan2(x, sample.forward);
     if (avatar.current) {
       avatar.current.position.set(position.current[0], 0, position.current[1]);
-      if (x || z) avatar.current.rotation.y = yaw.current;
+      if (lastFrame.current?.locomotion !== 'idle' && lastFrame.current?.locomotion !== 'blocked') avatar.current.rotation.y = yaw.current;
     }
     if (camera) {
       if (view === 'first') {
@@ -250,18 +358,10 @@ function MotionLabScene({
         camera.lookAt(position.current[0], 0.8, position.current[1]);
       }
     }
-    const frame: TelemetryFrame = {
-      tick: tick.current++, dtSeconds: dt, floorId: 'motion-lab-floor-1', position: current,
-      velocity: stepDistance > 0 ? [(current[0] - before[0]) / dt, 0, (current[2] - before[2]) / dt] : [0, 0, 0],
-      yawRadians: yaw.current, traveledMeters: traveled.current, gaitDistanceMeters: traveled.current,
-      locomotion: stepDistance === 0 ? 'idle' : sample.sprint ? 'run' : 'walk',
-    };
-    telemetry.current.push(frame);
-    if (telemetry.current.length > 30000) telemetry.current.shift();
     statusElapsed.current += delta;
-    if (statusElapsed.current >= 0.2) {
+    if (statusElapsed.current >= 0.2 && lastFrame.current) {
       statusElapsed.current = 0;
-      onFrame(frame, inputTape.current.length);
+      onFrame(lastFrame.current, inputTape.current.length);
     }
   });
 
@@ -306,9 +406,10 @@ function MotionLabScene({
 
 export default function MotionLab() {
   const [view, setView] = useState<ViewMode>('third');
-  const [from, setFrom] = useState('Start');
-  const [to, setTo] = useState('Booth A');
-  const [destination, setDestination] = useState<[number, number]>([4, -2]);
+  const [from, setFrom] = useState('west-entry');
+  const [to, setTo] = useState('east-exit');
+  const [destination, setDestination] = useState<[number, number]>([6, 0]);
+  const [routeResult, setRouteResult] = useState<FixtureResult | null>(null);
   const [status, setStatus] = useState('Ready · WASD / arrows to walk');
   const [recording, setRecording] = useState(false);
   const captureMode = useRef<'idle' | 'record' | 'replay'>('idle');
@@ -327,8 +428,13 @@ export default function MotionLab() {
   const chunks = useRef<Blob[]>([]);
 
   const startRoute = useCallback(() => {
-    setDestination([4, -2]);
-    setStatus(`Route preview · ${from} → ${to}`);
+    const start = ROUTE_STOPS.find((stop) => stop.id === from);
+    const end = ROUTE_STOPS.find((stop) => stop.id === to);
+    if (!start || !end) return;
+    setDestination([end.position[0], end.position[2]]);
+    const result = simulateRoute({ id: `route-${from}-${to}`, label: `${start.label} to ${end.label}`, points: [start.position, end.position], obstacles: LIVE_OBSTACLES, expected: 'clear' });
+    setRouteResult(result);
+    setStatus(`A/B candidate ${result.result} · ${start.label} → ${end.label}`);
   }, [from, to]);
 
   const handleFrame = useCallback((frame: TelemetryFrame, recordedInputCount: number) => {
@@ -338,17 +444,11 @@ export default function MotionLab() {
   const handleReplayComplete = useCallback(() => setStatus('Input replay complete'), []);
 
   const runFixtures = () => {
-    const results = FIXTURES.map(simulateFixture);
+    const results = FIXTURES.map(simulateRoute);
     setFixtureResults(results);
     setStatus(`Headless fixtures evaluated · ${results.length} fixed-step runs`);
   };
-  const fixtureSummary = fixtureResults && {
-    fixtureCount: fixtureResults.length,
-    clear: fixtureResults.filter((result) => result.result === 'clear').length,
-    blocked: fixtureResults.filter((result) => result.result === 'blocked').length,
-    routeMeters: fixtureResults.reduce((sum, result) => sum + result.routeMeters, 0),
-  };
-  const goldenMatch = fixtureSummary && JSON.stringify(fixtureSummary) === JSON.stringify(GOLDEN_FIXTURE_SUMMARY) && fixtureResults?.every((result) => result.result === FIXTURES.find((fixture) => fixture.id === result.fixtureId)?.expected);
+  const fixtureOutcomesMatch = fixtureResults !== null && fixtureResults.length === REFERENCE_FIXTURE_SUMMARIES.length && fixtureResults.every((result) => result.result === REFERENCE_FIXTURE_SUMMARIES.find((reference) => reference.fixtureId === result.fixtureId)?.expectedOutcome);
   const runFuzzer = () => {
     const parsedSeed = Number(seed);
     if (!Number.isInteger(parsedSeed) || parsedSeed < 0 || parsedSeed > 0xffffffff) {
@@ -360,7 +460,7 @@ export default function MotionLab() {
 
   const startInputCapture = () => {
     inputTape.current = [];
-    inputOrigin.current = [...labPosition.current];
+    inputOrigin.current = [labPosition.current[0], labPosition.current[1]];
     telemetry.current = [];
     captureMode.current = 'record';
     setInputCount(0);
@@ -372,8 +472,8 @@ export default function MotionLab() {
     setStatus(`Input recording stopped · ${inputTape.current.length} samples`);
   };
   const replayInput = () => {
-    if (!inputTape.current.length) {
-      setStatus('Record input before replaying');
+    if (!validateInputTape(inputTape.current) || !inputTape.current.length) {
+      setStatus('Input tape is empty or has invalid tick/axis values');
       return;
     }
     telemetry.current = [];
@@ -435,6 +535,9 @@ export default function MotionLab() {
     else stream.current?.getTracks().forEach((track) => track.stop());
   }, []);
 
+  const diagnosticTrail = telemetry.current.slice(-60);
+  const magnitude = (value: Vec3 | null | undefined) => value ? Math.hypot(value[0], value[1], value[2]) : null;
+
   return (
     <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
       <div className="mx-auto max-w-7xl space-y-4">
@@ -454,29 +557,43 @@ export default function MotionLab() {
               <div>tick {liveFrame?.tick ?? 0} · {liveFrame?.locomotion ?? 'idle'}</div>
               <div>pos {liveFrame?.position.map((value) => value.toFixed(2)).join(', ') ?? '0, 0, 0'}</div>
               <div>distance {(liveFrame?.traveledMeters ?? 0).toFixed(2)} m · capsule r {CAPSULE_RADIUS_M.toFixed(2)} m</div>
+              <div>speed {magnitude(liveFrame?.velocity)?.toFixed(2) ?? '0.00'} · accel {magnitude(liveFrame?.accelerationMps2)?.toFixed(2) ?? 'n/a'} · jerk {magnitude(liveFrame?.jerkMps3)?.toFixed(2) ?? 'n/a'}</div>
+              <div>horizontal swept clearance {liveFrame?.clearance.minimumM === null || !liveFrame ? 'n/a' : `${liveFrame.clearance.minimumM.toFixed(2)} m`}</div>
+              <div>gaze / feet / connector / interactions: not modeled</div>
             </div>
           </div>
           <aside className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-4">
-            <div><h2 className="mb-2 font-medium">A → B route preview</h2><label className="mb-2 block text-xs text-slate-400">From<input className="mt-1 w-full rounded bg-slate-800 px-2 py-2 text-sm text-white" value={from} onChange={(event) => setFrom(event.target.value)} /></label><label className="mb-3 block text-xs text-slate-400">To<input className="mt-1 w-full rounded bg-slate-800 px-2 py-2 text-sm text-white" value={to} onChange={(event) => setTo(event.target.value)} /></label><button className="w-full rounded bg-indigo-600 px-3 py-2 text-sm font-medium" onClick={startRoute}>Preview route</button></div>
+            <div><h2 className="mb-2 font-medium">A → B route candidate</h2><label className="mb-2 block text-xs text-slate-400">From<select className="mt-1 w-full rounded bg-slate-800 px-2 py-2 text-sm text-white" value={from} onChange={(event) => setFrom(event.target.value)}>{ROUTE_STOPS.map((stop) => <option key={stop.id} value={stop.id}>{stop.label}</option>)}</select></label><label className="mb-3 block text-xs text-slate-400">To<select className="mt-1 w-full rounded bg-slate-800 px-2 py-2 text-sm text-white" value={to} onChange={(event) => setTo(event.target.value)}>{ROUTE_STOPS.map((stop) => <option key={stop.id} value={stop.id}>{stop.label}</option>)}</select></label><button className="w-full rounded bg-indigo-600 px-3 py-2 text-sm font-medium" onClick={startRoute}>Resolve route candidate</button>{routeResult && <p className="mt-2 font-mono text-xs text-slate-300">{routeResult.result} · {routeResult.frames.length} frames · {routeResult.traveledMeters.toFixed(2)} / {routeResult.routeMeters.toFixed(2)} m · blocked tick {routeResult.blockedTick ?? '—'}</p>}<p className="mt-2 text-xs text-amber-300">Sandbox resolver only; production route service/controller integration is pending W4/W7.</p></div>
             <div><h2 className="mb-2 font-medium">Free walk</h2><p className="text-sm leading-6 text-slate-300">WASD or arrow keys move · Shift walks faster · V changes view</p></div>
+            <section className="space-y-1 border-t border-slate-700 pt-3">
+              <h2 className="font-medium">Recent diagnostic trail</h2>
+              <svg viewBox="0 0 200 38" className="h-12 w-full rounded bg-slate-950 p-1" role="img" aria-label="Speed, acceleration, jerk and clearance traces over recent simulation ticks">
+                <polyline points={sparkline(diagnosticTrail, (frame) => magnitude(frame.velocity))} fill="none" stroke="#60a5fa" strokeWidth="1.5" />
+                <polyline points={sparkline(diagnosticTrail, (frame) => magnitude(frame.accelerationMps2))} fill="none" stroke="#fbbf24" strokeWidth="1.2" />
+                <polyline points={sparkline(diagnosticTrail, (frame) => magnitude(frame.jerkMps3))} fill="none" stroke="#f472b6" strokeWidth="1.2" />
+                <polyline points={sparkline(diagnosticTrail, (frame) => frame.clearance.minimumM)} fill="none" stroke="#34d399" strokeWidth="1.2" />
+              </svg>
+              <p className="text-xs text-slate-400">Blue speed · amber acceleration · pink jerk · green horizontal clearance. Each trace is normalized separately. No product thresholds are approved here.</p>
+              <p className="text-xs text-amber-300">Clearance models horizontal circle vs AABB only. Capsule height, vertical clearance, gaze, foot contact, connector and interaction state remain unavailable until later runtime data exists.</p>
+            </section>
             <section className="space-y-2 border-t border-slate-700 pt-3">
               <h2 className="font-medium">Headless route fixtures</h2>
               <p className="text-xs text-slate-400">Fixed 1/30 s samples · provisional 0.3 m circle gate. Shared W1–W4 controller / capsule validator integration is pending.</p>
               <button className="w-full rounded bg-slate-700 px-3 py-2 text-sm" onClick={runFixtures}>Evaluate standard fixtures</button>
               {fixtureResults && <div className="space-y-1 font-mono text-xs text-slate-300">
-                {fixtureResults.map((result) => <div key={result.fixtureId}>{FIXTURES.find((fixture) => fixture.id === result.fixtureId)?.label}: {result.result}, {result.frames.length} frames, {result.traveledMeters.toFixed(2)} / {result.routeMeters.toFixed(2)} m, {result.durationSeconds.toFixed(2)} s, clearance {Number.isFinite(result.minClearanceM) ? `${result.minClearanceM.toFixed(2)} m` : 'n/a'}</div>)}
-                <div className={goldenMatch ? 'text-emerald-300' : 'text-amber-300'}>Golden summary: {goldenMatch ? 'MATCH' : 'DIFF'} · {fixtureSummary?.clear} clear / {fixtureSummary?.blocked} blocked / {fixtureSummary?.routeMeters} m</div>
+                {fixtureResults.map((result) => <div key={result.fixtureId}>{FIXTURES.find((fixture) => fixture.id === result.fixtureId)?.label}: {result.result} (reference {REFERENCE_FIXTURE_SUMMARIES.find((reference) => reference.fixtureId === result.fixtureId)?.expectedOutcome}), {result.frames.length} frames, {result.traveledMeters.toFixed(2)} / {result.routeMeters.toFixed(2)} m, {result.durationSeconds.toFixed(2)} s, blocked tick {result.blockedTick ?? '—'}, traversed clearance {result.minClearanceM === null ? 'unbounded' : `${result.minClearanceM.toFixed(2)} m`}</div>)}
+                <div className="text-amber-300">Reference outcome summary: {fixtureOutcomesMatch ? 'all match' : 'DIFFERENCE'} · these hand-authored expectations describe this sandbox only; they are not production-runtime golden evidence.</div>
               </div>}
             </section>
             <section className="space-y-2 border-t border-slate-700 pt-3">
               <h2 className="font-medium">Input record / replay</h2>
-              <p className="text-xs text-slate-400">Transient controls with recorded frame deltas, separate from screen video · {inputCount} samples</p>
+              <p className="text-xs text-slate-400">Fixed 1/30 s control ticks, separate from screen video · {inputCount} samples</p>
               <div className="flex flex-wrap gap-2">
                 {captureMode.current !== 'record' ? <button className="rounded bg-slate-700 px-2 py-2 text-xs" onClick={startInputCapture}>Record inputs</button> : <button className="rounded bg-rose-800 px-2 py-2 text-xs" onClick={stopInputCapture}>Stop input record</button>}
                 <button className="rounded bg-slate-700 px-2 py-2 text-xs" onClick={replayInput}>Replay inputs</button>
                 <button className="rounded bg-slate-700 px-2 py-2 text-xs" disabled={!inputTape.current.length} onClick={() => downloadJson('motion-lab-input-tape.json', { schemaVersion: 1, startPosition: inputOrigin.current, samples: inputTape.current })}>Export tape</button>
                 <button className="rounded bg-slate-700 px-2 py-2 text-xs" disabled={!telemetry.current.length} onClick={() => downloadJson('motion-lab-telemetry.json', telemetry.current)}>Export telemetry</button>
-                <button className="rounded bg-slate-700 px-2 py-2 text-xs" disabled={!fixtureResults} onClick={() => downloadJson('motion-lab-fixture-summary.json', { fixtures: fixtureResults, golden: GOLDEN_FIXTURE_SUMMARY })}>Export fixture summary</button>
+                <button className="rounded bg-slate-700 px-2 py-2 text-xs" disabled={!fixtureResults} onClick={() => downloadJson('motion-lab-fixture-summary.json', { fixtures: fixtureResults, referenceOutcomes: REFERENCE_FIXTURE_SUMMARIES, limitations: ['2D horizontal circle against axis-aligned rectangles', 'No capsule height, ceiling, floor variation, foot contact, gaze, connector or interaction model', 'Not the shared production capsule validator'] })}>Export fixture summary</button>
               </div>
             </section>
             <section className="space-y-2 border-t border-slate-700 pt-3">
