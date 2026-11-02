@@ -9,6 +9,7 @@ import { useRouteMotion } from '../rendering/use-route-motion.ts';
 import type { Follower } from './follower.ts';
 import { cameraObstacles, safeCamera } from './camera-collision.ts';
 import type { Vec3 } from './path.ts';
+import { CHARACTER_CONFIG } from './character-config.ts';
 import {
   captureViewportCameraSnapshot,
   restoreViewportCameraSnapshot,
@@ -62,6 +63,7 @@ export function CameraRig({
     look = useMemo(() => new Vector3(), []),
     desired = useMemo(() => new Vector3(), []),
     q = useMemo(() => new Quaternion(), []),
+    transitionedQ = useMemo(() => new Quaternion(), []),
     matrix = useMemo(() => new Matrix4(), []);
   const focus: Vec3 = useMemo(() => [0, 0, 0], []),
     candidate: Vec3 = useMemo(() => [0, 0, 0], []),
@@ -238,6 +240,19 @@ export function CameraRig({
         gsap.to(free, { yaw: 0, pitch: 0, duration: 0.35, onUpdate: invalidate });
       }
     };
+    const unsubscribe = usePlaybackStore.subscribe((state, previousState) => {
+      if (state.status === 'playing' && previousState.status !== 'playing') {
+        // Auto-walk owns the camera while active. Release both browser lock and any
+        // pointer capture acquired for manual look before the first route frame.
+        if (document.pointerLockElement) {
+          try { document.exitPointerLock(); } catch { /* Browser may already be releasing it. */ }
+        }
+        up();
+      }
+      if (state.status === 'playing' && state.mode === 'overview') {
+        state.setMode('chase');
+      }
+    });
     canvas.addEventListener('pointerdown', down);
     canvas.addEventListener('pointermove', move);
     canvas.addEventListener('pointerup', up);
@@ -249,6 +264,7 @@ export function CameraRig({
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
       window.removeEventListener('blur', up);
+      unsubscribe();
       gsap.killTweensOf(free);
     };
   }, [get, free, invalidate]);
@@ -274,11 +290,21 @@ export function CameraRig({
       q.copy(overview.current.quaternion);
     } else {
       // The hall's chase arm would pass through the cabin shell. Keep it inside while riding.
-      const arm = inElevator ? 0.65 : 3.2;
       const cameraYaw = runtime.yaw + (first ? free.yaw : free.orbitYaw);
-      candidate[0] = position[0] + (first ? 0 : Math.sin(cameraYaw) * arm);
-      candidate[1] = position[1] + originY + (first ? 1.6 + bob + free.pitch * 1.7 : inElevator ? 1.95 : 3 + free.orbitPitch * 1.7);
-      candidate[2] = position[2] + (first ? 0 : Math.cos(cameraYaw) * arm);
+      const chaseOffset = CHARACTER_CONFIG.camera.chaseOffsetM;
+      const scale = inElevator ? Math.min(1, 0.65 / Math.hypot(chaseOffset[0], chaseOffset[2])) : 1;
+      const localX = chaseOffset[0] * scale;
+      const localZ = chaseOffset[2] * scale;
+      candidate[0] =
+        position[0] + (first ? 0 : Math.cos(cameraYaw) * localX - Math.sin(cameraYaw) * localZ);
+      candidate[1] =
+        position[1] +
+        originY +
+        (first
+          ? CHARACTER_CONFIG.eyeHeightM + bob + free.pitch * 1.7
+          : chaseOffset[1] + free.orbitPitch * 1.7);
+      candidate[2] =
+        position[2] + (first ? 0 : -Math.sin(cameraYaw) * localX - Math.cos(cameraYaw) * localZ);
       const base =
         document.floors.find((floor) => floor.source.id === floorId)?.source.heightOffset ?? 0;
       safeCamera(
@@ -313,20 +339,33 @@ export function CameraRig({
       matrix.lookAt(desired, look, owned.up);
       q.setFromRotationMatrix(matrix);
     }
-    const fov = mode === 'overview' ? overview.current.fov : first ? 70 : 52;
+    const fov =
+      mode === 'overview' ? overview.current.fov : first ? CHARACTER_CONFIG.camera.firstPersonFovDeg : 52;
+    const maxAngle =
+      CHARACTER_CONFIG.camera.maxAngularRateDegPerSec * Math.PI / 180 * Math.max(0, dt);
+    const rotateToward = (target: Quaternion) => {
+      const angle = owned.quaternion.angleTo(target);
+      if (angle <= maxAngle || angle < 1e-7) {
+        owned.quaternion.copy(target);
+      } else {
+        owned.quaternion.rotateTowards(target, maxAngle);
+      }
+    };
     if (transition.t < 1) {
       owned.position.lerpVectors(source.position, desired, transition.t);
       if (mode !== 'overview') {
         owned.position.y += Math.sin(Math.PI * transition.t) * 2.5;
       }
-      owned.quaternion.slerpQuaternions(source.quaternion, q, transition.t);
+      transitionedQ.copy(source.quaternion).slerp(q, transition.t);
+      rotateToward(transitionedQ);
       owned.fov = source.fov + (fov - source.fov) * transition.t;
     } else {
-      owned.position.lerp(desired, 1 - Math.exp(-10 * Math.min(dt, 0.1)));
-      owned.quaternion.slerp(q, 1 - Math.exp(-12 * Math.min(dt, 0.1)));
+      const halfLife = CHARACTER_CONFIG.camera.smoothingHalfLifeSeconds;
+      owned.position.lerp(desired, 1 - Math.exp(-Math.LN2 * Math.max(0, dt) / halfLife));
+      rotateToward(q);
       owned.fov = fov;
     }
-    if (mode !== 'overview' && transition.t >= 1) {
+    if (mode !== 'overview') {
       candidate[0] = owned.position.x;
       candidate[1] = owned.position.y;
       candidate[2] = owned.position.z;
