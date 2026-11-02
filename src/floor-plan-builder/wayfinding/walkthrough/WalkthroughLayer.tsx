@@ -1,4 +1,4 @@
-import { Profiler, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Profiler, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
@@ -25,6 +25,7 @@ import type { WalkUseHandlerPolicy } from './foundation/role-policy.ts';
 import { circulationDesign } from '../../model/circulation.ts';
 import { advanceFollower, type Follower } from './follower.ts';
 import { connectorRecordForLeg, resolveConnectorTraversal } from './connectors/connector-runtime.ts';
+import { UnsupportedShapeList } from '../../components/dev/motion-lab/UnsupportedShapeList.tsx';
 
 function cloneFollowerFrame(value: Follower): Follower {
   return {
@@ -191,6 +192,10 @@ function Runtime({
   const camera = useThree((state) => state.camera);
   const get = useThree((state) => state.get),
     setFrameloop = useThree((state) => state.setFrameloop);
+  const releaseCanvasPointerLock = useCallback(() => {
+    const canvas = get().gl.domElement;
+    if (window.document.pointerLockElement === canvas) {window.document.exitPointerLock();}
+  }, [get]);
   const pending = useRef(false),
     pendingMove = useRef<null | (
       | { kind: 'route'; intent: ReturnType<typeof steerRoute>; from: [number, number, number] }
@@ -232,16 +237,18 @@ function Runtime({
   }, [invalidate, manualDirection]);
   useEffect(() => {
     if (status === 'playing') {
+      releaseCanvasPointerLock();
       velocity.current = 0;
       manualDirection.set(0, 0, 0);
     }
-  }, [status, manualDirection]);
+  }, [status, manualDirection, releaseCanvasPointerLock]);
   const avatar = useMemo(() => {
     const authored = session.document.floors
       .flatMap((floor) => floor.objects)
       .find((object) => object.recipe === 'avatar');
     return {
       ...(authored ?? createObject('avatar', [0, 0])),
+      dimensions: [CHARACTER_CONFIG.widthM, CHARACTER_CONFIG.heightM, CHARACTER_CONFIG.widthM] as [number, number, number],
       scale: [1, 1, 1] as [number, number, number],
       avatarAnimated: false,
       avatarPin: false,
@@ -564,6 +571,7 @@ function Runtime({
               {message}
             </div>
           )}
+          {import.meta.env.DEV && <UnsupportedShapeList issues={clearance.map.unsupported} />}
           {runtime.connector && (
             <div role="status" aria-live="polite" className="pointer-events-auto basis-full rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow">
               Elevator: {runtime.phase}
@@ -611,6 +619,7 @@ function Runtime({
             disabled={status === 'arrived'}
             onClick={(event) => {
               event.stopPropagation();
+              releaseCanvasPointerLock();
               autoPausedForUse.current = false;
               usePlaybackStore.getState().toggle();
             }}

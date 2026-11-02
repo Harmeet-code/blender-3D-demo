@@ -49,6 +49,8 @@ const DEFAULT_PROFILE: CapsuleProfile = {
   radiusM: CHARACTER_CONFIG.radiusM,
   heightM: CAPSULE_TOTAL_HEIGHT_M,
 };
+/** Allow only a 0.1 mm numerical tolerance at the canonical hard-clearance boundary. */
+export const CAPSULE_CLEARANCE_EPSILON_M = 1e-4;
 const finite = (n: number) => Number.isFinite(n);
 
 /** Return the canonical simple ring shared by clearance and Rapier proxy generation. */
@@ -139,7 +141,7 @@ function inside(point: Point2, polygon: readonly Point2[]): boolean {
 function segmentHitsPolygon(a: Point2, b: Point2, polygon: readonly Point2[], radius: number): boolean {
   if (inside(a, polygon) || inside(b, polygon)) {return true;}
   for (let i = 0; i < polygon.length; i++) {
-    if (segmentDistance(a, b, polygon[i]!, polygon[(i + 1) % polygon.length]!) <= radius + 1e-7) {return true;}
+    if (segmentDistance(a, b, polygon[i]!, polygon[(i + 1) % polygon.length]!) < radius) {return true;}
   }
   return false;
 }
@@ -147,7 +149,7 @@ function segmentHitsPolygon(a: Point2, b: Point2, polygon: readonly Point2[], ra
 function polygonContainedBySweep(boundary: readonly Point2[], a: Point2, b: Point2, radius: number): boolean {
   if (!inside(a, boundary) || !inside(b, boundary)) {return false;}
   for (let i = 0; i < boundary.length; i++) {
-    if (segmentDistance(a, b, boundary[i]!, boundary[(i + 1) % boundary.length]!) < radius - 1e-7) {return false;}
+    if (segmentDistance(a, b, boundary[i]!, boundary[(i + 1) % boundary.length]!) < radius) {return false;}
   }
   return true;
 }
@@ -247,21 +249,25 @@ export function validateCapsuleSweep(
     const issue = map.unsupported[0]!;
     return { clear: false, reason: issue.reason, blockerId: issue.id, source: 'unknown-geometry' };
   }
+  const requiredRadiusM = profile.radiusM - CAPSULE_CLEARANCE_EPSILON_M;
+  if (requiredRadiusM <= 0) {
+    return { clear: false, reason: 'Capsule radius is below the clearance tolerance.', source: 'unknown-geometry' };
+  }
   const a: Point2 = [fromFeet[0], fromFeet[2]], b: Point2 = [toFeet[0], toFeet[2]];
-  if (!polygonContainedBySweep(map.boundary, a, b, profile.radiusM)) {
+  if (!polygonContainedBySweep(map.boundary, a, b, requiredRadiusM)) {
     return { clear: false, reason: 'The capsule does not fit inside the floor boundary.', source: 'floor-boundary' };
   }
   const minY = Math.min(fromFeet[1], toFeet[1]);
   const maxY = Math.max(fromFeet[1], toFeet[1]) + profile.heightM;
   for (const area of map.roleAreas) {
     if (!area.allowedRoles || area.allowedRoles.includes(role)) {continue;}
-    if (segmentHitsPolygon(a, b, area.polygon, profile.radiusM)) {
+    if (segmentHitsPolygon(a, b, area.polygon, requiredRadiusM)) {
       return { clear: false, reason: `Role ${role} cannot enter area ${area.id}.`, blockerId: area.id, source: 'role-area' };
     }
   }
   for (const item of [...map.blockedAreas, ...map.obstacles]) {
     if (item.maxY <= minY || item.minY >= maxY) {continue;}
-    if (segmentHitsPolygon(a, b, item.polygon, profile.radiusM)) {
+    if (segmentHitsPolygon(a, b, item.polygon, requiredRadiusM)) {
       return { clear: false, reason: `Capsule sweep intersects ${item.id}.`, blockerId: item.id, source: item.source };
     }
   }

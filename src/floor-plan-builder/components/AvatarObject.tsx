@@ -4,6 +4,7 @@ import { Line } from '@react-three/drei';
 import { type Group } from 'three';
 import type { PlanObject } from '../model/types.ts';
 import { RouteLabel } from '../wayfinding/rendering/Beacon.tsx';
+import { CHARACTER_CONFIG } from '../wayfinding/walkthrough/character-config.ts';
 
 const DEG = Math.PI / 180;
 
@@ -46,9 +47,9 @@ export function AvatarObject({
   const invalidate = useThree((state) => state.invalidate);
   const clock = useMemo(() => ({ elapsed: 0 }), []);
   const lock: [number, number, number] = [
-    object.dimensions[0] / 0.65,
-    object.dimensions[1] / 1.8,
-    object.dimensions[2] / 0.65,
+    object.dimensions[0] / CHARACTER_CONFIG.widthM,
+    object.dimensions[1] / CHARACTER_CONFIG.heightM,
+    object.dimensions[2] / CHARACTER_CONFIG.widthM,
   ];
 
   useFrame((_, delta) => {
