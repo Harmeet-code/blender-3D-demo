@@ -44,6 +44,9 @@ function Runtime({
   const activeFloor = usePlaybackStore((state) => state.snapshot.floorId);
   const clearance = useCapsuleClearance();
   const camera = useThree((state) => state.camera);
+  const get = useThree((state) => state.get),
+    setFrameloop = useThree((state) => state.setFrameloop),
+    invalidate = useThree((state) => state.invalidate);
   const pending = useRef(false),
     pendingMove = useRef<null | (
       | { kind: 'route'; intent: ReturnType<typeof steerRoute>; from: [number, number, number] }
@@ -87,9 +90,6 @@ function Runtime({
       manualDirection.set(0, 0, 0);
     }
   }, [status, manualDirection]);
-  const get = useThree((state) => state.get),
-    setFrameloop = useThree((state) => state.setFrameloop),
-    invalidate = useThree((state) => state.invalidate);
   const avatar = useMemo(() => {
     const authored = session.document.floors
       .flatMap((floor) => floor.objects)
@@ -177,9 +177,12 @@ function Runtime({
     runtime.gaitDistance += Math.hypot(dx, dz);
     if (queued?.kind === 'route') {
       const { intent, from } = queued;
-      const planned = Math.hypot(...intent.displacement);
-      const resolved = Math.hypot(dx, dy, dz);
-      if (Math.abs(planned - resolved) > 0.025) {
+      const displacementError = Math.hypot(
+        dx - intent.displacement[0],
+        dy - intent.displacement[1],
+        dz - intent.displacement[2],
+      );
+      if (displacementError > 0.025) {
         runtime.speed = 0;
         usePlaybackStore.getState().fail('Capsule physics disagreed with the route clearance preview; auto-walk stopped.');
       } else {
@@ -417,20 +420,27 @@ export function WalkthroughLayer(props: {
   roleAreas?: readonly import('./collision/capsule-clearance.ts').RoleAreaPolicy[];
 }) {
   const session = usePlaybackStore((state) => state.session);
+  const floor = props.document.floors.find((item) => item.source.id === props.floorId);
+  const originY = props.originY ?? 0;
+  const collisionFloor = useMemo(
+    () => floor && originY !== 0
+      ? { ...floor, source: { ...floor.source, heightOffset: floor.source.heightOffset + originY } }
+      : floor,
+    [floor, originY],
+  );
   if (!session) {
     return null;
   }
-  const floor = props.document.floors.find((item) => item.source.id === props.floorId);
-  if (!floor) return null;
+  if (!floor || !collisionFloor) return null;
   const runtime = (
     <Physics timeStep={1 / 60} updateLoop="independent">
-      <CollisionWorld floor={floor} role={props.role ?? 'visitor'} roleAreas={props.roleAreas}>
+      <CollisionWorld floor={collisionFloor} role={props.role ?? 'visitor'} roleAreas={props.roleAreas}>
         <Runtime
           key={session.generation}
           document={props.document}
           floorId={props.floorId}
           onFloor={props.onFloor}
-          originY={props.originY ?? 0}
+          originY={originY}
           session={session}
         />
       </CollisionWorld>
