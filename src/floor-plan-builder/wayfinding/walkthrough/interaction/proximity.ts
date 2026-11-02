@@ -31,7 +31,9 @@ export class ProximityInteractionRuntime {
   private readonly onDoorEffect?: InteractionRuntimeOptions['onDoorEffect'];
   private readonly onState?: InteractionRuntimeOptions['onState'];
   private focused: InteractionTarget | null = null;
+  private readonly activeEffects = new Map<string, InteractionTarget>();
   private dwellMs = 0;
+  private inFlight = false;
   private pendingCapability: string | undefined;
   private current: InteractionState = { status: 'idle' };
 
@@ -47,6 +49,7 @@ export class ProximityInteractionRuntime {
   get state(): InteractionState { return this.current; }
   get target(): InteractionTarget | null { return this.focused; }
   get confirmationCapability(): string | undefined { return this.pendingCapability; }
+  get isBusy(): boolean { return this.inFlight; }
 
   canUse(capability?: string): boolean {
     return this.useUnavailableReason(capability) === null;
@@ -63,23 +66,37 @@ export class ProximityInteractionRuntime {
     const [x, y, z] = pose.position;
     const forwardX = -Math.sin(pose.yawRadians);
     const forwardZ = -Math.cos(pose.yawRadians);
-    const candidates = this.targets.flatMap((target) => {
+    const distances = this.targets.flatMap((target) => {
       if (target.allowedRoles && !target.allowedRoles.includes(this.role)) return [];
       const dx = target.position[0] - x;
       const dy = target.position[1] - y;
       const dz = target.position[2] - z;
       const distance = Math.hypot(dx, dy, dz);
-      const threshold = target === this.focused ? 2 : 1.5;
+      const threshold = target === this.focused ? target.radiusM + 0.5 : target.radiusM;
       const horizontal = Math.hypot(dx, dz);
       const inFront = horizontal < 1e-5 || (dx * forwardX + dz * forwardZ) / horizontal > 0;
-      return distance <= threshold && inFront ? [{ target, distance }] : [];
-    }).sort((a, b) => a.distance - b.distance);
+      return [{ target, distance, inRange: distance <= threshold, inFront }];
+    });
+    const activeNow = new Map(distances
+      .filter(({ target, distance }) => distance <= target.radiusM + (this.activeEffects.has(target.id) ? 0.5 : 0))
+      .filter(({ target }) => target.proximityEffect)
+      .map(({ target }) => [target.id, target] as const));
+    for (const [id, target] of this.activeEffects) {
+      if (!activeNow.has(id)) this.onDoorEffect?.(target, false);
+    }
+    for (const [id, target] of activeNow) {
+      if (!this.activeEffects.has(id)) this.onDoorEffect?.(target, true);
+    }
+    this.activeEffects.clear();
+    for (const [id, target] of activeNow) this.activeEffects.set(id, target);
+
+    const candidates = distances
+      .filter(({ inRange, inFront }) => inRange && inFront)
+      .sort((a, b) => a.distance - b.distance);
     const next = candidates[0]?.target ?? null;
     if (next !== this.focused) {
-      if (this.focused?.proximityEffect) this.onDoorEffect?.(this.focused, false);
       this.focused = next;
       this.dwellMs = 0;
-      if (next?.proximityEffect) this.onDoorEffect?.(next, true);
       if (!next) this.publish({ status: 'idle' });
       else this.publish({ status: 'nearby', descriptorId: next.id, targetId: next.targetId });
     } else if (next) {
@@ -93,6 +110,7 @@ export class ProximityInteractionRuntime {
   }
 
   async inspect(): Promise<void> {
+    if (this.inFlight) return;
     const target = this.focused;
     if (!target) return;
     const denied = target.allowedRoles && !target.allowedRoles.includes(this.role);
@@ -100,16 +118,23 @@ export class ProximityInteractionRuntime {
     if (!target.actions.some((action) => action.kind === 'inspect')) {
       return this.publish({ status: 'denied', descriptorId: target.id, reason: 'No inspect action is declared for this target.' });
     }
+    if (!this.onInspect) {
+      return this.publish({ status: 'denied', descriptorId: target.id, reason: 'No inspect handler is registered.' });
+    }
+    this.inFlight = true;
     this.publish({ status: 'committing', descriptorId: target.id, action: 'inspect' });
     try {
-      await this.onInspect?.(target);
+      await this.onInspect(target);
       this.publish({ status: 'completed', descriptorId: target.id, action: 'inspect' });
     } catch (error) {
       this.publish({ status: 'failed', descriptorId: target.id, reason: error instanceof Error ? error.message : 'Inspect failed.' });
+    } finally {
+      this.inFlight = false;
     }
   }
 
   async use(capability?: string, confirmed = false): Promise<void> {
+    if (this.inFlight) return;
     const target = this.focused;
     if (!target) return;
     const access = checkWalkUseAccess(this.role, target, capability, this.handlers, confirmed);
@@ -121,22 +146,28 @@ export class ProximityInteractionRuntime {
       return;
     }
     const action = target.actions.find((candidate) => candidate.kind === 'use' && candidate.capability === capability);
-    const handler = this.handlers.find((candidate) => candidate.capability === capability && typeof candidate.execute === 'function');
+    const matchingHandlers = this.handlers.filter((candidate) =>
+      candidate.capability === capability && candidate.handlerId.trim() && typeof candidate.execute === 'function');
+    const handler = matchingHandlers.length === 1 ? matchingHandlers[0] : undefined;
     if (!action || action.kind !== 'use' || !handler) {
       return this.publish({ status: 'denied', descriptorId: target.id, reason: 'No executable use handler is registered.' });
     }
     this.pendingCapability = undefined;
+    this.inFlight = true;
     this.publish({ status: 'committing', descriptorId: target.id, action: 'use' });
     try {
       await handler.execute({ role: this.role, target, action });
       this.publish({ status: 'completed', descriptorId: target.id, action: 'use' });
     } catch (error) {
       this.publish({ status: 'failed', descriptorId: target.id, reason: error instanceof Error ? error.message : 'Use action failed.' });
+    } finally {
+      this.inFlight = false;
     }
   }
 
   clear(): void {
-    if (this.focused?.proximityEffect) this.onDoorEffect?.(this.focused, false);
+    for (const target of this.activeEffects.values()) this.onDoorEffect?.(target, false);
+    this.activeEffects.clear();
     this.focused = null;
     this.dwellMs = 0;
     this.pendingCapability = undefined;
