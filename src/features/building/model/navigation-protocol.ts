@@ -17,6 +17,8 @@ export interface AreaQueryFilter {
   includeFlags?: number;
   excludeFlags?: number;
   areaCosts?: readonly (readonly [number, number])[];
+  /** Optional mesh-build profile transported alongside Detour filters; not a QueryFilter field. */
+  agentRadiusM?: number;
 }
 
 export type BuildingRoute = {

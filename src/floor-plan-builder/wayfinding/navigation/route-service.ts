@@ -19,6 +19,7 @@ import { parkingAnchorPoint } from '../../model/parking-navigation.ts';
 import { diningAnchorPoint } from '../../model/dining-navigation.ts';
 import { circulationEntry } from '../../model/circulation.ts';
 import { type StudioNavigator, type PlanRoute } from '../../model/directions.ts';
+import { CHARACTER_CONFIG } from '../walkthrough/character-config.ts';
 import { buildFloorNavInput, ZONE_AREA } from './input-builder.ts';
 import type { WalkableZone } from '../model/zone-schema.ts';
 import type { Role } from '../walkthrough/contracts.ts';
@@ -574,6 +575,7 @@ export async function planWayfindingRoute(
       includeFlags: 0xffff,
       excludeFlags: canUseRestricted ? 0 : ZONE_AREA.restricted.flags,
       areaCosts: [[ZONE_AREA['queue-area'].area, 3]] as (readonly [number, number])[],
+      agentRadiusM: CHARACTER_CONFIG.radiusM,
     };
     let route: PlanRoute;
     try {

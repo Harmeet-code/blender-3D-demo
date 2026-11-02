@@ -48,6 +48,7 @@ function paintHash(paints: AreaPaint[]): string {
 
 /** Recast agent radius that still fits the 4 m booth grid. */
 const PROJECTION_EXTENTS = { x: 2, y: 4, z: 2 };
+const PROFILED_MESH_CELL_SIZE_M = 0.1;
 
 let initPromise: Promise<void> | null = null;
 
@@ -120,10 +121,16 @@ async function floorQuery(
   floorId: string,
   paints: AreaPaint[] = [],
   wayfinding = false,
+  agentRadiusM?: number,
 ): Promise<NavMeshQuery | null> {
+  if (agentRadiusM !== undefined && (!Number.isFinite(agentRadiusM) || agentRadiusM <= 0)) {
+    return null;
+  }
   const cached = floorMeshes.get(floorId);
   const signature = navigationFloorKey(layout, floorId);
-  const areaSignature = `${wayfinding ? '0.4m:' : 'legacy:'}${paintHash(paints)}`;
+  const profileSignature =
+    agentRadiusM === undefined ? '' : `agent-radius:${agentRadiusM.toPrecision(12)}:`;
+  const areaSignature = `${profileSignature}${wayfinding ? '0.4m:' : 'legacy:'}${paintHash(paints)}`;
   if (cached && cached.signature === signature && cached.areaSignature === areaSignature) {
     return cached.query;
   }
@@ -220,22 +227,26 @@ async function floorQuery(
         return { success: !!navMesh, navMesh };
       }
     : generateSoloNavMesh;
+  const meshCellSize =
+    agentRadiusM === undefined ? undefined : PROFILED_MESH_CELL_SIZE_M;
   const generated = generate(
     positions,
     indices,
     authoring
       ? {
-          // New wall openings use a 0.4 m agent radius, matching Rapier's
-          // 0.4 m collider half-width. Keep the existing legacy grid unchanged.
+          // Explicit capsule profiles use a finer grid so radius erosion can represent 0.3 m.
+          // Legacy and pre-profile callers retain their existing grid and two-cell erosion.
           cs:
-            wayfinding ||
+            meshCellSize ??
+            (wayfinding ||
             authoring.walls?.length ||
             authoring.instances.some((candidate) => candidate.collidable)
               ? 0.2
-              : 0.3,
+              : 0.3),
           ch: 0.1,
           walkableHeight: 18,
-          walkableRadius: 2,
+          walkableRadius:
+            agentRadiusM === undefined ? 2 : Math.ceil(agentRadiusM / (meshCellSize ?? 0.1)),
           // The character has no autostep: sill solids must remain barriers to both systems.
           walkableClimb:
             authoring.walls?.length || authoring.instances.some((candidate) => candidate.collidable)
@@ -243,7 +254,9 @@ async function floorQuery(
               : 2,
           maxSimplificationError: 1,
         }
-      : undefined,
+      : agentRadiusM === undefined
+        ? undefined
+        : { cs: meshCellSize, walkableRadius: Math.ceil(agentRadiusM / (meshCellSize ?? 0.1)) },
   );
   if (!generated.success || !generated.navMesh) {
     return null;
@@ -260,6 +273,8 @@ async function floorQuery(
 
 export interface FloorRouteOptions {
   filter?: AreaQueryFilter;
+  /** Recast mesh profile radius in metres; carried in AreaQueryFilter for route API compatibility. */
+  agentRadiusM?: number;
   straight?: boolean;
   areas?: AreaPaint[];
 }
@@ -269,8 +284,9 @@ async function floorHandles(
   floorId: string,
   paints: AreaPaint[] = [],
   wayfinding = false,
+  agentRadiusM?: number,
 ) {
-  const query = await floorQuery(layout, floorId, paints, wayfinding);
+  const query = await floorQuery(layout, floorId, paints, wayfinding, agentRadiusM);
   if (!query) {
     return null;
   }
@@ -292,7 +308,13 @@ export async function queryFloorRoute(
   to: RoutePoint,
   options: FloorRouteOptions = {},
 ): Promise<RouteResult> {
-  const handles = await floorHandles(layout, floorId, options.areas, !!options.filter);
+  const handles = await floorHandles(
+    layout,
+    floorId,
+    options.areas,
+    !!options.filter,
+    options.agentRadiusM ?? options.filter?.agentRadiusM,
+  );
   if (!handles) {
     return { ok: false, reason: 'NO_MESH' };
   }
@@ -424,6 +446,9 @@ export async function queryBuildingRoute(
   >();
   const legOptions = {
     ...(options.queryFilter ? { filter: options.queryFilter } : {}),
+    ...(options.queryFilter?.agentRadiusM !== undefined
+      ? { agentRadiusM: options.queryFilter.agentRadiusM }
+      : {}),
     ...(options.straight ? { straight: true } : {}),
   };
   const legAreas = (floorId: string) =>
