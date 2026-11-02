@@ -297,7 +297,7 @@ function Runtime({
         dy - queued.displacement[1],
         dz - queued.displacement[2],
       );
-      if (error > 0) {
+      if (error > 0.025) {
         // The capsule controller has already committed the Rapier-resolved displacement.
         // Keep the follower origin at that accepted pose while stopping the route.
         usePlaybackStore.getState().fail('Connector traversal stopped because capsule physics rejected the validated movement.');
