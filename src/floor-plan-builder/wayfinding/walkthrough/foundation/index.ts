@@ -13,6 +13,7 @@ export {
   type WalkConnectorRegistryRow,
   type WalkInstanceRegistryRow,
   type WalkItemRegistry,
+  type RegistryUse,
 } from './item-registry.ts';
 export {
   checkConnectorRouteAccess,

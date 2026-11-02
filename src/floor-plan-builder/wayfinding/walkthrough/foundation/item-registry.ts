@@ -9,16 +9,16 @@ import {
   type WalkUseHandlerPolicy,
 } from './role-policy.ts';
 
-type RegistryUse =
-  | { status: 'available'; handlerId: string; requiresConfirmation: boolean }
-  | { status: 'unavailable'; reason: string };
+export type RegistryUse =
+  | { status: 'available'; descriptorId: string; capability: string; label: string; handlerId: string; requiresConfirmation: boolean }
+  | { status: 'unavailable'; descriptorId?: string; capability?: string; label?: string; reason: string };
 
 export interface WalkAssetRegistryRow {
   kind: 'booth' | 'catalog-item';
   id: string;
   label: string;
   inspect: { status: 'available'; source: 'asset-metadata' } | { status: 'unavailable'; reason: string };
-  use: RegistryUse;
+  use: readonly RegistryUse[];
   collision: 'authored-collider-metadata' | 'unknown';
   navigation: 'not-a-route-node';
 }
@@ -38,7 +38,7 @@ export interface WalkInstanceRegistryRow {
   assetId: string;
   floorId: string;
   inspect: { status: 'available'; source: 'document-instance' };
-  use: RegistryUse;
+  use: readonly RegistryUse[];
   collision: 'enabled-obstacle-input' | 'excluded-from-obstacle-input' | 'unknown';
   navigation: 'floor-obstacle-input' | 'not-an-obstacle' | 'unknown';
 }
@@ -49,7 +49,7 @@ export interface WalkConnectorRegistryRow {
   label: string;
   descriptor: ConnectorDescriptor;
   inspect: { status: 'available'; source: 'connector-descriptor' };
-  use: RegistryUse;
+  use: readonly RegistryUse[];
   collision: 'requires-physical-validation';
   navigation: 'enabled-route-candidate' | 'disabled' | 'role-blocked';
   routeAccessReason?: string;
@@ -75,28 +75,34 @@ export interface BuildWalkItemRegistryInput {
 const metadataById = new Map(getAssetCatalog().map((item) => [item.id, item]));
 const sizedBoothIds = new Set((boothSizeMetadata as readonly { id: string }[]).map((item) => item.id));
 
-function useForTarget(
+function usesForTarget(
   role: Role,
   targetId: string,
   interactions: readonly InteractionDescriptor[],
   handlers: readonly WalkUseHandlerPolicy[],
-): RegistryUse {
-  const descriptor = interactions.find((item) => item.targetId === targetId);
-  const useAction = descriptor?.actions.find((action) => action.kind === 'use');
-  if (!descriptor || !useAction || useAction.kind !== 'use') {
-    return { status: 'unavailable', reason: 'No existing use handler is declared.' };
-  }
-  const handler = handlers.find((item) => item.capability === useAction.capability && item.handlerId.trim());
-  if (!handler) return { status: 'unavailable', reason: 'No existing use handler is registered.' };
-  const access = checkWalkUseAccess(role, descriptor, useAction.capability, handlers, !useAction.commits);
-  if (!access.allowed && !access.reason.startsWith('Confirmation is required')) {
-    return { status: 'unavailable', reason: access.reason };
-  }
-  return {
-    status: 'available',
-    handlerId: handler.handlerId,
-    requiresConfirmation: useAction.requiresConfirmation,
-  };
+): readonly RegistryUse[] {
+  const declared = interactions.flatMap((descriptor) => descriptor.targetId === targetId
+    ? descriptor.actions.flatMap((action) => action.kind === 'use' ? [{ descriptor, action }] : [])
+    : []);
+  if (declared.length === 0) return [{ status: 'unavailable', reason: 'No existing use handler is declared.' }];
+  return declared.map(({ descriptor, action }) => {
+    const matchingHandlers = handlers.filter((item) => item.capability === action.capability && item.handlerId.trim() && typeof item.execute === 'function');
+    if (matchingHandlers.length === 0) return { status: 'unavailable', descriptorId: descriptor.id, capability: action.capability, label: action.label, reason: 'No executable use handler is registered.' };
+    if (matchingHandlers.length > 1) return { status: 'unavailable', descriptorId: descriptor.id, capability: action.capability, label: action.label, reason: 'Multiple executable handlers are registered for this capability.' };
+    const handler = matchingHandlers[0]!;
+    const access = checkWalkUseAccess(role, descriptor, action.capability, handlers, !action.commits);
+    if (!access.allowed && !access.reason.startsWith('Confirmation is required')) {
+      return { status: 'unavailable', descriptorId: descriptor.id, capability: action.capability, label: action.label, reason: access.reason };
+    }
+    return {
+      status: 'available',
+      descriptorId: descriptor.id,
+      capability: action.capability!,
+      label: action.label,
+      handlerId: handler.handlerId,
+      requiresConfirmation: action.requiresConfirmation,
+    };
+  });
 }
 
 /**
@@ -117,7 +123,7 @@ export function buildWalkItemRegistry(input: BuildWalkItemRegistryInput): WalkIt
       inspect: metadata
         ? { status: 'available', source: 'asset-metadata' }
         : { status: 'unavailable', reason: 'No asset metadata is available.' },
-      use: useForTarget(input.role, id, interactions, handlers),
+      use: usesForTarget(input.role, id, interactions, handlers),
       collision: metadata?.colliders?.length ? 'authored-collider-metadata' : 'unknown',
       navigation: 'not-a-route-node',
     };
@@ -130,7 +136,7 @@ export function buildWalkItemRegistry(input: BuildWalkItemRegistryInput): WalkIt
     assetId: instance.assetId,
     floorId: instance.floorId,
     inspect: { status: 'available', source: 'document-instance' },
-    use: useForTarget(input.role, instance.id, interactions, handlers),
+    use: usesForTarget(input.role, instance.id, interactions, handlers),
     collision:
       instance.collidable === true
         ? 'enabled-obstacle-input'
@@ -157,7 +163,7 @@ export function buildWalkItemRegistry(input: BuildWalkItemRegistryInput): WalkIt
       label: `${descriptor.kind} connector`,
       descriptor,
       inspect: { status: 'available', source: 'connector-descriptor' },
-      use: useForTarget(input.role, descriptor.id, interactions, handlers),
+      use: usesForTarget(input.role, descriptor.id, interactions, handlers),
       collision: 'requires-physical-validation',
       navigation: !descriptor.enabled
         ? 'disabled'

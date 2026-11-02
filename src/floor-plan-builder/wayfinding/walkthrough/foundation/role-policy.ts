@@ -59,6 +59,8 @@ export interface WalkUseHandlerPolicy extends RoleGate {
   commits: boolean;
   /** Must identify an existing handler supplied by the caller; metadata sockets do not qualify. */
   handlerId: string;
+  /** Executable binding supplied by the integration, not a descriptive ID alone. */
+  execute: (...args: any[]) => unknown;
 }
 
 /**
@@ -78,8 +80,12 @@ export function checkWalkUseAccess(
   if (!action || action.kind !== 'use') {
     return { allowed: false, reason: 'No use action is declared for this target.' };
   }
-  const handler = handlers.find((candidate) => candidate.capability === action.capability && candidate.handlerId.trim());
-  if (!handler) return { allowed: false, reason: 'No existing use handler is registered.' };
+  const matches = handlers.filter(
+    (candidate) => candidate.capability === action.capability && candidate.handlerId.trim() && typeof candidate.execute === 'function',
+  );
+  if (matches.length === 0) return { allowed: false, reason: 'No executable use handler is registered.' };
+  if (matches.length > 1) return { allowed: false, reason: 'Multiple executable handlers are registered for this capability.' };
+  const handler = matches[0]!;
   if (handler.commits !== action.commits || action.requiresConfirmation !== action.commits) {
     return { allowed: false, reason: 'The registered handler does not match the action confirmation contract.' };
   }

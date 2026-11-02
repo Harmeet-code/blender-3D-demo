@@ -114,32 +114,56 @@ export const connectorDescriptorSchema = z.object({
 });
 export type ConnectorDescriptor = z.infer<typeof connectorDescriptorSchema>;
 
-/** Resolve connector references against the actual document before accepting traversal data. */
-export function createConnectorDescriptorSchema(
-  knownFloorIds: ReadonlySet<string>,
-  knownPortalIds: ReadonlySet<string>,
-  knownInstanceIds: ReadonlySet<string>,
-) {
+export interface ConnectorDocumentRelations {
+  floors: ReadonlySet<string>;
+  portals: ReadonlyMap<string, ReadonlySet<string>>;
+  instances: ReadonlyMap<string, { portalId?: string; floorId: string }>;
+}
+
+/** Resolve every connector reference and endpoint against the actual linked document records. */
+export function createConnectorDescriptorSchema(document: ConnectorDocumentRelations) {
   return connectorDescriptorSchema.superRefine((connector, context) => {
-    if (!knownPortalIds.has(connector.portalId)) {
+    const portalFloorIds = document.portals.get(connector.portalId);
+    if (!portalFloorIds) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: ['portalId'], message: `Unknown portal ID: ${connector.portalId}` });
     }
-    if (!knownInstanceIds.has(connector.source.authoredInstanceId)) {
+    const instance = document.instances.get(connector.source.authoredInstanceId);
+    if (!instance) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['source', 'authoredInstanceId'],
         message: `Unknown authored instance ID: ${connector.source.authoredInstanceId}`,
       });
+    } else {
+      if (instance.portalId !== connector.portalId) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['source', 'authoredInstanceId'], message: 'Authored instance is not bound to this connector portal.' });
+      }
+      if (!connector.stops.some((stop) => stop.floorId === instance.floorId)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['source', 'authoredInstanceId'], message: 'Authored instance floor is not one of the connector stops.' });
+      }
     }
     connector.stops.forEach((stop, index) => {
-      if (!knownFloorIds.has(stop.floorId)) {
+      if (!document.floors.has(stop.floorId)) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['stops', index, 'floorId'],
           message: `Unknown floor ID: ${stop.floorId}`,
         });
       }
+      if (portalFloorIds && !portalFloorIds.has(stop.floorId)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['stops', index, 'floorId'], message: 'Stop floor is not connected by this portal.' });
+      }
     });
+    const first = connector.traversal.points[0];
+    const last = connector.traversal.points.at(-1);
+    const endpoints = connector.stops.map((stop) => stop.entry);
+    const samePosition = (a: readonly number[], b: readonly number[]) => a.every((value, axis) => Math.abs(value - b[axis]!) <= 0.001);
+    if (first && last && endpoints.length >= 2 && !(
+      samePosition(first, endpoints[0]!) && samePosition(last, endpoints.at(-1)!) ||
+      samePosition(first, endpoints.at(-1)!) && samePosition(last, endpoints[0]!)
+    )) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['traversal', 'points'], message: 'Traversal endpoints must match the connector stop entries within 1 mm.' });
+    }
   });
 }
 
