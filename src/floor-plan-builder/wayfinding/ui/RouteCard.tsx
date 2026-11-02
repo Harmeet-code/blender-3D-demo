@@ -23,6 +23,7 @@ export function RouteCard({
     status = useWayfindingStore((state) => state.status);
   const buildMs = useWayfindingStore((state) => state.buildMs),
     active = useWayfindingStore(selectActiveResult);
+  const request = useWayfindingStore((state) => state.request);
   const animated = useWayfindingStore((state) => state.animated),
     setAnimated = useWayfindingStore((state) => state.setAnimated);
   const walking = usePlaybackStore((state) => !!state.session),
@@ -53,6 +54,11 @@ export function RouteCard({
       )}
       {active && (
         <>
+          <section className="rounded-lg border border-cyan-500/30 bg-cyan-950/20 p-3" aria-label="Route preview">
+            <h2 className="text-sm font-semibold">Route preview · {option === 'shortest' ? 'Shortest' : 'Accessible'}</h2>
+            <p className="mt-1 text-sm">{endpointLabel(request?.start)} <span aria-hidden="true">→</span> {endpointLabel(request?.dest)}</p>
+            <p className="fp-muted">{active.lengthM.toFixed(1)} m · about {Math.round(active.secondsEta)} seconds · {active.instructions.length} steps</p>
+          </section>
           <Button
             size="sm"
             disabled={walking || !canWalk}
@@ -126,4 +132,10 @@ export function RouteCard({
       </Button>
     </div>
   );
+}
+
+function endpointLabel(endpoint: import('../model/route-schema.ts').RouteRequest['start'] | undefined) {
+  if (!endpoint) return 'Floor spawn';
+  if (endpoint.kind === 'item') return endpoint.itemId;
+  return `Point on ${endpoint.floorId}`;
 }
