@@ -13,6 +13,7 @@ import {
   validateCapsuleSweep,
   type ClearanceResult,
   type CollisionMap,
+  type Point2,
   type Point3,
   type RoleAreaPolicy,
   type CapsuleProfile,
@@ -50,6 +51,41 @@ function extrudedPolygon(polygon: readonly (readonly [number, number])[], bottom
   return { vertices, indices: new Uint32Array(indices) };
 }
 
+function connectorCorridor(record: ConnectorRecord): readonly Point2[] | null {
+  const path = record.path;
+  if (!path || path.points.length < 2 || !Number.isFinite(path.widthM) || path.widthM <= 0) return null;
+  const directions: Point2[] = [];
+  for (let i = 0; i < path.points.length - 1; i++) {
+    const a = path.points[i]!, b = path.points[i + 1]!;
+    const dx = b[0] - a[0], dz = b[2] - a[2];
+    const length = Math.hypot(dx, dz);
+    if (!Number.isFinite(length) || length <= 1e-8) return null;
+    directions.push([dx / length, dz / length]);
+  }
+  const left: Point2[] = [], right: Point2[] = [];
+  for (let i = 0; i < path.points.length; i++) {
+    const previous = directions[Math.max(0, i - 1)]!;
+    const next = directions[Math.min(i, directions.length - 1)]!;
+    const pn: Point2 = [-previous[1], previous[0]], nn: Point2 = [-next[1], next[0]];
+    let nx: number, nz: number, scale = path.widthM / 2;
+    if (i === 0) { nx = nn[0]; nz = nn[1]; }
+    else if (i === path.points.length - 1) { nx = pn[0]; nz = pn[1]; }
+    else {
+      const mx = pn[0] + nn[0], mz = pn[1] + nn[1], ml = Math.hypot(mx, mz);
+      if (ml <= 1e-8) return null;
+      nx = mx / ml; nz = mz / ml;
+      const denominator = nx * nn[0] + nz * nn[1];
+      if (Math.abs(denominator) < 0.2) return null;
+      scale /= denominator;
+    }
+    const p = path.points[i]!;
+    left.push([p[0] + nx * scale, p[2] + nz * scale]);
+    right.push([p[0] - nx * scale, p[2] - nz * scale]);
+  }
+  const boundary = [...left, ...right.reverse()];
+  return isValidCollisionPolygon(boundary) ? boundary : null;
+}
+
 export interface CollisionWorldProps {
   /** Current builder floor snapshot. Rebuild when the authored floor changes. */
   floor: PlanFloor;
@@ -76,7 +112,7 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
   );
   const connectorIds = useMemo(() => new Set(connectors.flatMap((connector) => {
     const surface = connectorSurfaceResults.find((result) => result.connectorId === connector.id);
-    return connector.enabled && (connector.kind === 'elevator' || surface?.supported) ? [connector.id] : [];
+    return connector.enabled && connector.kind !== 'elevator' && surface?.supported ? [connector.id] : [];
   })), [connectors, connectorSurfaceResults]);
   const physicalFloor = useMemo(() => ({
     ...floor,
@@ -115,19 +151,10 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
   }), [connectorFloors, floor, originY, connectorIds, roleAreas]);
   const connectorMap = useMemo<CollisionMap>(() => {
     const maps = connectorMaps.map(({ map: item }) => item);
-    const boundaries = maps.flatMap((item) => item.boundary);
-    const xs = boundaries.map(([x]) => x), zs = boundaries.map(([, z]) => z);
-    const minX = xs.length ? Math.min(...xs) : -1, maxX = xs.length ? Math.max(...xs) : 1;
-    const minZ = zs.length ? Math.min(...zs) : -1, maxZ = zs.length ? Math.max(...zs) : 1;
-    const padding = Math.max(1, maxX - minX, maxZ - minZ);
-    const boundary: readonly (readonly [number, number])[] = [
-      [minX - padding, minZ - padding], [maxX + padding, minZ - padding],
-      [maxX + padding, maxZ + padding], [minX - padding, maxZ + padding],
-    ];
     return {
       floorId: sourceMap.floorId,
       floorY: sourceMap.floorY,
-      boundary,
+      boundary: [],
       obstacles: maps.flatMap((item) => item.obstacles),
       blockedAreas: maps.flatMap((item) => item.blockedAreas),
       roleAreas: [],
@@ -147,7 +174,11 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
     validateSweep: (from, to, profile) => validateCapsuleSweep(map, role, from, to, profile),
     validateEndpoint: (feet, profile) => validateCapsuleEndpoint(map, role, feet, profile),
     validateConnectorSweep: (connectorId, from, to, profile) => {
+      const connector = connectors.find((item) => item.id === connectorId);
+      if (connector?.kind === 'elevator') return { clear: false, reason: 'Elevator shaft and cabin collision geometry is unavailable.', blockerId: connectorId, source: 'unknown-geometry' };
       if (!connectorIds.has(connectorId)) return { clear: false, reason: 'Connector is not bound to this collision world.', blockerId: connectorId, source: 'unknown-geometry' };
+      const boundary = connector && connectorCorridor(connector);
+      if (!boundary) return { clear: false, reason: 'Connector surface footprint is unavailable or malformed.', blockerId: connectorId, source: 'unknown-geometry' };
       const dimensions = profile ?? { radiusM: CHARACTER_CONFIG.radiusM, heightM: CAPSULE_TOTAL_HEIGHT_M };
       const minY = Math.min(from[1], to[1]);
       const maxY = Math.max(from[1], to[1]) + dimensions.heightM;
@@ -159,6 +190,7 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
       }
       return validateCapsuleSweep({
         ...connectorMap,
+        boundary,
         roleAreas: relevant.flatMap(({ map: item }) => item.roleAreas),
         unsupported,
       }, role, from, to, dimensions);
@@ -169,7 +201,7 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
       if (!mapForFloor) return { clear: false, reason: `Connector landing floor ${floorId} is unavailable.`, blockerId: floorId, source: 'unknown-geometry' };
       return validateCapsuleEndpoint(mapForFloor, role, feet, profile);
     },
-  }), [map, role, connectorIds, connectorMap, connectorMaps]);
+  }), [map, role, connectors, connectorIds, connectorMap, connectorMaps]);
 
   return (
     <CollisionWorldContext.Provider value={value}>

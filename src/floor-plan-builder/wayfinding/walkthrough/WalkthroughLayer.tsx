@@ -22,7 +22,6 @@ import type { InteractionState } from './contracts.ts';
 import { InteractionPrompt } from './ui/InteractionPrompt.tsx';
 import { advanceFollower, type Follower } from './follower.ts';
 import { connectorRecordForLeg, resolveConnectorTraversal } from './connectors/connector-runtime.ts';
-import { CAPSULE_TOTAL_HEIGHT_M, CHARACTER_CONFIG } from './character-config.ts';
 
 function cloneFollowerFrame(value: Follower): Follower {
   return {
@@ -128,23 +127,9 @@ function Runtime({
       validateEndpoint: (floorId, feet) => clearance.validateConnectorEndpoint(record.id, floorId, connectorPoint(feet), CHARACTER_CONFIG),
       validateElevatorRide: (_from, _to) => {
         if (leg.kind !== 'elevator' || !leg.connector || leg.points.length !== 4) return { clear: false, continuous: false, reason: 'Elevator cabin path is incomplete.' };
-        const [width, , depth] = leg.connector.dimensions;
-        // CirculationObject's cabin deck is [w - .35, .06, d - .35] at y=.03;
-        // its roof spans y=2.36..2.44, leaving 2.30 m of clear interior height.
-        const halfWidth = (width * leg.connector.scale[0] - 0.35) / 2;
-        const halfDepth = (depth * leg.connector.scale[2] - 0.35) / 2;
-        if (halfWidth < CHARACTER_CONFIG.radiusM || halfDepth < CHARACTER_CONFIG.radiusM || CAPSULE_TOTAL_HEIGHT_M > 2.3) {
-          return { clear: false, continuous: false, reason: 'The authored elevator cabin cannot contain the walkthrough capsule.' };
-        }
-        const a = leg.points[0]!;
-        const inside = leg.points[1]!;
-        const upper = leg.points[2]!;
-        const b = leg.points[3]!;
-        for (const [start, end] of [[a, inside], [inside, upper], [upper, b]] as const) {
-          const result = clearance.validateConnectorSweep(record.id, connectorPoint(start), connectorPoint(end), CHARACTER_CONFIG);
-          if (!result.clear) return { clear: false, continuous: false, reason: result.reason };
-        }
-        return { clear: true, continuous: true };
+        // The scene has no authored shaft aperture, cabin/door colliders, or moving cabin
+        // context. Dimension checks and a clearance-map sweep cannot prove an elevator ride safe.
+        return { clear: false, continuous: false, reason: 'Elevator traversal is unavailable until shaft, slab apertures, cabin, and door collision geometry are integrated.' };
       },
     });
     return [[index, resolution] as const];
@@ -312,8 +297,9 @@ function Runtime({
         dy - queued.displacement[1],
         dz - queued.displacement[2],
       );
-      if (error > 0.025) {
-        runtime.position = [...queued.from];
+      if (error > 0) {
+        // The capsule controller has already committed the Rapier-resolved displacement.
+        // Keep the follower origin at that accepted pose while stopping the route.
         usePlaybackStore.getState().fail('Connector traversal stopped because capsule physics rejected the validated movement.');
       } else {
         commitFollowerFrame(runtime, queued.next);
