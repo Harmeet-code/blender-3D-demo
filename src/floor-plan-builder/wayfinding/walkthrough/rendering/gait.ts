@@ -95,7 +95,9 @@ export function sampleFootPlants(state: FootPlantState, input: FootPlantInput): 
       state.groundSpeedsMps[i] = null;
       state.previousAnchors[i] = null;
       const swing = (cycle - stanceFraction) / (1 - stanceFraction);
-      const travel = stride * (0.3 - 0.6 * swing);
+      // Match the stance anchor cycle: swing begins behind the root and lands
+      // ahead, preserving the target position on both phase boundaries.
+      const travel = stride * (-0.3 + 0.6 * swing);
       result[i] = [
         root[0] + rightX * side * 0.1 + forwardX * travel,
         input.groundY + Math.sin(swing * Math.PI) * 0.13,

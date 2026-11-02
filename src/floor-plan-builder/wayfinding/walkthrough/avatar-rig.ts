@@ -106,7 +106,10 @@ export class AvatarRig {
         y = foot.anchor.y - frame.position[1] - originY;
       } else if (walking) {
         const swing = Math.max(0, (p - 0.6) / 0.4);
-        z = stride * (0.3 - 0.6 * swing);
+        // Stance starts at +0.3 stride and the planted foot ends at -0.3
+        // stride relative to the advancing root. Swing must carry it from
+        // behind to ahead so both stance boundaries remain position-continuous.
+        z = stride * (-0.3 + 0.6 * swing);
         y += Math.sin(swing * Math.PI) * (stairs ? 0.24 : 0.13);
       }
       foot.local.set(x - side * 0.1, y, z);
