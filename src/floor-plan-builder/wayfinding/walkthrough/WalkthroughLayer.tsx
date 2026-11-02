@@ -20,7 +20,7 @@ import { ProximityInteractionRuntime } from './interaction/proximity.ts';
 import { createWalkInteractionTargets } from './interaction/target-adapter.ts';
 import type { InteractionState } from './contracts.ts';
 import { InteractionPrompt } from './ui/InteractionPrompt.tsx';
-import { proximityDoors } from '../game/door-state.ts';
+import { proximityDoors, setCollisionDoorOpen } from '../game/door-state.ts';
 import type { WalkUseHandlerPolicy } from './foundation/role-policy.ts';
 import { circulationDesign } from '../../model/circulation.ts';
 import { advanceFollower, type Follower } from './follower.ts';
@@ -122,7 +122,7 @@ function Runtime({
           runtime.connector = {
             portalId: elevator.portalId,
             cabinY: design.cabinLevel === 'upper' ? elevator.dimensions[1] : 0,
-            open: 1,
+            open: 0,
           };
           setCalledElevatorIds((current) => new Set(current).add(elevator.id));
           invalidate();
@@ -130,8 +130,8 @@ function Runtime({
       }] satisfies WalkUseHandlerPolicy[],
       onInspect: (target) => setInspectedTargetId(target.id),
       onDoorEffect: (target, open) => {
-        if (open) {proximityDoors.add(target.targetId);}
-        else {proximityDoors.delete(target.targetId);}
+        if (open) {proximityDoors.add(target.targetId); setCollisionDoorOpen(target.targetId, false);}
+        else {proximityDoors.delete(target.targetId); setCollisionDoorOpen(target.targetId, false);}
         invalidate();
       },
       onState: (nextState) => {
@@ -576,7 +576,7 @@ function Runtime({
             statusMessage={interactionRuntime.target && joinedQueueIds.has(interactionRuntime.target.targetId)
               ? "Joined this walkthrough's local kiosk queue. No external reservation was created."
               : interactionRuntime.target && calledElevatorIds.has(interactionRuntime.target.targetId)
-                ? 'Elevator doors are open at the authored cabin stop for this walkthrough session; the cabin was not moved.'
+                ? 'Elevator call recorded for this walkthrough session; no physical cabin or door state changed.'
               : undefined}
           />
           {interactionRuntime.target?.id === inspectedTargetId && inspectedTarget && (

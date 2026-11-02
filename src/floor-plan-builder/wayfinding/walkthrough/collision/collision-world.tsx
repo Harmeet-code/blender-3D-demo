@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { RigidBody, TrimeshCollider } from '@react-three/rapier';
 import { ShapeUtils, Vector2 } from 'three';
 import type { PlanFloor } from '@/floor-plan-builder/model/types.ts';
@@ -6,6 +6,7 @@ import type { ConnectorRecord } from '../connectors/connector-runtime.ts';
 import { createConnectorSurfaceProxy } from './connector-proxies.ts';
 import type { Role } from '../contracts.ts';
 import { CAPSULE_TOTAL_HEIGHT_M, CHARACTER_CONFIG } from '../character-config.ts';
+import { getCollisionOpenDoorIds, subscribeCollisionDoorState } from '../../game/door-state.ts';
 import {
   buildCollisionMap,
   isValidCollisionPolygon,
@@ -110,6 +111,17 @@ export interface CollisionWorldProps {
  * Must be mounted below the existing `Physics` provider and around the single moving capsule.
  */
 export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], connectorFloors = [], originY = 0, children }: CollisionWorldProps) {
+  const collisionOpenDoorIds = useSyncExternalStore(
+    subscribeCollisionDoorState,
+    getCollisionOpenDoorIds,
+    getCollisionOpenDoorIds,
+  );
+  const withDoorState = (sourceFloor: PlanFloor): PlanFloor => ({
+    ...sourceFloor,
+    objects: sourceFloor.objects.map((object) => object.recipe === 'entrance' && object.entranceGate === 'arch-sliding-doors'
+      ? { ...object, entranceOpen: collisionOpenDoorIds.has(object.id) }
+      : object),
+  });
   const connectorSurfaceResults = useMemo(
     () => connectors.map((connector) => createConnectorSurfaceProxy(connector, CHARACTER_CONFIG.radiusM * 2)),
     [connectors],
@@ -118,17 +130,20 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
     const surface = connectorSurfaceResults.find((result) => connectorProxyId(result) === connector.id);
     return connector.enabled && connector.kind !== 'elevator' && surface?.supported ? [connector.id] : [];
   })), [connectors, connectorSurfaceResults]);
-  const physicalFloor = useMemo(() => ({
-    ...floor,
-    objects: floor.objects.filter((object) => !connectorIds.has(object.id)),
-    source: floor.source.authoring ? {
-      ...floor.source,
-      authoring: {
-        ...floor.source.authoring,
-        instances: floor.source.authoring.instances?.filter((instance) => !connectorIds.has(instance.id)),
-      },
-    } : floor.source,
-  }), [floor, connectorIds]);
+  const physicalFloor = useMemo(() => {
+    const doorStateFloor = withDoorState(floor);
+    return {
+      ...doorStateFloor,
+      objects: doorStateFloor.objects.filter((object) => !connectorIds.has(object.id)),
+      source: doorStateFloor.source.authoring ? {
+        ...doorStateFloor.source,
+        authoring: {
+          ...doorStateFloor.source.authoring,
+          instances: doorStateFloor.source.authoring.instances?.filter((instance) => !connectorIds.has(instance.id)),
+        },
+      } : doorStateFloor.source,
+    };
+  }, [floor, connectorIds, collisionOpenDoorIds]);
   const sourceMap = useMemo(() => buildCollisionMap(physicalFloor, roleAreas), [physicalFloor, roleAreas]);
 
   const floorShape = useMemo(
@@ -144,15 +159,16 @@ export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], c
     : []), [connectorSurfaceResults, connectors]);
   const connectorMaps = useMemo(() => (connectorFloors.length ? connectorFloors : [floor]).map((item) => {
     const adjusted = originY ? { ...item, source: { ...item.source, heightOffset: item.source.heightOffset + originY } } : item;
+    const doorStateFloor = withDoorState(adjusted);
     return { floor: adjusted, map: buildCollisionMap({
-      ...adjusted,
-      objects: adjusted.objects.filter((object) => !connectorIds.has(object.id)),
-      source: adjusted.source.authoring ? { ...adjusted.source, authoring: {
-        ...adjusted.source.authoring,
-        instances: adjusted.source.authoring.instances?.filter((instance) => !connectorIds.has(instance.id)),
-      } } : adjusted.source,
+      ...doorStateFloor,
+      objects: doorStateFloor.objects.filter((object) => !connectorIds.has(object.id)),
+      source: doorStateFloor.source.authoring ? { ...doorStateFloor.source, authoring: {
+        ...doorStateFloor.source.authoring,
+        instances: doorStateFloor.source.authoring.instances?.filter((instance) => !connectorIds.has(instance.id)),
+      } } : doorStateFloor.source,
     }, roleAreas) };
-  }), [connectorFloors, floor, originY, connectorIds, roleAreas]);
+  }), [connectorFloors, floor, originY, connectorIds, roleAreas, collisionOpenDoorIds]);
   const connectorMap = useMemo<CollisionMap>(() => {
     const maps = connectorMaps.map(({ map: item }) => item);
     return {

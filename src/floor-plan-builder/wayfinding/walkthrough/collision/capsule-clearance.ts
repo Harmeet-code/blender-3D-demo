@@ -218,6 +218,9 @@ export function buildCollisionMap(floor: PlanFloor, roleAreas: readonly RoleArea
   }
   for (const instance of floor.source.authoring?.instances ?? []) {
     if (!instance.collidable) {continue;}
+    // Managed entrance geometry is already represented by its PlanObject above, where
+    // the runtime's confirmed door state is applied. Avoid a second persisted-state copy.
+    if (floor.objects.some((object) => object.id === instance.id && object.recipe === 'entrance')) {continue;}
     try {
       for (const [index, box] of authoredInstancePhysical(instance).boxes.entries()) {
         addPolygon(obstacles, `${instance.id}:${index}`, 'instance', box.footprint, y + box.minY, y + box.maxY, unsupported);

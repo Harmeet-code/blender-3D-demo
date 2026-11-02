@@ -98,7 +98,8 @@ export function createWalkInteractionTargets(
         ],
         details: detailsForObject(object, floorId, role),
       };
-      if (object.recipe === 'entrance' && object.entranceGate === 'arch-sliding-doors' && object.entranceOpen) {
+      // Entrance authoring has no role ACL. Do not infer one from the selected walkthrough role.
+      if (object.recipe === 'entrance' && object.entranceGate === 'arch-sliding-doors') {
         target.proximityEffect = { kind: 'reversible-door', openOnEnter: true, closeOnExit: true };
       }
       return target;

@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { TraversalMotionContext } from '../wayfinding/walkthrough/motion-context.tsx';
-import { proximityDoors } from '../wayfinding/game/door-state.ts';
+import { proximityDoors, setCollisionDoorOpen } from '../wayfinding/game/door-state.ts';
 import { useFrame } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import { CanvasTexture, MathUtils, SRGBColorSpace, type Group } from 'three';
@@ -82,14 +82,9 @@ export function EntranceObject({
   const opacity = ghost ? 0.45 : 1;
 
   useFrame(({ invalidate }, delta) => {
-    const target =
-      playback && gate === 'arch-sliding-doors' && object.entranceOpen
-        ? proximityDoors.has(object.id)
-          ? 1
-          : 0
-        : open
-          ? 1
-          : 0;
+    const hasProximityControl = !!playback && gate === 'arch-sliding-doors';
+    const target = hasProximityControl ? (proximityDoors.has(object.id) ? 1 : 0) : (open ? 1 : 0);
+    if (hasProximityControl && target === 0) {setCollisionDoorOpen(object.id, false);}
     const current = slide.current.value;
     if (Math.abs(current - target) > 0.001) {
       slide.current.value = MathUtils.damp(current, target, 6, Math.min(delta, 0.1));
@@ -112,6 +107,9 @@ export function EntranceObject({
         rightDoor.current.position.x = 0.9 * target;
       }
       invalidate();
+    }
+    if (hasProximityControl && target === 1 && slide.current.value === 1) {
+      setCollisionDoorOpen(object.id, true);
     }
   });
 
