@@ -42,6 +42,7 @@ export interface ValidatedRoute {
   /** Null when the caller did not provide real obstacle-clearance measurements. */
   comfortClearanceP90M: number | null;
   comfortTargetMet: boolean | null;
+  comfortDisposition: 'met' | 'offset-improved' | 'no-safe-offset-found' | 'no-improving-offset-found' | 'unavailable';
 }
 
 export interface CornerSmoothingOptions {
@@ -64,7 +65,7 @@ export interface CornerSmoothingOptions {
  * chord is swept independently. If a rounded corner fails, its trim is halved until
  * validated; the raw corner is the final fallback and must pass too.
  */
-export function smoothRouteCorners(points: readonly Vec3[], options: CornerSmoothingOptions): ValidatedRoute | null {
+function buildValidatedRoute(points: readonly Vec3[], options: CornerSmoothingOptions): ValidatedRoute | null {
   const capsuleRadius = options.capsuleRadiusM ?? CHARACTER_CONFIG.radiusM;
   const margin = options.cornerMarginM ?? 0.05;
   const requestedRadius = options.cornerRadiusM ?? capsuleRadius + margin;
@@ -154,7 +155,77 @@ export function smoothRouteCorners(points: readonly Vec3[], options: CornerSmoot
       comfortTargetMet = comfortClearanceP90M !== null && comfortClearanceP90M >= 0.5;
     }
   }
-  return { points: out, lengths, length: lengths.at(-1)!, comfortClearanceP90M, comfortTargetMet };
+  return { points: out, lengths, length: lengths.at(-1)!, comfortClearanceP90M, comfortTargetMet,
+    comfortDisposition: comfortTargetMet ? 'met' : 'unavailable' };
+}
+
+const COMFORT_TARGET_M = 0.5;
+const COMFORT_COMPARISON_EPSILON_M = 1e-4;
+
+function offsetRoute(points: readonly Vec3[], offsetM: number): Vec3[] {
+  const dense: Vec3[] = [];
+  const distances: number[] = [];
+  let routeDistance = 0;
+  for (let i = 1; i < points.length; i++) {
+    const from = points[i - 1]!, to = points[i]!;
+    const length = Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
+    const subdivisions = Math.max(1, Math.ceil(length / 0.25));
+    for (let step = 0; step <= subdivisions; step++) {
+      if (dense.length && step === 0) {continue;}
+      const t = step / subdivisions;
+      dense.push([from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t, from[2] + (to[2] - from[2]) * t]);
+      distances.push(routeDistance + length * t);
+    }
+    routeDistance += length;
+  }
+  const total = routeDistance;
+  return dense.map((point, i) => {
+    if (i === 0 || i === dense.length - 1 || offsetM === 0) {return point;}
+    const previous = dense[i - 1]!, next = dense[i + 1]!;
+    const dx = next[0] - previous[0], dz = next[2] - previous[2];
+    const tangentLength = Math.hypot(dx, dz);
+    if (tangentLength <= COMFORT_COMPARISON_EPSILON_M) {return point;}
+    const envelope = Math.min(1, distances[i]! / 0.5, (total - distances[i]!) / 0.5);
+    const offset = offsetM * Math.max(0, envelope);
+    return [point[0] - (dz / tangentLength) * offset, point[1], point[2] + (dx / tangentLength) * offset] as Vec3;
+  });
+}
+
+/**
+ * Prefer the highest measured centerline clearance among bounded lateral offsets, but
+ * only after every offset and rounded chord passes the caller's swept-capsule validator.
+ * Endpoints remain fixed. A failed finite search is not proof that no wider route exists.
+ */
+export function smoothRouteCorners(points: readonly Vec3[], options: CornerSmoothingOptions): ValidatedRoute | null {
+  const base = buildValidatedRoute(points, options);
+  if (!base || base.comfortClearanceP90M === null || !options.measureClearanceM) {
+    return base ? { ...base, comfortDisposition: 'unavailable' } : null;
+  }
+  if (base.comfortClearanceP90M >= COMFORT_TARGET_M - COMFORT_COMPARISON_EPSILON_M) {
+    return { ...base, comfortTargetMet: true, comfortDisposition: 'met' };
+  }
+  let best = base;
+  let safeOffsetFound = false;
+  for (let step = 1; step <= 10; step++) {
+    const offsetM = step * 0.05;
+    for (const sign of [-1, 1]) {
+      const candidate = buildValidatedRoute(offsetRoute(points, offsetM * sign), options);
+      if (!candidate || candidate.comfortClearanceP90M === null) {continue;}
+      safeOffsetFound = true;
+      if (best.comfortClearanceP90M !== null &&
+        candidate.comfortClearanceP90M > best.comfortClearanceP90M + COMFORT_COMPARISON_EPSILON_M) {
+        best = candidate;
+      }
+    }
+  }
+  if (best.comfortClearanceP90M !== null && best.comfortClearanceP90M >= COMFORT_TARGET_M - COMFORT_COMPARISON_EPSILON_M) {
+    return { ...best, comfortTargetMet: true, comfortDisposition: 'met' };
+  }
+  if (best !== base) {
+    return { ...best, comfortTargetMet: false, comfortDisposition: 'offset-improved' };
+  }
+  return { ...base, comfortTargetMet: false,
+    comfortDisposition: safeOffsetFound ? 'no-improving-offset-found' : 'no-safe-offset-found' };
 }
 
 const MAX_ACCELERATION_MPS2 = CHARACTER_CONFIG.maxAutoAccelerationMps2;
