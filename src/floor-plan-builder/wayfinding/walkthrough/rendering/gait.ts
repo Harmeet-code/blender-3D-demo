@@ -23,7 +23,9 @@ export interface GaitInput {
 
 export interface FootPlantState {
   stance: [boolean, boolean];
-  anchors: [number[], number[]];
+  anchors: [[number, number, number], [number, number, number]];
+  previousAnchors: [[number, number, number] | null, [number, number, number] | null];
+  groundSpeedsMps: [number | null, number | null];
 }
 
 export interface FootPlantInput {
@@ -35,10 +37,18 @@ export interface FootPlantInput {
   phaseRadians: number;
   strideM?: number;
   stanceFraction?: number;
+  /** Real elapsed interval since the previous resolved anchor sample. */
+  dtSeconds?: number;
 }
 
 export function createFootPlantState(): FootPlantState {
-  return { stance: [false, false], anchors: [[0, 0, 0], [0, 0, 0]] };
+  return { stance: [false, false], anchors: [[0, 0, 0], [0, 0, 0]], previousAnchors: [null, null], groundSpeedsMps: [null, null] };
+}
+
+/** Max measured world speed among currently planted feet; null means no valid sample. */
+export function stanceFootGroundSpeedMps(state: FootPlantState): number | null {
+  const speeds = state.groundSpeedsMps.filter((speed, index) => state.stance[index] && speed !== null) as number[];
+  return speeds.length ? Math.max(...speeds) : null;
 }
 
 /**
@@ -51,7 +61,7 @@ export function sampleFootPlants(state: FootPlantState, input: FootPlantInput): 
   const { rootPosition: root, yawRadians: yaw, phaseRadians: phase } = input;
   const valid = root.every(Number.isFinite) && Number.isFinite(input.groundY) &&
     Number.isFinite(yaw) && Number.isFinite(phase);
-  if (!valid) {return state.anchors as [[number, number, number], [number, number, number]];}
+  if (!valid) {return state.anchors;}
   const forwardX = -Math.sin(yaw), forwardZ = -Math.cos(yaw);
   const rightX = Math.cos(yaw), rightZ = -Math.sin(yaw);
   const result: [[number, number, number], [number, number, number]] = [[0, 0, 0], [0, 0, 0]];
@@ -66,14 +76,24 @@ export function sampleFootPlants(state: FootPlantState, input: FootPlantInput): 
         input.groundY,
         root[2] + rightZ * side * 0.1 + forwardZ * ahead,
       ];
+      state.previousAnchors[i] = null;
+      state.groundSpeedsMps[i] = null;
+    } else if (stance) {
+      const previous = state.previousAnchors[i]!;
+      const dt = input.dtSeconds;
+      const anchor = state.anchors[i]!;
+      state.groundSpeedsMps[i] = previous && dt !== undefined && Number.isFinite(dt) && dt > 0
+        ? Math.hypot(anchor[0] - previous[0], anchor[1] - previous[1], anchor[2] - previous[2]) / dt
+        : null;
     }
     state.stance[i] = stance;
     if (stance) {
-      const anchor = state.anchors[i];
-      result[i] = anchor
-        ? [...anchor] as [number, number, number]
-        : [root[0], input.groundY, root[2]];
+      const anchor = state.anchors[i]!;
+      result[i] = [...anchor] as [number, number, number];
+      state.previousAnchors[i] = [...anchor];
     } else {
+      state.groundSpeedsMps[i] = null;
+      state.previousAnchors[i] = null;
       const swing = (cycle - stanceFraction) / (1 - stanceFraction);
       const travel = stride * (0.3 - 0.6 * swing);
       result[i] = [
