@@ -1,4 +1,4 @@
-import { Profiler, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { Profiler, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
@@ -16,6 +16,10 @@ import { CollisionWorld, useCapsuleClearance } from './collision/collision-world
 import { CHARACTER_CONFIG } from './character-config.ts';
 import type { Role } from './contracts.ts';
 import { smoothRouteCorners, steerRoute } from './steering/route-steering.ts';
+import { ProximityInteractionRuntime } from './interaction/proximity.ts';
+import { createWalkInteractionTargets } from './interaction/target-adapter.ts';
+import type { InteractionState } from './contracts.ts';
+import { InteractionPrompt } from './ui/InteractionPrompt.tsx';
 
 function Runtime({
   session,
@@ -23,12 +27,14 @@ function Runtime({
   floorId,
   onFloor,
   originY,
+  role,
 }: {
   session: PlaybackSession;
   document: PlanDocument;
   floorId: string;
   onFloor: (id: string) => boolean | void;
   originY: number;
+  role: Role;
 }) {
   const { runtime } = session;
   const root = useRef<Group>(null),
@@ -42,6 +48,21 @@ function Runtime({
     mode = usePlaybackStore((state) => state.mode),
     message = usePlaybackStore((state) => state.message);
   const activeFloor = usePlaybackStore((state) => state.snapshot.floorId);
+  const [interactionState, setInteractionState] = useState<InteractionState>({ status: 'idle' });
+  const [inspectedTargetId, setInspectedTargetId] = useState<string | null>(null);
+  const interactionTargets = useMemo(
+    () => createWalkInteractionTargets(document, floorId, originY, role),
+    [document, floorId, originY, role],
+  );
+  const interactionRuntime = useMemo(
+    () => new ProximityInteractionRuntime({
+      role,
+      targets: interactionTargets,
+      onInspect: (target) => setInspectedTargetId(target.id),
+      onState: setInteractionState,
+    }),
+    [role, interactionTargets],
+  );
   const clearance = useCapsuleClearance();
   const camera = useThree((state) => state.camera);
   const get = useThree((state) => state.get),
@@ -314,6 +335,9 @@ function Runtime({
       rig.update(runtime, originY);
     }
 
+    interactionRuntime.update({ position: [...runtime.position], yawRadians: runtime.yaw }, dt);
+    if (interactionRuntime.target) invalidate();
+
     lastSnapshot.current += dt;
     if (lastSnapshot.current >= 0.1 || (runtime.arrived && state.status === 'playing')) {
       lastSnapshot.current = 0;
@@ -368,6 +392,24 @@ function Runtime({
           {message && (
             <div role="status" className="pointer-events-auto basis-full rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow">
               {message}
+            </div>
+          )}
+          <InteractionPrompt
+            runtime={interactionRuntime}
+            target={interactionRuntime.target}
+            state={interactionState}
+          />
+          {interactionRuntime.target?.id === inspectedTargetId && (
+            <div className="pointer-events-auto basis-full rounded-lg border border-white/15 bg-slate-950/95 p-3 text-sm text-white shadow-lg">
+              <h2 className="font-semibold">Details</h2>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                {interactionRuntime.target.details.map((detail) => (
+                  <div key={detail.label} className="contents">
+                    <dt className="text-slate-400">{detail.label}</dt>
+                    <dd className="break-all">{detail.value}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           )}
           <button
@@ -441,6 +483,7 @@ export function WalkthroughLayer(props: {
           floorId={props.floorId}
           onFloor={props.onFloor}
           originY={originY}
+          role={props.role ?? 'visitor'}
           session={session}
         />
       </CollisionWorld>
