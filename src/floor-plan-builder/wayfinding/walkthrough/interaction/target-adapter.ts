@@ -73,14 +73,34 @@ export function createWalkInteractionTargets(
   const floorY = floor.source.heightOffset + originY;
   return floor.objects
     .filter((object) => object.recipe !== 'avatar')
-    .map((object) => ({
-      id: `instance:${floorId}:${object.id}`,
-      targetId: object.id,
-      targetKind: 'authored-instance' as const,
-      actions: [{ kind: 'inspect' as const, label: 'Inspect' }],
-      radiusM: 2.25,
-      infoDwellMs: 350,
-      position: [object.position[0], floorY + Math.max(0.5, object.dimensions[1] / 2), object.position[1]] as const,
-      details: detailsForObject(object, floorId, role),
-    }));
+    .map((object) => {
+      const target: AdaptedWalkTarget = {
+        id: `instance:${floorId}:${object.id}`,
+        targetId: object.id,
+        targetKind: 'authored-instance',
+        actions: [
+          { kind: 'inspect', label: 'Inspect' },
+          ...(object.recipe === 'food-kiosk'
+            ? [{ kind: 'use' as const, label: 'Join local queue', capability: 'join-local-queue', commits: true, requiresConfirmation: true }]
+            : []),
+          ...(object.recipe === 'elevator' && object.portalId.trim()
+            ? [{ kind: 'use' as const, label: 'Open elevator doors at the authored cabin stop', capability: 'call-elevator', commits: true, requiresConfirmation: true }]
+            : []),
+        ],
+        radiusM: 2.25,
+        infoDwellMs: 350,
+        position: [
+          object.position[0],
+          floorY + (object.recipe === 'elevator'
+            ? (object.circulationDesign?.cabinLevel === 'upper' ? object.dimensions[1] : 0) + 1
+            : Math.min(1.2, Math.max(0.5, object.dimensions[1] / 2))),
+          object.position[1],
+        ],
+        details: detailsForObject(object, floorId, role),
+      };
+      if (object.recipe === 'entrance' && object.entranceGate === 'arch-sliding-doors' && object.entranceOpen) {
+        target.proximityEffect = { kind: 'reversible-door', openOnEnter: true, closeOnExit: true };
+      }
+      return target;
+    });
 }

@@ -20,6 +20,9 @@ import { ProximityInteractionRuntime } from './interaction/proximity.ts';
 import { createWalkInteractionTargets } from './interaction/target-adapter.ts';
 import type { InteractionState } from './contracts.ts';
 import { InteractionPrompt } from './ui/InteractionPrompt.tsx';
+import { proximityDoors } from '../game/door-state.ts';
+import type { WalkUseHandlerPolicy } from './foundation/role-policy.ts';
+import { circulationDesign } from '../../model/circulation.ts';
 import { advanceFollower, type Follower } from './follower.ts';
 import { connectorRecordForLeg, resolveConnectorTraversal } from './connectors/connector-runtime.ts';
 
@@ -82,8 +85,12 @@ function Runtime({
     mode = usePlaybackStore((state) => state.mode),
     message = usePlaybackStore((state) => state.message);
   const activeFloor = usePlaybackStore((state) => state.snapshot.floorId);
+  const invalidate = useThree((state) => state.invalidate);
   const [interactionState, setInteractionState] = useState<InteractionState>({ status: 'idle' });
   const [inspectedTargetId, setInspectedTargetId] = useState<string | null>(null);
+  const [joinedQueueIds, setJoinedQueueIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [calledElevatorIds, setCalledElevatorIds] = useState<ReadonlySet<string>>(() => new Set());
+  const autoPausedForUse = useRef(false);
   const interactionTargets = useMemo(
     () => createWalkInteractionTargets(document, floorId, originY, role),
     [document, floorId, originY, role],
@@ -92,11 +99,56 @@ function Runtime({
     () => new ProximityInteractionRuntime({
       role,
       targets: interactionTargets,
+      handlers: [{
+        capability: 'join-local-queue',
+        handlerId: 'walkthrough.local-queue.v1',
+        commits: true,
+        execute: ({ target }) => {
+          setJoinedQueueIds((current) => new Set(current).add(target.targetId));
+        },
+      }, {
+        capability: 'call-elevator',
+        handlerId: 'walkthrough.elevator-call.v1',
+        commits: true,
+        execute: ({ target }) => {
+          const elevator = document.floors.flatMap((floor) => floor.objects).find((object) => object.id === target.targetId);
+          if (!elevator || elevator.recipe !== 'elevator' || !elevator.portalId.trim()) {
+            throw new Error('This elevator is not linked to a portal in the current document.');
+          }
+          if (runtime.connector) {
+            throw new Error('The walkthrough is already traversing a connector; finish that transition before calling an elevator.');
+          }
+          const design = circulationDesign(elevator);
+          runtime.connector = {
+            portalId: elevator.portalId,
+            cabinY: design.cabinLevel === 'upper' ? elevator.dimensions[1] : 0,
+            open: 1,
+          };
+          setCalledElevatorIds((current) => new Set(current).add(elevator.id));
+          invalidate();
+        },
+      }] satisfies WalkUseHandlerPolicy[],
       onInspect: (target) => setInspectedTargetId(target.id),
-      onState: setInteractionState,
+      onDoorEffect: (target, open) => {
+        if (open) {proximityDoors.add(target.targetId);}
+        else {proximityDoors.delete(target.targetId);}
+        invalidate();
+      },
+      onState: (nextState) => {
+        setInteractionState(nextState);
+        const playback = usePlaybackStore.getState();
+        if (nextState.status === 'confirmation-required' && playback.status === 'playing') {
+          autoPausedForUse.current = true;
+          playback.toggle();
+        } else if (autoPausedForUse.current && nextState.status !== 'committing') {
+          autoPausedForUse.current = false;
+          if (playback.status === 'paused') {playback.toggle();}
+        }
+      },
     }),
-    [role, interactionTargets],
+    [role, interactionTargets, invalidate],
   );
+  useEffect(() => () => interactionRuntime.clear(), [interactionRuntime]);
   const inspectedTarget = interactionTargets.find((target) => target.id === inspectedTargetId);
   const clearance = useCapsuleClearance();
   const connectorRecords = useMemo(
@@ -138,8 +190,7 @@ function Runtime({
   })), [runtime.path, connectorRecords, document, role, session.route.option, clearance, originY]);
   const camera = useThree((state) => state.camera);
   const get = useThree((state) => state.get),
-    setFrameloop = useThree((state) => state.setFrameloop),
-    invalidate = useThree((state) => state.invalidate);
+    setFrameloop = useThree((state) => state.setFrameloop);
   const pending = useRef(false),
     pendingMove = useRef<null | (
       | { kind: 'route'; intent: ReturnType<typeof steerRoute>; from: [number, number, number] }
@@ -159,6 +210,7 @@ function Runtime({
       state.setMode(state.mode === 'first' ? 'chase' : 'first');
     },
     () => {
+      autoPausedForUse.current = false;
       const state = usePlaybackStore.getState();
       if (state.status === 'playing') {state.toggle();}
     },
@@ -521,6 +573,11 @@ function Runtime({
             runtime={interactionRuntime}
             target={interactionRuntime.target}
             state={interactionState}
+            statusMessage={interactionRuntime.target && joinedQueueIds.has(interactionRuntime.target.targetId)
+              ? "Joined this walkthrough's local kiosk queue. No external reservation was created."
+              : interactionRuntime.target && calledElevatorIds.has(interactionRuntime.target.targetId)
+                ? 'Elevator doors are open at the authored cabin stop for this walkthrough session; the cabin was not moved.'
+              : undefined}
           />
           {interactionRuntime.target?.id === inspectedTargetId && inspectedTarget && (
             <div className="pointer-events-auto basis-full rounded-lg border border-white/15 bg-slate-950/95 p-3 text-sm text-white shadow-lg">
@@ -554,6 +611,7 @@ function Runtime({
             disabled={status === 'arrived'}
             onClick={(event) => {
               event.stopPropagation();
+              autoPausedForUse.current = false;
               usePlaybackStore.getState().toggle();
             }}
           >

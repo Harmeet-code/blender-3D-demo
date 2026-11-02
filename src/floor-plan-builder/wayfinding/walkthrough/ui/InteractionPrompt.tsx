@@ -5,10 +5,12 @@ export function InteractionPrompt({
   runtime,
   target,
   state,
+  statusMessage,
 }: {
   runtime: ProximityInteractionRuntime;
   target: InteractionTarget | null;
   state: InteractionState;
+  statusMessage?: string;
 }) {
   if (!target) {return null;}
   const busy = runtime.isBusy || state.status === 'committing';
@@ -39,6 +41,7 @@ export function InteractionPrompt({
     >
       <div className="font-semibold">{target.targetId}</div>
       <div role="status" className="mt-1 text-slate-300">{message}</div>
+      {statusMessage && <div role="status" className="mt-1 text-emerald-200">{statusMessage}</div>}
       {state.status === 'info' && <div className="mt-2 text-slate-200">Select an action to inspect or use this item.</div>}
       {unavailable && <div className="mt-2 text-amber-200">{unavailable}</div>}
       <div className="mt-3 flex flex-wrap gap-2">
