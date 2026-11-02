@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Switch } from '@/components/ui/switch';
@@ -17,6 +18,11 @@ export function WalkProductControls({
   const mode = usePlaybackStore((state) => state.mode);
   const speed = usePlaybackStore((state) => state.speed);
   const comfort = usePlaybackStore((state) => state.comfort);
+  useEffect(() => {
+    if (session && mode === 'overview') {
+      usePlaybackStore.getState().setMode('first');
+    }
+  }, [session, mode]);
   if (!session) return null;
 
   const walking = status === 'playing';
@@ -48,10 +54,9 @@ export function WalkProductControls({
         </Field>
         <Field>
           <FieldLabel htmlFor="walk-view">Camera view</FieldLabel>
-          <select id="walk-view" value={mode} onChange={(event) => usePlaybackStore.getState().setMode(event.target.value as 'overview' | 'chase' | 'first')}>
+          <select id="walk-view" value={mode === 'chase' ? 'chase' : 'first'} onChange={(event) => usePlaybackStore.getState().setMode(event.target.value as 'chase' | 'first')}>
             <option value="first">First person</option>
             <option value="chase">Third person</option>
-            <option value="overview">Overview</option>
           </select>
         </Field>
         <Field>

@@ -24,6 +24,7 @@ import { ViewportCameraPersistence } from '../../components/ViewportCameraPersis
 
 import { useWayfindingStore, selectActiveResult } from '../store/wayfinding-store.ts';
 import type { WalkableZone } from '../model/zone-schema.ts';
+import type { Role } from '../walkthrough/contracts.ts';
 import type { Point2 } from '../navigation/input-builder.ts';
 
 type Scenario =
@@ -158,6 +159,7 @@ function FloorTap({ onPick }: { onPick: (point: Point2) => void }) {
 }
 
 export default function WayfindingPreview() {
+  const [walkRole, setWalkRole] = useState<Role>('visitor');
   const [scenario, setScenario] = useState<Scenario>(() => {
     const requested = new URLSearchParams(window.location.search).get('scenario');
     return [
@@ -541,6 +543,7 @@ export default function WayfindingPreview() {
               <WalkthroughLayer
                 document={document}
                 floorId={floor.source.id}
+                role={walkRole}
                 originY={-floor.source.heightOffset}
                 onFloor={(id) => {
                   const index = document.floors.findIndex((item) => item.source.id === id);
@@ -579,7 +582,12 @@ export default function WayfindingPreview() {
             clear={() => useWayfindingStore.getState().clear()}
           />
         </aside>
-        <PlaybackHUD document={document} lightingControls={true} />
+        <PlaybackHUD
+          document={document}
+          lightingControls={true}
+          role={walkRole}
+          onRoleChange={setWalkRole}
+        />
       </div>
       {cameraAudit && (
         <output className="bg-slate-900 px-5 py-1 text-xs text-emerald-300">
