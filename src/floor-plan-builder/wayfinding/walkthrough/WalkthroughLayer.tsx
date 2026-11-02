@@ -20,6 +20,41 @@ import { ProximityInteractionRuntime } from './interaction/proximity.ts';
 import { createWalkInteractionTargets } from './interaction/target-adapter.ts';
 import type { InteractionState } from './contracts.ts';
 import { InteractionPrompt } from './ui/InteractionPrompt.tsx';
+import { advanceFollower, type Follower } from './follower.ts';
+import { connectorRecordForLeg, resolveConnectorTraversal } from './connectors/connector-runtime.ts';
+import { CAPSULE_TOTAL_HEIGHT_M, CHARACTER_CONFIG } from './character-config.ts';
+
+function cloneFollowerFrame(value: Follower): Follower {
+  return {
+    ...value,
+    position: [...value.position], tangent: [...value.tangent], look: [...value.look], scratch: [...value.scratch],
+    ribbon: { ...value.ribbon }, connector: value.connector ? { ...value.connector } : null,
+  };
+}
+
+function commitFollowerFrame(target: Follower, next: Follower) {
+  target.leg = next.leg;
+  target.s = next.s;
+  target.distance = next.distance;
+  target.progress = next.progress;
+  target.ribbon = { ...next.ribbon };
+  target.speed = next.speed;
+  target.yaw = next.yaw;
+  target.yawVelocity = next.yawVelocity;
+  target.position = [...next.position];
+  target.tangent = [...next.tangent];
+  target.look = [...next.look];
+  target.scratch = [...next.scratch];
+  target.elapsed = next.elapsed;
+  target.gaitDistance = next.gaitDistance;
+  target.phase = next.phase;
+  target.arrived = next.arrived;
+  target.arrivalTime = next.arrivalTime;
+  target.floorId = next.floorId;
+  target.seekVersion = next.seekVersion;
+  target.lastSeek = next.lastSeek;
+  target.connector = next.connector ? { ...next.connector } : null;
+}
 
 function Runtime({
   session,
@@ -64,6 +99,56 @@ function Runtime({
     [role, interactionTargets],
   );
   const clearance = useCapsuleClearance();
+  const connectorRecords = useMemo(
+    () => runtime.path.legs.flatMap((leg) => {
+      const record = connectorRecordForLeg(leg, document);
+      return record ? [record] : [];
+    }),
+    [runtime.path, document],
+  );
+  const connectorPoint = (point: readonly [number, number, number]): [number, number, number] => [point[0], point[1] + originY, point[2]];
+  const connectorPlans = useMemo(() => new Map(runtime.path.legs.flatMap((leg, index) => {
+    if (leg.kind === 'walk') return [];
+    const record = connectorRecords.find((item) => item.id === leg.connector?.id && item.portalId === leg.connector?.portalId);
+    if (!record || !leg.toFloorId) return [];
+    const resolution = resolveConnectorTraversal({
+      record,
+      portalId: record.portalId,
+      fromFloorId: leg.floorId,
+      toFloorId: leg.toFloorId,
+      role,
+      accessibleOnly: session.route.option === 'accessible',
+      validatePathBinding: (path, portalId) => {
+        const portal = document.baseline.portals.find((item) => item.id === portalId);
+        const instance = document.floors.flatMap((floor) => floor.objects).find((object) => object.id === path.authoredInstanceId);
+        return !!portal && portal.type === leg.kind && portal.connects.includes(leg.floorId) && portal.connects.includes(leg.toFloorId) &&
+          !!instance && instance.id === record.id && instance.portalId === portal.id && instance.recipe === leg.kind;
+      },
+      validateSweep: (from, to) => clearance.validateConnectorSweep(record.id, connectorPoint(from), connectorPoint(to), CHARACTER_CONFIG),
+      validateEndpoint: (floorId, feet) => clearance.validateConnectorEndpoint(record.id, floorId, connectorPoint(feet), CHARACTER_CONFIG),
+      validateElevatorRide: (_from, _to) => {
+        if (leg.kind !== 'elevator' || !leg.connector || leg.points.length !== 4) return { clear: false, continuous: false, reason: 'Elevator cabin path is incomplete.' };
+        const [width, , depth] = leg.connector.dimensions;
+        // CirculationObject's cabin deck is [w - .35, .06, d - .35] at y=.03;
+        // its roof spans y=2.36..2.44, leaving 2.30 m of clear interior height.
+        const halfWidth = (width * leg.connector.scale[0] - 0.35) / 2;
+        const halfDepth = (depth * leg.connector.scale[2] - 0.35) / 2;
+        if (halfWidth < CHARACTER_CONFIG.radiusM || halfDepth < CHARACTER_CONFIG.radiusM || CAPSULE_TOTAL_HEIGHT_M > 2.3) {
+          return { clear: false, continuous: false, reason: 'The authored elevator cabin cannot contain the walkthrough capsule.' };
+        }
+        const a = leg.points[0]!;
+        const inside = leg.points[1]!;
+        const upper = leg.points[2]!;
+        const b = leg.points[3]!;
+        for (const [start, end] of [[a, inside], [inside, upper], [upper, b]] as const) {
+          const result = clearance.validateConnectorSweep(record.id, connectorPoint(start), connectorPoint(end), CHARACTER_CONFIG);
+          if (!result.clear) return { clear: false, continuous: false, reason: result.reason };
+        }
+        return { clear: true, continuous: true };
+      },
+    });
+    return [[index, resolution] as const];
+  })), [runtime.path, connectorRecords, document, role, session.route.option, clearance, originY]);
   const camera = useThree((state) => state.camera);
   const get = useThree((state) => state.get),
     setFrameloop = useThree((state) => state.setFrameloop),
@@ -72,6 +157,7 @@ function Runtime({
     pendingMove = useRef<null | (
       | { kind: 'route'; intent: ReturnType<typeof steerRoute>; from: [number, number, number] }
       | { kind: 'manual'; from: [number, number, number]; displacement: [number, number, number]; yaw: number; speed: number }
+      | { kind: 'connector'; connectorId: string; from: [number, number, number]; displacement: [number, number, number]; next: Follower }
     )>(null),
     smoothedPath = useRef(false),
     velocity = useRef(0),
@@ -195,7 +281,7 @@ function Runtime({
     const [dx, dy, dz] = result.displacement;
     const travelled = Math.hypot(dx, dy, dz);
     runtime.position = [runtime.position[0] + dx, runtime.position[1] + dy, runtime.position[2] + dz];
-    runtime.gaitDistance += Math.hypot(dx, dz);
+    if (queued?.kind !== 'connector') runtime.gaitDistance += Math.hypot(dx, dz);
     if (queued?.kind === 'route') {
       const { intent, from } = queued;
       const displacementError = Math.hypot(
@@ -219,6 +305,22 @@ function Runtime({
         runtime.floorId = leg.floorId;
         runtime.phase = intent.arrived ? 'Arrived' : 'Walking';
         runtime.arrived = intent.arrived;
+      }
+    } else if (queued?.kind === 'connector') {
+      const error = Math.hypot(
+        dx - queued.displacement[0],
+        dy - queued.displacement[1],
+        dz - queued.displacement[2],
+      );
+      if (error > 0.025) {
+        runtime.position = [...queued.from];
+        usePlaybackStore.getState().fail('Connector traversal stopped because capsule physics rejected the validated movement.');
+      } else {
+        commitFollowerFrame(runtime, queued.next);
+        runtime.position = [queued.from[0] + dx, queued.from[1] + dy, queued.from[2] + dz];
+        runtime.distance = queued.next.distance;
+        runtime.progress = queued.next.progress;
+        runtime.ribbon.progress = queued.next.ribbon.progress;
       }
     } else if (queued?.kind === 'manual') {
       const planned = Math.hypot(...queued.displacement);
@@ -248,7 +350,26 @@ function Runtime({
       if (!leg) {
         state.fail('The route has no remaining walk leg.');
       } else if (leg.kind !== 'walk') {
-        state.fail(`Physical ${leg.kind} traversal is not yet bound to a validated connector trajectory.`);
+        const resolution = connectorPlans.get(runtime.leg);
+        if (!resolution || 'stage' in resolution) {
+          state.fail('Connector route is blocked: ' + (resolution && 'reason' in resolution ? resolution.reason : 'no authored connector geometry is linked to this portal.'));
+        } else {
+          const from: [number, number, number] = [...runtime.position];
+          const next = cloneFollowerFrame(runtime);
+          advanceFollower(next, dt * state.speed);
+          const displacement: [number, number, number] = [
+            next.position[0] - from[0], next.position[1] - from[1], next.position[2] - from[2],
+          ];
+          if (displacement.some((value) => Math.abs(value) > 1e-7)) {
+            pending.current = true;
+            pendingMove.current = { kind: 'connector', connectorId: resolution.connectorId, from, displacement, next };
+            capsule.current?.requestMove(displacement);
+          } else {
+            commitFollowerFrame(runtime, next);
+            invalidate();
+            state.publish(runtime);
+          }
+        }
       } else {
         const from: [number, number, number] = [...runtime.position];
         const intent = steerRoute({
@@ -280,7 +401,8 @@ function Runtime({
         }
       }
     } else if (state.status !== 'playing') {
-      const held = input.current;
+      // The authored elevator cabin path owns passenger movement; paused auto-walk cannot steer out into the shaft.
+      const held = runtime.connector ? { forward: 0, strafe: 0, sprint: false } : input.current;
       camera.getWorldDirection(forward);
       forward.y = 0;
       if (forward.lengthSq() < 1e-8) forward.set(-Math.sin(runtime.yaw), 0, -Math.cos(runtime.yaw));
@@ -361,7 +483,12 @@ function Runtime({
       <KinematicCapsule
         ref={capsule}
         feetPosition={[runtime.position[0], runtime.position[1] + originY, runtime.position[2]]}
-        validateSweep={(from, to) => clearance.validateSweep(from, to, CHARACTER_CONFIG).clear}
+        validateSweep={(from, to) => {
+          const queued = pendingMove.current;
+          return queued?.kind === 'connector'
+            ? clearance.validateConnectorSweep(queued.connectorId, from, to, CHARACTER_CONFIG).clear
+            : clearance.validateSweep(from, to, CHARACTER_CONFIG).clear;
+        }}
         onResolvedMove={onResolvedMove}
       >
         <group ref={root} name="WalkthroughAvatar" raycast={() => {}}>
@@ -392,6 +519,11 @@ function Runtime({
           {message && (
             <div role="status" className="pointer-events-auto basis-full rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow">
               {message}
+            </div>
+          )}
+          {runtime.connector && (
+            <div role="status" aria-live="polite" className="pointer-events-auto basis-full rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow">
+              Elevator: {runtime.phase}
             </div>
           )}
           <InteractionPrompt
@@ -462,6 +594,13 @@ export function WalkthroughLayer(props: {
   roleAreas?: readonly import('./collision/capsule-clearance.ts').RoleAreaPolicy[];
 }) {
   const session = usePlaybackStore((state) => state.session);
+  const connectorRecords = useMemo(
+    () => session?.runtime.path.legs.flatMap((leg) => {
+      const record = connectorRecordForLeg(leg, session.document);
+      return record ? [record] : [];
+    }) ?? [],
+    [session?.runtime.path, session?.document],
+  );
   const floor = props.document.floors.find((item) => item.source.id === props.floorId);
   const originY = props.originY ?? 0;
   const collisionFloor = useMemo(
@@ -476,7 +615,14 @@ export function WalkthroughLayer(props: {
   if (!floor || !collisionFloor) return null;
   const runtime = (
     <Physics timeStep={1 / 60} updateLoop="independent">
-      <CollisionWorld floor={collisionFloor} role={props.role ?? 'visitor'} roleAreas={props.roleAreas}>
+      <CollisionWorld
+        floor={collisionFloor}
+        role={props.role ?? 'visitor'}
+        roleAreas={props.roleAreas}
+        connectors={connectorRecords}
+        connectorFloors={session.document.floors}
+        originY={originY}
+      >
         <Runtime
           key={session.generation}
           document={props.document}

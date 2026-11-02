@@ -1,5 +1,10 @@
 ﻿import type { Point3 } from '../collision/capsule-clearance.ts';
 
+import { circulationDesign, circulationLandings, circulationMetrics, circulationSpans } from '../../../model/circulation.ts';
+import type { PlanDocument } from '../../../model/types.ts';
+import type { MotionLeg } from '../path.ts';
+import { objectPoints } from '../../../model/geometry.ts';
+
 export type PhysicalConnectorKind = 'stairs' | 'ramp' | 'elevator' | 'escalator';
 export type ConnectorPoint = readonly [number, number, number];
 
@@ -18,6 +23,10 @@ export interface ConnectorPath {
   /** Geometry evidence that binds this path to an authored instance. */
   authoredInstanceId: string;
   source: 'document' | 'existing-asset-metadata';
+  /** Stair tread top polygons derived from the document's circulation spans. */
+  treads?: readonly { polygon: readonly (readonly [number, number])[]; y: number }[];
+  /** Flat landing top polygons derived from the procedural circulation layout. */
+  landings?: readonly { polygon: readonly (readonly [number, number])[]; y: number }[];
 }
 
 export interface ConnectorRecord {
@@ -34,6 +43,85 @@ export interface ConnectorRecord {
   /** Elevator wait/door timings and escalator passenger-belt speed are authored/runtime policy inputs. */
   transferSeconds?: number;
   speedMps?: number;
+}
+
+/** Map the floor-plan's authored circulation geometry into the traversal contract. */
+export function connectorRecordForLeg(leg: MotionLeg, document: PlanDocument): ConnectorRecord | null {
+  const object = leg.connector;
+  if (!object || !leg.toFloorId || !object.portalId ||
+      (leg.kind !== 'stairs' && leg.kind !== 'ramp' && leg.kind !== 'elevator' && leg.kind !== 'escalator') ||
+      leg.points.length < 2) return null;
+  const portal = document.baseline.portals.find((item) => item.id === object.portalId);
+  if (!portal || portal.type !== leg.kind || !portal.connects.includes(leg.floorId) || !portal.connects.includes(leg.toFloorId)) return null;
+  const design = circulationDesign(object);
+  const metrics = circulationMetrics(object);
+  const first = leg.points[0]!;
+  const second = leg.points[1]!;
+  const last = leg.points.at(-1)!;
+  const beforeLast = leg.points.at(-2)!;
+  const stops: ConnectorStop[] = [
+    { floorId: leg.floorId, entry: first, yawRadians: Math.atan2(second[0] - first[0], second[2] - first[2]) },
+    { floorId: leg.toFloorId, entry: last, yawRadians: Math.atan2(last[0] - beforeLast[0], last[2] - beforeLast[2]) },
+  ];
+  const transferSeconds = leg.kind === 'elevator' ? elevatorDuration(leg) : undefined;
+  const elevatorCabinFits = leg.kind !== 'elevator' || (
+    object.dimensions[0] * object.scale[0] - 0.35 >= 0.6 &&
+    object.dimensions[2] * object.scale[2] - 0.35 >= 0.6
+  );
+  return {
+    id: object.id,
+    portalId: object.portalId,
+    kind: leg.kind,
+    stops,
+    ...(leg.kind === 'elevator' ? {} : { path: {
+      points: leg.points,
+      widthM: metrics.clearWidth * object.scale[0],
+      authoredInstanceId: object.id,
+      source: 'document' as const,
+      ...(leg.kind === 'stairs' ? { treads: leg.treads, landings: stairLandingSurfaces(object, leg.baseY) } : {}),
+    } }),
+    accessible: metrics.accessible,
+    enabled: elevatorCabinFits && ((leg.kind !== 'elevator' && leg.kind !== 'escalator') || design.running),
+    ...(transferSeconds === undefined ? {} : { transferSeconds }),
+    speedMps: leg.speed,
+  };
+}
+
+function stairLandingSurfaces(object: NonNullable<MotionLeg['connector']>, baseY: number) {
+  const metrics = circulationMetrics(object);
+  const landings = circulationLandings(object).map((landing) => ({
+    center: landing.localPosition,
+    width: landing.clearZone[0],
+    depth: landing.clearZone[1],
+  }));
+  const spans = circulationSpans(object);
+  if (circulationDesign(object).layout === 'switchback') {
+    spans.slice(0, -1).forEach((span) => landings.push({
+      center: [0, span.y1, (span.to + metrics.depth / 2) / 2],
+      width: metrics.width,
+      depth: metrics.depth / 2 - span.to,
+    }));
+  }
+  return landings.filter((landing) => landing.width > 0 && landing.depth > 0).map((landing) => ({
+    polygon: objectPoints(object, [
+      [landing.center[0] - landing.width / 2, landing.center[2] - landing.depth / 2],
+      [landing.center[0] + landing.width / 2, landing.center[2] - landing.depth / 2],
+      [landing.center[0] + landing.width / 2, landing.center[2] + landing.depth / 2],
+      [landing.center[0] - landing.width / 2, landing.center[2] + landing.depth / 2],
+    ]),
+    y: baseY + landing.center[1] * object.scale[1],
+  }));
+}
+
+function elevatorDuration(leg: MotionLeg): number {
+  if (leg.points.length !== 4 || !leg.connector) return 0;
+  const [a, inside, upper, b] = leg.points;
+  if (!a || !inside || !upper || !b) return 0;
+  const distance3 = (p: ConnectorPoint, q: ConnectorPoint) => Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
+  const sourceY = a[1] - leg.baseY;
+  const initialY = circulationDesign(leg.connector).cabinLevel === 'upper' ? leg.connector.dimensions[1] : 0;
+  const call = Math.abs(initialY - sourceY) > 0.01 ? 1.2 + Math.abs(initialY - sourceY) / 1.5 : 0;
+  return call + 3.6 + distance3(a, inside) / 1.2 + distance3(inside, upper) / 1.5 + distance3(upper, b) / 1.2;
 }
 
 export type ConnectorStage =

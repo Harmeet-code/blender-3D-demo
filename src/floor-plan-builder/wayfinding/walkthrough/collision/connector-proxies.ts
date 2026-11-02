@@ -34,6 +34,34 @@ export function createConnectorSurfaceProxy(record: ConnectorRecord, capsuleDiam
   if ((record.kind !== 'stairs' && record.kind !== 'ramp' && record.kind !== 'escalator') || !path || path.points.length < 2 || !path.points.every(finitePoint) || !Number.isFinite(path.widthM) || path.widthM < capsuleDiameterM || !path.authoredInstanceId?.trim() || (path.source !== 'document' && path.source !== 'existing-asset-metadata')) {
     return { supported: false, connectorId: record.id, reason: 'No usable authored connector path and width are available.' };
   }
+  if (record.kind === 'stairs') {
+    const treads = path.treads;
+    const surfaces = [...(treads ?? []), ...(path.landings ?? [])];
+    if (!treads?.length || surfaces.some((tread) => tread.polygon.length !== 4 || !Number.isFinite(tread.y) || tread.polygon.some((point) => point.length !== 2 || !point.every(Number.isFinite)))) {
+      return { supported: false, connectorId: record.id, reason: 'Stairs require authored tread polygons and elevations.' };
+    }
+    const vertices = new Float32Array(surfaces.length * 12);
+    const indices = new Uint32Array(surfaces.length * 6);
+    for (let i = 0; i < surfaces.length; i++) {
+      const tread = surfaces[i]!;
+      for (let vertex = 0; vertex < 4; vertex++) {
+        const point = tread.polygon[vertex]!;
+        const offset = (i * 4 + vertex) * 3;
+        vertices[offset] = point[0];
+        vertices[offset + 1] = tread.y;
+        vertices[offset + 2] = point[1];
+      }
+      const base = i * 4;
+      const offset = i * 6;
+      indices[offset] = base;
+      indices[offset + 1] = base + 1;
+      indices[offset + 2] = base + 2;
+      indices[offset + 3] = base;
+      indices[offset + 4] = base + 2;
+      indices[offset + 5] = base + 3;
+    }
+    return { supported: true, proxy: { connectorId: record.id, authoredInstanceId: path.authoredInstanceId, kind: 'stairs', vertices, indices } };
+  }
   const directions: Array<[number, number]> = [];
   for (let i = 0; i < path.points.length - 1; i++) {
     const a = path.points[i]!;
@@ -44,26 +72,35 @@ export function createConnectorSurfaceProxy(record: ConnectorRecord, capsuleDiam
     if (length <= 1e-8) return { supported: false, connectorId: record.id, reason: `Path has duplicate or vertically aligned samples at segment ${i}.` };
     directions.push([dx / length, dz / length]);
   }
-  // Reject near reversals: their offset edges cross and cannot form a valid ribbon.
-  for (let i = 1; i < directions.length; i++) {
-    const [ax, az] = directions[i - 1]!;
-    const [bx, bz] = directions[i]!;
-    if (ax * bx + az * bz < -0.95) return { supported: false, connectorId: record.id, reason: `Path reverses direction too sharply at sample ${i}.` };
-  }
   const vertices = new Float32Array(path.points.length * 2 * 3);
   for (let i = 0; i < path.points.length; i++) {
     const p = path.points[i]!;
-    const before = path.points[Math.max(0, i - 1)]!;
-    const after = path.points[Math.min(path.points.length - 1, i + 1)]!;
-    const dx = after[0] - before[0];
-    const dz = after[2] - before[2];
-    const horizontalLength = Math.hypot(dx, dz);
-    if (horizontalLength <= 1e-8) {
-      return { supported: false, connectorId: record.id, reason: `Path has no horizontal direction at sample ${i}.` };
-    }
     const halfWidth = path.widthM / 2;
-    const sideX = -dz / horizontalLength * halfWidth;
-    const sideZ = dx / horizontalLength * halfWidth;
+    const beforeIndex = Math.max(0, i - 1);
+    const afterIndex = Math.min(path.points.length - 1, i + 1);
+    const previous = directions[Math.max(0, i - 1)]!;
+    const next = directions[Math.min(directions.length - 1, i)]!;
+    const previousNormal: [number, number] = [-previous[1], previous[0]];
+    const nextNormal: [number, number] = [-next[1], next[0]];
+    let sideX: number;
+    let sideZ: number;
+    if (beforeIndex === i || afterIndex === i) {
+      const normal = beforeIndex === i ? nextNormal : previousNormal;
+      sideX = normal[0] * halfWidth;
+      sideZ = normal[1] * halfWidth;
+    } else {
+      const mx = previousNormal[0] + nextNormal[0];
+      const mz = previousNormal[1] + nextNormal[1];
+      const miterLength = Math.hypot(mx, mz);
+      if (miterLength <= 1e-8) return { supported: false, connectorId: record.id, reason: `Path reverses direction at sample ${i}.` };
+      const miterX = mx / miterLength;
+      const miterZ = mz / miterLength;
+      const denominator = miterX * nextNormal[0] + miterZ * nextNormal[1];
+      if (Math.abs(denominator) < 0.2) return { supported: false, connectorId: record.id, reason: `Path turn is too tight for a capsule-width surface at sample ${i}.` };
+      const miterScale = halfWidth / denominator;
+      sideX = miterX * miterScale;
+      sideZ = miterZ * miterScale;
+    }
     const offset = i * 6;
     vertices[offset] = p[0] - sideX;
     vertices[offset + 1] = p[1];

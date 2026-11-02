@@ -2,7 +2,10 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { RigidBody, TrimeshCollider } from '@react-three/rapier';
 import { ShapeUtils, Vector2 } from 'three';
 import type { PlanFloor } from '@/floor-plan-builder/model/types.ts';
+import type { ConnectorRecord } from '../connectors/connector-runtime.ts';
+import { createConnectorSurfaceProxy } from './connector-proxies.ts';
 import type { Role } from '../contracts.ts';
+import { CAPSULE_TOTAL_HEIGHT_M, CHARACTER_CONFIG } from '../character-config.ts';
 import {
   buildCollisionMap,
   isValidCollisionPolygon,
@@ -19,6 +22,8 @@ interface CollisionWorldValue {
   map: CollisionMap;
   validateSweep(fromFeet: Point3, toFeet: Point3, profile?: CapsuleProfile): ClearanceResult;
   validateEndpoint(feet: Point3, profile?: CapsuleProfile): ClearanceResult;
+  validateConnectorSweep(connectorId: string, fromFeet: Point3, toFeet: Point3, profile?: CapsuleProfile): ClearanceResult;
+  validateConnectorEndpoint(connectorId: string, floorId: string, feet: Point3, profile?: CapsuleProfile): ClearanceResult;
 }
 
 const CollisionWorldContext = createContext<CollisionWorldValue | null>(null);
@@ -52,6 +57,11 @@ export interface CollisionWorldProps {
   role: Role;
   /** Optional role-restricted areas supplied by the role-policy adapter. */
   roleAreas?: readonly RoleAreaPolicy[];
+  /** Connector instances are excluded from obstacle prisms and represented by their authored walk surfaces. */
+  connectors?: readonly ConnectorRecord[];
+  /** All stacked floors, in the same rebased physics frame as `floor`. */
+  connectorFloors?: readonly PlanFloor[];
+  originY?: number;
   children?: ReactNode;
 }
 
@@ -59,8 +69,27 @@ export interface CollisionWorldProps {
  * Builder-local fixed Rapier proxies plus the shared conservative capsule clearance gate.
  * Must be mounted below the existing `Physics` provider and around the single moving capsule.
  */
-export function CollisionWorld({ floor, role, roleAreas = [], children }: CollisionWorldProps) {
-  const sourceMap = useMemo(() => buildCollisionMap(floor, roleAreas), [floor, roleAreas]);
+export function CollisionWorld({ floor, role, roleAreas = [], connectors = [], connectorFloors = [], originY = 0, children }: CollisionWorldProps) {
+  const connectorSurfaceResults = useMemo(
+    () => connectors.map((connector) => createConnectorSurfaceProxy(connector, CHARACTER_CONFIG.radiusM * 2)),
+    [connectors],
+  );
+  const connectorIds = useMemo(() => new Set(connectors.flatMap((connector) => {
+    const surface = connectorSurfaceResults.find((result) => result.connectorId === connector.id);
+    return connector.enabled && (connector.kind === 'elevator' || surface?.supported) ? [connector.id] : [];
+  })), [connectors, connectorSurfaceResults]);
+  const physicalFloor = useMemo(() => ({
+    ...floor,
+    objects: floor.objects.filter((object) => !connectorIds.has(object.id)),
+    source: floor.source.authoring ? {
+      ...floor.source,
+      authoring: {
+        ...floor.source.authoring,
+        instances: floor.source.authoring.instances?.filter((instance) => !connectorIds.has(instance.id)),
+      },
+    } : floor.source,
+  }), [floor, connectorIds]);
+  const sourceMap = useMemo(() => buildCollisionMap(physicalFloor, roleAreas), [physicalFloor, roleAreas]);
 
   const floorShape = useMemo(
     () => extrudedPolygon(sourceMap.boundary, sourceMap.floorY - 0.1, sourceMap.floorY),
@@ -70,6 +99,41 @@ export function CollisionWorld({ floor, role, roleAreas = [], children }: Collis
     id: item.id,
     shape: extrudedPolygon(item.polygon, item.minY, item.maxY),
   })), [sourceMap.obstacles, sourceMap.blockedAreas]);
+  const connectorSurfaceShapes = useMemo(() => connectorSurfaceResults.flatMap((result) => result.supported && connectors.find((item) => item.id === result.proxy.connectorId)?.enabled
+    ? [{ id: result.proxy.connectorId, shape: { vertices: result.proxy.vertices, indices: result.proxy.indices } }]
+    : []), [connectorSurfaceResults, connectors]);
+  const connectorMaps = useMemo(() => (connectorFloors.length ? connectorFloors : [floor]).map((item) => {
+    const adjusted = originY ? { ...item, source: { ...item.source, heightOffset: item.source.heightOffset + originY } } : item;
+    return { floor: adjusted, map: buildCollisionMap({
+      ...adjusted,
+      objects: adjusted.objects.filter((object) => !connectorIds.has(object.id)),
+      source: adjusted.source.authoring ? { ...adjusted.source, authoring: {
+        ...adjusted.source.authoring,
+        instances: adjusted.source.authoring.instances?.filter((instance) => !connectorIds.has(instance.id)),
+      } } : adjusted.source,
+    }, roleAreas) };
+  }), [connectorFloors, floor, originY, connectorIds, roleAreas]);
+  const connectorMap = useMemo<CollisionMap>(() => {
+    const maps = connectorMaps.map(({ map: item }) => item);
+    const boundaries = maps.flatMap((item) => item.boundary);
+    const xs = boundaries.map(([x]) => x), zs = boundaries.map(([, z]) => z);
+    const minX = xs.length ? Math.min(...xs) : -1, maxX = xs.length ? Math.max(...xs) : 1;
+    const minZ = zs.length ? Math.min(...zs) : -1, maxZ = zs.length ? Math.max(...zs) : 1;
+    const padding = Math.max(1, maxX - minX, maxZ - minZ);
+    const boundary: readonly (readonly [number, number])[] = [
+      [minX - padding, minZ - padding], [maxX + padding, minZ - padding],
+      [maxX + padding, maxZ + padding], [minX - padding, maxZ + padding],
+    ];
+    return {
+      floorId: sourceMap.floorId,
+      floorY: sourceMap.floorY,
+      boundary,
+      obstacles: maps.flatMap((item) => item.obstacles),
+      blockedAreas: maps.flatMap((item) => item.blockedAreas),
+      roleAreas: [],
+      unsupported: [],
+    };
+  }, [connectorMaps, sourceMap.floorId, sourceMap.floorY]);
   const map = useMemo<CollisionMap>(() => {
     const unsupported = [...sourceMap.unsupported];
     if (!floorShape) unsupported.push({ id: sourceMap.floorId, reason: 'Floor collision proxy could not be triangulated.' });
@@ -82,7 +146,30 @@ export function CollisionWorld({ floor, role, roleAreas = [], children }: Collis
     map,
     validateSweep: (from, to, profile) => validateCapsuleSweep(map, role, from, to, profile),
     validateEndpoint: (feet, profile) => validateCapsuleEndpoint(map, role, feet, profile),
-  }), [map, role]);
+    validateConnectorSweep: (connectorId, from, to, profile) => {
+      if (!connectorIds.has(connectorId)) return { clear: false, reason: 'Connector is not bound to this collision world.', blockerId: connectorId, source: 'unknown-geometry' };
+      const dimensions = profile ?? { radiusM: CHARACTER_CONFIG.radiusM, heightM: CAPSULE_TOTAL_HEIGHT_M };
+      const minY = Math.min(from[1], to[1]);
+      const maxY = Math.max(from[1], to[1]) + dimensions.heightM;
+      const relevant = connectorMaps.filter(({ map: item }) => item.floorY <= maxY && item.floorY + 0.1 >= minY);
+      const unsupported = relevant.flatMap(({ map: item }) => item.unsupported);
+      const surfaceResult = connectorSurfaceResults.find((result) => result.connectorId === connectorId);
+      if (surfaceResult && !surfaceResult.supported && connectors.find((item) => item.id === connectorId)?.kind !== 'elevator') {
+        unsupported.push({ id: connectorId, reason: surfaceResult.reason });
+      }
+      return validateCapsuleSweep({
+        ...connectorMap,
+        roleAreas: relevant.flatMap(({ map: item }) => item.roleAreas),
+        unsupported,
+      }, role, from, to, dimensions);
+    },
+    validateConnectorEndpoint: (connectorId, floorId, feet, profile) => {
+      if (!connectorIds.has(connectorId)) return { clear: false, reason: 'Connector is not bound to this collision world.', blockerId: connectorId, source: 'unknown-geometry' };
+      const mapForFloor = connectorMaps.find((item) => item.floor.source.id === floorId)?.map;
+      if (!mapForFloor) return { clear: false, reason: `Connector landing floor ${floorId} is unavailable.`, blockerId: floorId, source: 'unknown-geometry' };
+      return validateCapsuleEndpoint(mapForFloor, role, feet, profile);
+    },
+  }), [map, role, connectorIds, connectorMap, connectorMaps]);
 
   return (
     <CollisionWorldContext.Provider value={value}>
@@ -92,6 +179,11 @@ export function CollisionWorld({ floor, role, roleAreas = [], children }: Collis
           <TrimeshCollider key={id} args={[shape.vertices, shape.indices]} />
         ))}
       </RigidBody>
+      {connectorSurfaceShapes.length > 0 && <RigidBody type="fixed" colliders={false} position={[0, originY, 0]}>
+        {connectorSurfaceShapes.map(({ id, shape }) => (
+          <TrimeshCollider key={`connector-surface:${id}`} args={[shape.vertices, shape.indices]} />
+        ))}
+      </RigidBody>}
       {children}
     </CollisionWorldContext.Provider>
   );
