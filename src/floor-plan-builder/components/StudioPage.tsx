@@ -914,7 +914,7 @@ export default function StudioPage() {
     },
     [store],
   );
-  useWayfindingRoute(state.document, state.revision, wayfindingZones, notifyRoute);
+  useWayfindingRoute(state.document, state.revision, wayfindingZones, notifyRoute, walkRole);
   const saveExplicitly = useCallback(async () => {
     const draft = floorDraftController.current;
     if (draft?.hasDraft && draft.invalid) {

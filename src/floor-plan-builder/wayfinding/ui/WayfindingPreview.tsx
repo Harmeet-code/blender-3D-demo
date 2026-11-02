@@ -286,7 +286,7 @@ export default function WayfindingPreview() {
     }
     return ids;
   }, [active, floor]);
-  useWayfindingRoute(document, 0, zones, () => {});
+  useWayfindingRoute(document, 0, zones, () => {}, walkRole);
   const seedRequest = (nearBooth = false) =>
     setRequest({
       start: {
