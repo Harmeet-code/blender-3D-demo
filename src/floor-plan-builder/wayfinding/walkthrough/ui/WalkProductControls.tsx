@@ -68,9 +68,9 @@ export function WalkProductControls({
 
       <details>
         <summary className="cursor-pointer text-sm font-medium">Keyboard help</summary>
-        <p className="mt-2 text-sm text-muted-foreground">Space pauses or resumes · Left/Right arrows scrub · Esc exits the walkthrough. Manual movement is locked while auto-walk is active.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Space pauses or resumes · Left/Right arrows scrub · Esc stops auto-walk and returns control to free-walk. Exit walkthrough leaves walk mode.</p>
       </details>
-      <Button size="sm" variant="outline" onClick={() => usePlaybackStore.getState().exit()}>Exit walkthrough <kbd className="ml-2 rounded border px-1">Esc</kbd></Button>
+      <Button size="sm" variant="outline" onClick={() => usePlaybackStore.getState().exit()}>Exit walkthrough</Button>
     </section>
   );
 }
