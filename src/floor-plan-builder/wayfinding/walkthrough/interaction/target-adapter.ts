@@ -79,7 +79,7 @@ export function createWalkInteractionTargets(
       targetKind: 'authored-instance' as const,
       actions: [{ kind: 'inspect' as const, label: 'Inspect' }],
       radiusM: 2.25,
-      infoDwellMs: 450,
+      infoDwellMs: 350,
       position: [object.position[0], floorY + Math.max(0.5, object.dimensions[1] / 2), object.position[1]] as const,
       details: detailsForObject(object, floorId, role),
     }));
