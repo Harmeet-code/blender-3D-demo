@@ -72,6 +72,7 @@ import { ProceduralObject } from './ProceduralObject.tsx';
 import { washRackRowConnections, type WashRackRowConnections } from '../model/wash-rack-spatial.ts';
 import { RouteVisuals } from '../wayfinding/rendering/RouteVisuals.tsx';
 import { GameScene } from '../wayfinding/game/GameScene.tsx';
+import type { Role } from '../wayfinding/walkthrough/contracts.ts';
 
 import { routeGhostIds } from '../wayfinding/rendering/route-ghost.ts';
 import { selectActiveResult, useWayfindingStore } from '../wayfinding/store/wayfinding-store.ts';
@@ -882,6 +883,7 @@ function ZoneMesh({
 export function FloorCanvas({
   store,
   view,
+  role = 'visitor',
   onInteract,
   onSelectionAnchor,
   onCustomizeObject,
@@ -894,6 +896,7 @@ export function FloorCanvas({
 }: {
   store: StudioStore;
   view: StudioView;
+  role?: Role;
   onInteract: () => void;
   onSelectionAnchor?: (
     anchor: { x: number; y: number; width: number; height: number } | null,
@@ -2879,6 +2882,7 @@ export function FloorCanvas({
               <WalkthroughLayer
                 document={state.document}
                 floorId={floor.source.id}
+                role={role}
                 onFloor={(id) => store.getState().setFloor(id)}
               />
             </PlaybackMotionProvider>

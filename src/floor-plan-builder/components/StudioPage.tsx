@@ -49,6 +49,7 @@ import { FloorCanvas } from './FloorCanvas.tsx';
 import { useWayfindingRoute } from '../wayfinding/navigation/use-wayfinding-route.ts';
 import { selectActiveResult, useWayfindingStore } from '../wayfinding/store/wayfinding-store.ts';
 import { usePlaybackStore } from '../wayfinding/store/playback-store.ts';
+import type { Role } from '../wayfinding/walkthrough/contracts.ts';
 import type { WalkableZone } from '../wayfinding/model/zone-schema.ts';
 import { BoothDetails, CameraHud, ViewOptions, useBoothTour } from './ViewerPanel.tsx';
 import { initialView } from '../model/view.ts';
@@ -763,6 +764,7 @@ export default function StudioPage() {
   const floor = activeFloor(state);
   const persistence = useMemo(() => new StudioPersistence(eventId, store), [eventId, store]);
   const [view, setView] = useState(() => ({ ...initialView, preview: router.route === 'preview' }));
+  const [walkRole, setWalkRole] = useState<Role>('visitor');
   const [selectedParkingBay, setSelectedParkingBay] = useState<{
     objectId: string;
     bayId: string;
@@ -1159,8 +1161,12 @@ export default function StudioPage() {
       if (view.preview) {
         if (event.key === 'Escape' && !isEditableTarget(event.target)) {
           event.preventDefault();
-          usePlaybackStore.getState().exit();
-          requestNavigation('builder');
+          const playback = usePlaybackStore.getState();
+          if (playback.session) {
+            if (playback.status === 'playing') playback.toggle();
+          } else {
+            requestNavigation('builder');
+          }
         }
         return;
       }
@@ -1681,6 +1687,7 @@ export default function StudioPage() {
             <FloorCanvas
               store={store}
               view={view}
+              role={walkRole}
               onSelectionAnchor={setActionAnchor}
               onCustomizeObject={openCustomize}
               onStableFrame={() => {
@@ -1932,6 +1939,8 @@ export default function StudioPage() {
                     document={state.document}
                     placement="sidebar"
                     lightingControls={false}
+                    role={walkRole}
+                    onRoleChange={setWalkRole}
                   />
                   <div className="fp-minimap-sidebar">
                     <Minimap floor={floor} placement="sidebar" />

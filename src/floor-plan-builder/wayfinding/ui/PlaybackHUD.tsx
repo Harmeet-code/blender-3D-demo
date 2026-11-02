@@ -8,10 +8,24 @@ import { isEditableTarget } from '../../model/shortcuts.ts';
 import { usePlaybackStore, routeKey } from '../store/playback-store.ts';
 import { selectActiveResult, useWayfindingStore } from '../store/wayfinding-store.ts';
 import { GameControls } from './GameControls.tsx';
+import { WalkProductControls } from '../walkthrough/ui/WalkProductControls.tsx';
+import type { Role } from '../walkthrough/contracts.ts';
 import { gsap } from 'gsap';
 
 /** DOM subscribes at 10 Hz; the follower and cameras never subscribe to these snapshots. */
-export function PlaybackHUD({ document, placement = 'overlay', lightingControls }: { document: PlanDocument; placement?: 'overlay' | 'sidebar'; lightingControls: boolean }) {
+export function PlaybackHUD({
+  document,
+  placement = 'overlay',
+  lightingControls,
+  role,
+  onRoleChange,
+}: {
+  document: PlanDocument;
+  placement?: 'overlay' | 'sidebar';
+  lightingControls: boolean;
+  role?: Role;
+  onRoleChange?: (role: Role) => void;
+}) {
   const session = usePlaybackStore((state) => state.session),
     status = usePlaybackStore((state) => state.status);
   const snapshot = usePlaybackStore((state) => state.snapshot),
@@ -93,6 +107,13 @@ export function PlaybackHUD({ document, placement = 'overlay', lightingControls 
       return;
     }
     const key = (event: KeyboardEvent) => {
+      if (event.code === 'Escape') {
+        event.preventDefault();
+        const state = usePlaybackStore.getState();
+        if (state.status === 'playing') state.toggle();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (
         event.defaultPrevented ||
         isEditableTarget(event.target) ||
@@ -115,9 +136,6 @@ export function PlaybackHUD({ document, placement = 'overlay', lightingControls 
         state.seek(
           (state.session?.runtime.progress ?? 0) + (event.code === 'ArrowRight' ? 0.02 : -0.02),
         );
-      } else if (event.code === 'Escape') {
-        event.preventDefault();
-        state.exit();
       }
       if (event.defaultPrevented) {
         event.stopImmediatePropagation();
@@ -265,13 +283,13 @@ export function PlaybackHUD({ document, placement = 'overlay', lightingControls 
           <FieldLabel htmlFor="playback-comfort">Comfort</FieldLabel>
         </Field>
         <Button size="sm" variant="ghost" onClick={() => usePlaybackStore.getState().exit()}>
-          <X />
-          Exit walkthrough
+          <X /> Exit walkthrough
         </Button>
       </div>
+      {role && onRoleChange && <WalkProductControls role={role} onRoleChange={onRoleChange} />}
       <GameControls lightingControls={lightingControls} />
       <p className="sr-only">
-        Space play/pause · ←/→ scrub · Esc exit · drag to look around in first person
+        Space play/pause · ←/→ scrub · Esc stop auto-walk and stay in walkthrough · V switch camera · drag to look or orbit
       </p>
     </section>
   );
