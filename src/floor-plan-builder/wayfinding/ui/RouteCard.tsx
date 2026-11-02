@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Switch } from '@/components/ui/switch';
 import type { PlanDocument } from '../../model/types.ts';
+import type { RouteRequest } from '../model/route-schema.ts';
 import { selectActiveResult, useWayfindingStore } from '../store/wayfinding-store.ts';
 import { usePlaybackStore } from '../store/playback-store.ts';
 export function RouteCard({
@@ -134,8 +135,12 @@ export function RouteCard({
   );
 }
 
-function endpointLabel(endpoint: import('../model/route-schema.ts').RouteRequest['start'] | undefined) {
-  if (!endpoint) return 'Floor spawn';
-  if (endpoint.kind === 'item') return endpoint.itemId;
+function endpointLabel(endpoint: RouteRequest['start'] | undefined) {
+  if (!endpoint) {
+    return 'Floor spawn';
+  }
+  if (endpoint.kind === 'item') {
+    return endpoint.itemId;
+  }
   return `Point on ${endpoint.floorId}`;
 }

@@ -1163,7 +1163,9 @@ export default function StudioPage() {
           event.preventDefault();
           const playback = usePlaybackStore.getState();
           if (playback.session) {
-            if (playback.status === 'playing') playback.toggle();
+            if (playback.status === 'playing') {
+              playback.toggle();
+            }
           } else {
             requestNavigation('builder');
           }

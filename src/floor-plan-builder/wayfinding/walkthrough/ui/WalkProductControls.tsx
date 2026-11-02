@@ -23,7 +23,9 @@ export function WalkProductControls({
       usePlaybackStore.getState().setMode('first');
     }
   }, [session, mode]);
-  if (!session) return null;
+  if (!session) {
+    return null;
+  }
 
   const walking = status === 'playing';
   return (

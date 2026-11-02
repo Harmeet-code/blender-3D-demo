@@ -110,7 +110,9 @@ export function PlaybackHUD({
       if (event.code === 'Escape') {
         event.preventDefault();
         const state = usePlaybackStore.getState();
-        if (state.status === 'playing') state.toggle();
+        if (state.status === 'playing') {
+          state.toggle();
+        }
         event.stopImmediatePropagation();
         return;
       }
