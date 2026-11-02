@@ -62,23 +62,78 @@ interface CachedFloorMesh {
   areaSignature: string;
   query: NavMeshQuery;
   mesh: NavMesh;
+  activeUsers: number;
+  lastUsed: number;
+  evictWhenIdle: boolean;
+}
+
+interface FloorMeshLease {
+  query: NavMeshQuery;
+  mesh: NavMesh;
+  release(): void;
 }
 
 const floorMeshes = new Map<string, Map<string, CachedFloorMesh>>();
+let floorMeshUseClock = 0;
+// Preserve the former one-mesh steady-state bound while allowing active concurrent leases.
+const MAX_IDLE_MESH_VARIANTS_PER_FLOOR = 1;
+
+function destroyCachedFloorMesh(floorId: string, cacheKey: string, cached: CachedFloorMesh): void {
+  const floorCache = floorMeshes.get(floorId);
+  if (floorCache?.get(cacheKey) !== cached) {return;}
+  floorCache.delete(cacheKey);
+  cached.query.destroy();
+  cached.mesh.destroy();
+  if (floorCache.size === 0) {floorMeshes.delete(floorId);}
+}
+
+function pruneIdleFloorMeshes(floorId: string): void {
+  const floorCache = floorMeshes.get(floorId);
+  if (!floorCache) {return;}
+  const idle = [...floorCache.entries()]
+    .filter(([, cached]) => cached.activeUsers === 0)
+    .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+  while (idle.length > MAX_IDLE_MESH_VARIANTS_PER_FLOOR) {
+    const [cacheKey, cached] = idle.shift()!;
+    destroyCachedFloorMesh(floorId, cacheKey, cached);
+  }
+}
+
+function leaseFloorMesh(floorId: string, cacheKey: string, cached: CachedFloorMesh): FloorMeshLease {
+  cached.activeUsers++;
+  cached.lastUsed = ++floorMeshUseClock;
+  let released = false;
+  return {
+    query: cached.query,
+    mesh: cached.mesh,
+    release() {
+      if (released) {return;}
+      released = true;
+      cached.activeUsers = Math.max(0, cached.activeUsers - 1);
+      if (cached.activeUsers > 0) {return;}
+      const floorCache = floorMeshes.get(floorId);
+      if (floorCache?.get(cacheKey) !== cached) {return;}
+      if (cached.evictWhenIdle) {destroyCachedFloorMesh(floorId, cacheKey, cached);}
+      else {pruneIdleFloorMeshes(floorId);}
+    },
+  };
+}
 
 export function clearNavigationCache(nextLayout?: NormalizedLayout) {
   for (const [floorId, cachedMeshes] of floorMeshes) {
-    for (const [cacheKey, { query, mesh, signature }] of cachedMeshes) {
+    for (const [cacheKey, { signature }] of cachedMeshes) {
       if (
         nextLayout &&
         nextLayout.floors.some((floor) => floor.id === floorId) &&
         navigationFloorKey(nextLayout, floorId) === signature
       ) {
+        const cached = cachedMeshes.get(cacheKey)!;
+        cached.evictWhenIdle = false;
         continue;
       }
-      query.destroy();
-      mesh.destroy();
-      cachedMeshes.delete(cacheKey);
+      const cached = cachedMeshes.get(cacheKey)!;
+      cached.evictWhenIdle = true;
+      if (cached.activeUsers === 0) {destroyCachedFloorMesh(floorId, cacheKey, cached);}
     }
     if (cachedMeshes.size === 0) {floorMeshes.delete(floorId);}
   }
@@ -125,18 +180,22 @@ async function floorQuery(
   paints: AreaPaint[] = [],
   wayfinding = false,
   agentRadiusM?: number,
-): Promise<CachedFloorMesh | null> {
+): Promise<FloorMeshLease | null> {
   if (agentRadiusM !== undefined && (!Number.isFinite(agentRadiusM) || agentRadiusM <= 0)) {
     return null;
   }
+  // The generated mesh only depends on the integer erosion radius, not sub-cell precision.
+  const radiusCellCount = agentRadiusM === undefined
+    ? undefined
+    : Math.ceil(agentRadiusM / PROFILED_MESH_CELL_SIZE_M);
+  if (radiusCellCount !== undefined && !Number.isSafeInteger(radiusCellCount)) {return null;}
   const signature = navigationFloorKey(layout, floorId);
-  const profileSignature =
-    agentRadiusM === undefined ? '' : `agent-radius:${agentRadiusM.toPrecision(12)}:`;
+  const profileSignature = radiusCellCount === undefined ? '' : `agent-radius-cells:${radiusCellCount}:`;
   const areaSignature = `${profileSignature}${wayfinding ? '0.4m:' : 'legacy:'}${paintHash(paints)}`;
   const cacheKey = JSON.stringify([signature, areaSignature]);
   const cached = floorMeshes.get(floorId)?.get(cacheKey);
   if (cached) {
-    return cached;
+    return leaseFloorMesh(floorId, cacheKey, cached);
   }
   const positions: number[] = [];
   const indices: number[] = [];
@@ -223,7 +282,7 @@ async function floorQuery(
   await ensureInitialized();
   // Other requests may have completed the same build while Recast initialized.
   const initializedCache = floorMeshes.get(floorId)?.get(cacheKey);
-  if (initializedCache) {return initializedCache;}
+  if (initializedCache) {return leaseFloorMesh(floorId, cacheKey, initializedCache);}
   const generate = paints.length
     ? (
         vertices: number[],
@@ -269,15 +328,22 @@ async function floorQuery(
     return null;
   }
   const query = new NavMeshQuery(generated.navMesh);
-  const result: CachedFloorMesh = { signature, areaSignature, query, mesh: generated.navMesh };
+  const result: CachedFloorMesh = {
+    signature,
+    areaSignature,
+    query,
+    mesh: generated.navMesh,
+    activeUsers: 0,
+    lastUsed: 0,
+    evictWhenIdle: false,
+  };
   let floorCache = floorMeshes.get(floorId);
   if (!floorCache) {
     floorCache = new Map();
     floorMeshes.set(floorId, floorCache);
   }
   floorCache.set(cacheKey, result);
-
-  return result;
+  return leaseFloorMesh(floorId, cacheKey, result);
 }
 
 export interface FloorRouteOptions {
@@ -295,8 +361,7 @@ async function floorHandles(
   wayfinding = false,
   agentRadiusM?: number,
 ) {
-  const cached = await floorQuery(layout, floorId, paints, wayfinding, agentRadiusM);
-  return cached ? { mesh: cached.mesh, query: cached.query } : null;
+  return floorQuery(layout, floorId, paints, wayfinding, agentRadiusM);
 }
 
 /**
@@ -321,8 +386,9 @@ export async function queryFloorRoute(
     return { ok: false, reason: 'NO_MESH' };
   }
   const { query } = handles;
-  const filter = buildQueryFilter(options.filter);
+  let filter: QueryFilter | undefined;
   try {
+    filter = buildQueryFilter(options.filter);
     const start = query.findNearestPoly(
       { x: from[0], y: 0, z: from[2] },
       { halfExtents: PROJECTION_EXTENTS, ...(filter ? { filter } : {}) },
@@ -396,6 +462,7 @@ export async function queryFloorRoute(
     if (filter) {
       Raw.destroy(filter.raw);
     }
+    handles.release();
   }
 }
 
