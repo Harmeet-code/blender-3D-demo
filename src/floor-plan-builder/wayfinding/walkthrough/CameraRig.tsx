@@ -58,6 +58,7 @@ export function CameraRig({
       [],
     );
   const previous = useRef(mode),
+    projectedFov = useRef(Number.NaN),
     look = useMemo(() => new Vector3(), []),
     desired = useMemo(() => new Vector3(), []),
     q = useMemo(() => new Quaternion(), []),
@@ -113,6 +114,7 @@ export function CameraRig({
     }
     owned.aspect = state.size.width / Math.max(1, state.size.height);
     owned.updateProjectionMatrix();
+    projectedFov.current = owned.fov;
     overview.current.position.copy(owned.position);
     overview.current.quaternion.copy(owned.quaternion);
     overview.current.fov = owned.fov;
@@ -341,7 +343,10 @@ export function CameraRig({
       );
       owned.position.set(...safe);
     }
-    owned.updateProjectionMatrix();
+    if (projectedFov.current !== owned.fov) {
+      owned.updateProjectionMatrix();
+      projectedFov.current = owned.fov;
+    }
     if (
       transition.t < 1 ||
       owned.position.distanceToSquared(desired) > 0.000001 ||

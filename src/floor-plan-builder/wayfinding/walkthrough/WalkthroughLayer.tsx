@@ -440,11 +440,13 @@ function Runtime({
     }
     if (body.current) {
       body.current.visible = state.mode !== 'first';
-      rig.update(runtime, originY);
+      if (state.mode !== 'first') rig.update(runtime, originY);
     }
 
-    interactionRuntime.update({ position: [...runtime.position], yawRadians: runtime.yaw }, dt);
-    if (interactionRuntime.target) invalidate();
+    interactionRuntime.update({ position: runtime.position, yawRadians: runtime.yaw }, dt);
+    // Demand mode only needs another frame while the nearby target's dwell is advancing.
+    // Once info is published, stationary focus does not require a permanent render loop.
+    if (interactionRuntime.state.status === 'nearby') invalidate();
 
     lastSnapshot.current += dt;
     if (lastSnapshot.current >= 0.1 || (runtime.arrived && state.status === 'playing')) {
