@@ -34,7 +34,16 @@ type ReplayContext = {
 
 function currentReplayContext(activeRoute: RouteResult | null, role: Role, floorId: string): ReplayContext | null {
   const state = useWayfindingStore.getState();
-  if (!activeRoute || !state.request) return null;
+  const outcomeRoute = state.outcome?.options[state.option];
+  if (
+    !activeRoute ||
+    !state.request ||
+    state.status !== 'ready' ||
+    !state.outcome ||
+    JSON.stringify(state.outcome.request) !== JSON.stringify(state.request) ||
+    !outcomeRoute ||
+    JSON.stringify(outcomeRoute) !== JSON.stringify(activeRoute)
+  ) return null;
   return { routeRequest: state.request, routeResult: activeRoute, routeOption: state.option, role, floorId, characterConfigId: CHARACTER_CONFIG.id };
 }
 
@@ -200,7 +209,9 @@ export default function MotionLab() {
     const dest = MOTION_LAB_STOPS.find((stop) => stop.id === toStop);
     if (!start || !dest) return;
     setDestination(dest.point);
-    useWayfindingStore.getState().setRequest({
+    const wayfinding = useWayfindingStore.getState();
+    wayfinding.setStatus('routing');
+    wayfinding.setRequest({
       start: { floorId, kind: 'point', point: start.point },
       dest: { floorId, kind: 'point', point: dest.point },
       accessibleOnly: routeOption === 'accessible',
@@ -210,7 +221,10 @@ export default function MotionLab() {
   };
 
   const startSharedAutoWalk = () => {
-    if (!activeRoute) return;
+    if (!currentReplayContext(activeRoute, role, floorId)) {
+      setStatusMessage('Wait for the selected route to finish resolving before starting auto-walk.');
+      return;
+    }
     usePlaybackStore.getState().begin(activeRoute, document, floorId);
     setSelectedFloorId(floorId);
     setStatusMessage('Shared auto-walk started · W1–W5 runtime and capsule controller');
@@ -352,7 +366,7 @@ export default function MotionLab() {
               <div role="status" aria-live="polite" className="rounded bg-slate-800 p-2 text-xs text-slate-200">{routeStatus === 'routing' ? 'Routing…' : routeFailure ?? (activeRoute ? `${activeRoute.lengthM.toFixed(1)} m · ~${Math.round(activeRoute.secondsEta)} s · ${activeRoute.segments.length} route legs` : 'Choose A and B, then find a route')}</div>
               {activeRoute?.warnings.map((warning) => <p key={warning} className="text-xs text-amber-200">{warning}</p>)}
               <div className="flex flex-wrap gap-2">
-                <button className="rounded bg-emerald-800 px-2 py-2 text-xs disabled:opacity-50" disabled={!activeRoute || !!playback} onClick={startSharedAutoWalk}>Start shared auto-walk</button>
+                <button className="rounded bg-emerald-800 px-2 py-2 text-xs disabled:opacity-50" disabled={!liveReplayContext || !!playback} onClick={startSharedAutoWalk}>Start shared auto-walk</button>
                 {playback && <button className="rounded bg-amber-800 px-2 py-2 text-xs" onClick={toggleWalk}>{playbackStatus === 'playing' ? 'Stop / steer manually' : 'Resume auto-walk'}</button>}
                 {playback && <button className="rounded bg-slate-700 px-2 py-2 text-xs" onClick={exitWalk}>Exit walk</button>}
               </div>
