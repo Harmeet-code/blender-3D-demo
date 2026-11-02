@@ -186,9 +186,9 @@ export function runSharedRouteFuzzer(seed: number, count = 32) {
     const halfDepth = 0.2 + random() * 0.7;
     const obstacle: LabObstacle = { minX: mid[0] - halfWidth, maxX: mid[0] + halfWidth, minZ: obstacleZ + offset - halfDepth, maxZ: obstacleZ + offset + halfDepth };
     const summary = simulateSharedRoute({ id: `seed-${seed}-case-${index}`, label: bends ? 'bent' : 'direct', points, obstacles: [obstacle], expectedOutcome });
-    if (summary.actualOutcome === 'clear') clear++; else blocked++;
-    if (summary.actualOutcome !== expectedOutcome) mismatches++;
-    if (examples.length < 4) examples.push(summary);
+    if (summary.actualOutcome === 'clear') { clear++; } else { blocked++; }
+    if (summary.actualOutcome !== expectedOutcome) { mismatches++; }
+    if (examples.length < 4) { examples.push(summary); }
   }
   return { seed, count, clear, blocked, mismatches, examples, limitation: 'Diagnostic only: expected clear/blocked labels are generated with their obstacle scenarios, so this is not an independent oracle or quality gate. It exercises 2D single-floor walk paths only; connector/floor/interaction states and numeric motion thresholds are not evaluated.' };
 }

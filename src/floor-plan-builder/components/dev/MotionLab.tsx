@@ -43,7 +43,7 @@ function currentReplayContext(activeRoute: RouteResult | null, role: Role, floor
     JSON.stringify(state.outcome.request) !== JSON.stringify(state.request) ||
     !outcomeRoute ||
     JSON.stringify(outcomeRoute) !== JSON.stringify(activeRoute)
-  ) return null;
+  ) { return null; }
   return { routeRequest: state.request, routeResult: activeRoute, routeOption: state.option, role, floorId, characterConfigId: CHARACTER_CONFIG.id };
 }
 
@@ -54,7 +54,7 @@ function snapshotReplayContext(context: ReplayContext): ReplayContext {
 function sparkline(frames: MotionLabTelemetry[], metric: (frame: MotionLabTelemetry) => number | null) {
   const values = frames.map(metric);
   const finite = values.filter((value): value is number => value !== null && Number.isFinite(value));
-  if (!finite.length) return '';
+  if (!finite.length) { return ''; }
   const min = Math.min(...finite), max = Math.max(...finite), span = max - min || 1;
   const path: string[] = [];
   let inSegment = false;
@@ -180,7 +180,7 @@ export default function MotionLab() {
       };
     };
     const down = (event: KeyboardEvent) => {
-      if (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test((event.target as HTMLElement)?.tagName ?? '')) return;
+      if (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test((event.target as HTMLElement)?.tagName ?? '')) { return; }
       held.add(event.code);
       update();
     };
@@ -207,7 +207,7 @@ export default function MotionLab() {
   const requestRoute = () => {
     const start = MOTION_LAB_STOPS.find((stop) => stop.id === fromStop);
     const dest = MOTION_LAB_STOPS.find((stop) => stop.id === toStop);
-    if (!start || !dest) return;
+    if (!start || !dest) { return; }
     setDestination(dest.point);
     const wayfinding = useWayfindingStore.getState();
     wayfinding.setStatus('routing');
@@ -225,6 +225,7 @@ export default function MotionLab() {
       setStatusMessage('Wait for the selected route to finish resolving before starting auto-walk.');
       return;
     }
+    if (!activeRoute) { return; }
     usePlaybackStore.getState().begin(activeRoute, document, floorId);
     setSelectedFloorId(floorId);
     setStatusMessage('Shared auto-walk started · W1–W5 runtime and capsule controller');
@@ -259,6 +260,7 @@ export default function MotionLab() {
   const startInputRecord = () => {
     const provenance = currentReplayContext(activeRoute, role, floorId);
     if (!provenance) { setStatusMessage('Find a resolved route request before recording walker inputs'); return; }
+    if (!activeRoute) { return; }
     usePlaybackStore.getState().begin(activeRoute, document, floorId);
     usePlaybackStore.getState().toggle();
     inputTape.current = [];
@@ -280,6 +282,7 @@ export default function MotionLab() {
       setStatusMessage('Replay blocked: current route request/result, route policy, role, floor, or character profile differs from the recorded tape.');
       return;
     }
+    if (!activeRoute) { return; }
     usePlaybackStore.getState().begin(activeRoute, document, floorId);
     usePlaybackStore.getState().toggle();
     telemetry.current = [];
@@ -296,7 +299,7 @@ export default function MotionLab() {
       const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find((type) => MediaRecorder.isTypeSupported(type));
       const mediaRecorder = new MediaRecorder(capture, mimeType ? { mimeType } : undefined);
       recorder.current = mediaRecorder;
-      mediaRecorder.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data); };
+      mediaRecorder.ondataavailable = (event) => { if (event.data.size) { chunks.current.push(event.data); } };
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks.current, { type: mediaRecorder.mimeType || 'video/webm' });
         const url = URL.createObjectURL(blob);
@@ -310,7 +313,7 @@ export default function MotionLab() {
         recorder.current = null;
         setVideoRecording(false);
       };
-      capture.getVideoTracks()[0]?.addEventListener('ended', () => { if (mediaRecorder.state !== 'inactive') mediaRecorder.stop(); }, { once: true });
+      capture.getVideoTracks()[0]?.addEventListener('ended', () => { if (mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); } }, { once: true });
       mediaRecorder.start(250);
       setVideoRecording(true);
       setStatusMessage('Screen recording started · choose the browser window containing the shared auto-walker');
@@ -319,13 +322,13 @@ export default function MotionLab() {
     }
   };
   const stopVideoCapture = () => {
-    if (recorder.current?.state === 'recording') recorder.current.stop();
-    else stream.current?.getTracks().forEach((track) => track.stop());
+    if (recorder.current?.state === 'recording') { recorder.current.stop(); }
+    else { stream.current?.getTracks().forEach((track) => track.stop()); }
   };
   useEffect(() => () => {
     captureMode.current = 'idle';
-    if (recorder.current?.state !== 'inactive') recorder.current?.stop();
-    else stream.current?.getTracks().forEach((track) => track.stop());
+    if (recorder.current?.state !== 'inactive') { recorder.current?.stop(); }
+    else { stream.current?.getTracks().forEach((track) => track.stop()); }
   }, []);
 
   const trail = telemetry.current.slice(-60);

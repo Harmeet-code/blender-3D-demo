@@ -8,6 +8,8 @@ import { telemetryFrameSchema, type Role, type TelemetryFrame } from '../../../w
 import { usePlaybackStore } from '../../../wayfinding/store/playback-store.ts';
 import type { Vec3 } from '../../../wayfinding/walkthrough/path.ts';
 
+const MOTION_LAB_DT = 1 / 30;
+
 export type MotionLabTelemetry = {
   frame: TelemetryFrame;
   accelerationMps2: Vec3;
@@ -61,7 +63,7 @@ export function MotionLabInputProbe({
   const replayHeld = useRef(new Set<string>());
   const publishElapsed = useRef(0);
   const releaseReplayKeys = () => {
-    for (const code of replayHeld.current) dispatchCode('keyup', code);
+    for (const code of replayHeld.current) { dispatchCode('keyup', code); }
     replayHeld.current.clear();
   };
   useEffect(() => {
@@ -98,8 +100,8 @@ export function MotionLabInputProbe({
           onReplayComplete();
         } else {
           const wanted = inputCodes(sample);
-          for (const code of replayHeld.current) if (!wanted.has(code)) dispatchCode('keyup', code);
-          for (const code of wanted) if (!replayHeld.current.has(code)) dispatchCode('keydown', code);
+          for (const code of replayHeld.current) { if (!wanted.has(code)) { dispatchCode('keyup', code); } }
+          for (const code of wanted) { if (!replayHeld.current.has(code)) { dispatchCode('keydown', code); } }
           replayHeld.current = wanted;
         }
       }
@@ -190,7 +192,7 @@ export function MotionLabTelemetryProbe({
       locomotion,
       ...(leg?.connector?.id ? { connectorId: leg.connector.id } : {}),
     });
-    if (!parsedFrame.success) return;
+    if (!parsedFrame.success) { return; }
     const frame = parsedFrame.data;
     const gazeVector: Vec3 = [runtime.look[0] - position[0], runtime.look[1] - position[1], runtime.look[2] - position[2]];
     const gazeLength = Math.hypot(...gazeVector);
@@ -202,10 +204,10 @@ export function MotionLabTelemetryProbe({
     const feet = simpleWalkFeet
       ? sampleFootPlants(footPlant.current, { rootPosition: position, groundY: floor?.source.heightOffset ?? position[1], yawRadians: runtime.yaw, phaseRadians: gait.phaseRadians })
       : ([[...position], [...position]] as [Vec3, Vec3]);
-    if (!simpleWalkFeet) footPlant.current.stance = [false, false];
+    if (!simpleWalkFeet) { footPlant.current.stance = [false, false]; }
     const previousPosition: Vec3 = previous.position;
     const connectorTraversal = leg && leg.kind !== 'walk';
-    const clearance = connectorTraversal
+    const clearance: { clear: boolean | null; blockerId?: string; source?: string; reason?: string } = connectorTraversal
       ? { clear: null, reason: 'Connector-specific clearance is evaluated by the mounted WalkthroughLayer; floor-map clearance is unavailable here.' }
       : sameFloor && maps.has(floorId)
         ? validateCapsuleSweep(maps.get(floorId)!, role, previousPosition, position, CHARACTER_CONFIG)
@@ -225,7 +227,7 @@ export function MotionLabTelemetryProbe({
       derivativeResetReason: generationChanged ? 'playback-generation' : floorChanged ? 'floor-transition' : dtSeconds <= 0 ? 'invalid-delta' : null,
     };
     frames.current.push(record);
-    if (frames.current.length > 30000) frames.current.shift();
+    if (frames.current.length > 30000) { frames.current.shift(); }
     previous.position = position;
     previous.floorId = floorId;
     previous.velocity = velocity;
