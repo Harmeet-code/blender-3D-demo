@@ -1,14 +1,21 @@
 import { Profiler, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import type { Group } from 'three';
+import { Html } from '@react-three/drei';
+import { Physics } from '@react-three/rapier';
+import { MathUtils, Vector3, type Group } from 'three';
 import { AvatarObject } from '../../components/AvatarObject.tsx';
 import { ProceduralObject } from '../../components/ProceduralObject.tsx';
 import { createObject } from '../../model/inventory.ts';
 import type { PlanDocument } from '../../model/types.ts';
 import { usePlaybackStore, type PlaybackSession } from '../store/playback-store.ts';
-import { advanceFollower } from './follower.ts';
 import { AvatarRig } from './avatar-rig.ts';
 import { CameraRig } from './CameraRig.tsx';
+import { useManualInput } from './locomotion/manual-input.ts';
+import { KinematicCapsule, type KinematicCapsuleHandle, type CapsuleMoveResult } from './foundation/kinematic-capsule.tsx';
+import { CollisionWorld, useCapsuleClearance } from './collision/collision-world.tsx';
+import { CHARACTER_CONFIG } from './character-config.ts';
+import type { Role } from './contracts.ts';
+import { smoothRouteCorners, steerRoute } from './steering/route-steering.ts';
 
 function Runtime({
   session,
@@ -26,13 +33,60 @@ function Runtime({
   const { runtime } = session;
   const root = useRef<Group>(null),
     body = useRef<Group>(null),
+    capsule = useRef<KinematicCapsuleHandle>(null),
     callbacks = useRef(onFloor);
   callbacks.current = onFloor;
   const rig = useMemo(() => new AvatarRig(), []),
     lastSnapshot = useRef(0);
   const status = usePlaybackStore((state) => state.status),
-    mode = usePlaybackStore((state) => state.mode);
+    mode = usePlaybackStore((state) => state.mode),
+    message = usePlaybackStore((state) => state.message);
   const activeFloor = usePlaybackStore((state) => state.snapshot.floorId);
+  const clearance = useCapsuleClearance();
+  const camera = useThree((state) => state.camera);
+  const pending = useRef(false),
+    pendingMove = useRef<null | (
+      | { kind: 'route'; intent: ReturnType<typeof steerRoute>; from: [number, number, number] }
+      | { kind: 'manual'; from: [number, number, number]; displacement: [number, number, number]; yaw: number; speed: number }
+    )>(null),
+    smoothedPath = useRef(false),
+    velocity = useRef(0),
+    forward = useMemo(() => new Vector3(), []),
+    right = useMemo(() => new Vector3(), []),
+    manualDirection = useMemo(() => new Vector3(), []);
+  const input = useManualInput(
+    true,
+    status !== 'playing',
+    () => {
+      const state = usePlaybackStore.getState();
+      state.setMode(state.mode === 'first' ? 'chase' : 'first');
+    },
+    () => {
+      const state = usePlaybackStore.getState();
+      if (state.status === 'playing') state.toggle();
+    },
+  );
+  useEffect(() => {
+    const clearMotion = () => {
+      velocity.current = 0;
+      manualDirection.set(0, 0, 0);
+      invalidate();
+    };
+    const visibility = () => { if (window.document.hidden) clearMotion(); };
+    window.addEventListener('blur', clearMotion);
+    window.document.addEventListener('visibilitychange', visibility);
+    return () => {
+      window.removeEventListener('blur', clearMotion);
+      window.document.removeEventListener('visibilitychange', visibility);
+      clearMotion();
+    };
+  }, [invalidate, manualDirection]);
+  useEffect(() => {
+    if (status === 'playing') {
+      velocity.current = 0;
+      manualDirection.set(0, 0, 0);
+    }
+  }, [status, manualDirection]);
   const get = useThree((state) => state.get),
     setFrameloop = useThree((state) => state.setFrameloop),
     invalidate = useThree((state) => state.invalidate);
@@ -52,8 +106,33 @@ function Runtime({
     if (body.current) {
       rig.bind(body.current);
     }
+    if (!smoothedPath.current) for (const leg of runtime.path.legs) {
+      if (leg.kind !== 'walk') continue;
+      const smoothed = smoothRouteCorners(leg.points, {
+        validateSegment: (from, to) =>
+          clearance.validateSweep(
+            [from[0], from[1] + originY, from[2]],
+            [to[0], to[1] + originY, to[2]],
+            CHARACTER_CONFIG,
+          ).clear,
+      });
+      if (!smoothed) {
+        usePlaybackStore.getState().fail('The route cannot be validated for the full avatar capsule.');
+        break;
+      }
+      leg.points = smoothed.points;
+      leg.lengths = smoothed.lengths;
+      leg.length = smoothed.length;
+    }
+    let offset = 0;
+    for (const leg of runtime.path.legs) {
+      leg.offset = offset;
+      offset += leg.length;
+    }
+    runtime.path.length = offset;
+    smoothedPath.current = true;
     invalidate();
-  }, [runtime, rig, invalidate, originY]);
+  }, [runtime, rig, invalidate, originY, clearance]);
   useEffect(() => usePlaybackStore.subscribe(() => invalidate()), [invalidate]);
   useEffect(() => {
     const previous = get().frameloop;
@@ -88,26 +167,145 @@ function Runtime({
     },
     [],
   );
+  const onResolvedMove = (result: CapsuleMoveResult) => {
+    const queued = pendingMove.current;
+    pendingMove.current = null;
+    pending.current = false;
+    const [dx, dy, dz] = result.displacement;
+    const travelled = Math.hypot(dx, dy, dz);
+    runtime.position = [runtime.position[0] + dx, runtime.position[1] + dy, runtime.position[2] + dz];
+    runtime.gaitDistance += Math.hypot(dx, dz);
+    if (queued?.kind === 'route') {
+      const { intent, from } = queued;
+      const planned = Math.hypot(...intent.displacement);
+      const resolved = Math.hypot(dx, dy, dz);
+      if (Math.abs(planned - resolved) > 0.025) {
+        runtime.speed = 0;
+        usePlaybackStore.getState().fail('Capsule physics disagreed with the route clearance preview; auto-walk stopped.');
+      } else {
+        const leg = runtime.path.legs[runtime.leg]!;
+        runtime.position = [from[0] + dx, from[1] + dy, from[2] + dz];
+        runtime.s = intent.distanceM;
+        runtime.speed = intent.speedMps;
+        runtime.yaw = intent.targetYawRadians;
+        runtime.look = [...intent.gazeTarget];
+        runtime.distance = Math.min(runtime.path.length, runtime.distance + travelled);
+        runtime.progress = runtime.path.length > 0 ? runtime.distance / runtime.path.length : 1;
+        runtime.ribbon.progress = runtime.progress;
+        runtime.floorId = leg.floorId;
+        runtime.phase = intent.arrived ? 'Arrived' : 'Walking';
+        runtime.arrived = intent.arrived;
+      }
+    } else if (queued?.kind === 'manual') {
+      const planned = Math.hypot(...queued.displacement);
+      if (Math.abs(planned - travelled) > 0.025) {
+        velocity.current = 0;
+        runtime.speed = 0;
+        usePlaybackStore.getState().fail('Manual movement stopped because capsule physics rejected the validated sweep.');
+      } else {
+        runtime.yaw = queued.yaw;
+        runtime.speed = queued.speed;
+      }
+      runtime.look = [runtime.position[0] - Math.sin(runtime.yaw), runtime.position[1] + 1.2, runtime.position[2] - Math.cos(runtime.yaw)];
+      runtime.phase = travelled > 0.001 ? 'Walking' : 'Ready';
+      runtime.arrived = false;
+    }
+    invalidate();
+  };
   useFrame((_, rawDelta) => {
     const state = usePlaybackStore.getState();
     const dt = window.document.hidden ? 0 : Math.min(rawDelta, 0.1);
-    if (state.status === 'playing') {
-      let remaining = dt * state.speed;
-      while (remaining > 1e-7) {
-        const step = Math.min(1 / 120, remaining);
-        advanceFollower(runtime, step);
-        remaining -= step;
+    if (pending.current) {
+      invalidate();
+      return;
+    }
+    if (state.status === 'playing' && !runtime.arrived) {
+      const leg = runtime.path.legs[runtime.leg];
+      if (!leg) {
+        state.fail('The route has no remaining walk leg.');
+      } else if (leg.kind !== 'walk') {
+        state.fail(`Physical ${leg.kind} traversal is not yet bound to a validated connector trajectory.`);
+      } else {
+        const from: [number, number, number] = [...runtime.position];
+        const intent = steerRoute({
+          leg,
+          state: { distanceM: runtime.s, speedMps: runtime.speed, yawRadians: runtime.yaw },
+          dtSeconds: dt * state.speed,
+          speedLimitMps: CHARACTER_CONFIG.walkSpeedMps,
+          validateDisplacement: (position, displacement) => {
+            const result = clearance.validateSweep(
+              [position[0], position[1] + originY, position[2]],
+              [position[0] + displacement[0], position[1] + displacement[1] + originY, position[2] + displacement[2]],
+              CHARACTER_CONFIG,
+            );
+            return result.clear;
+          },
+        });
+        if (intent.blocked) {
+          state.fail('Auto-walk stopped because the avatar capsule sweep is blocked or unsupported.');
+        } else if (intent.displacement.some((value) => Math.abs(value) > 1e-7)) {
+          pending.current = true;
+          pendingMove.current = { kind: 'route', intent, from };
+          capsule.current?.requestMove(intent.displacement);
+        } else {
+          runtime.speed = intent.speedMps;
+          runtime.yaw = intent.targetYawRadians;
+          runtime.look = [...intent.gazeTarget];
+          runtime.arrived = intent.arrived;
+          if (intent.arrived) state.publish(runtime);
+        }
       }
+    } else if (state.status !== 'playing') {
+      const held = input.current;
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      if (forward.lengthSq() < 1e-8) forward.set(-Math.sin(runtime.yaw), 0, -Math.cos(runtime.yaw));
+      forward.normalize();
+      right.set(-forward.z, 0, forward.x);
+      const moveX = forward.x * held.forward + right.x * held.strafe;
+      const moveZ = forward.z * held.forward + right.z * held.strafe;
+      const moveLength = Math.hypot(moveX, moveZ);
+      if (moveLength > 1e-6) manualDirection.set(moveX / moveLength, 0, moveZ / moveLength);
+      const maxSpeed = held.sprint ? CHARACTER_CONFIG.sprintSpeedMps : CHARACTER_CONFIG.walkSpeedMps;
+      const desiredSpeed = moveLength > 1e-6 ? maxSpeed : 0;
+      const rate = desiredSpeed > velocity.current ? CHARACTER_CONFIG.accelerationMps2 : CHARACTER_CONFIG.brakingMps2;
+      velocity.current += MathUtils.clamp(desiredSpeed - velocity.current, -rate * dt, rate * dt);
+      const distance = velocity.current * dt;
+      let yaw = runtime.yaw;
+      let dx = 0;
+      let dz = 0;
+      if (manualDirection.lengthSq() > 1e-8 && distance > 1e-7) {
+        dx = manualDirection.x * distance;
+        dz = manualDirection.z * distance;
+        const targetYaw = Math.atan2(-manualDirection.x, -manualDirection.z);
+        const yawDelta = Math.atan2(Math.sin(targetYaw - yaw), Math.cos(targetYaw - yaw));
+        yaw += MathUtils.clamp(yawDelta, -Math.PI * dt, Math.PI * dt);
+        const from: [number, number, number] = [...runtime.position];
+        const to: [number, number, number] = [from[0] + dx, from[1], from[2] + dz];
+        if (clearance.validateSweep(
+          [from[0], from[1] + originY, from[2]],
+          [to[0], to[1] + originY, to[2]],
+          CHARACTER_CONFIG,
+        ).clear) {
+          pending.current = true;
+          pendingMove.current = { kind: 'manual', from, displacement: [dx, 0, dz], yaw, speed: velocity.current };
+          capsule.current?.requestMove([dx, 0, dz]);
+        } else {
+          velocity.current = 0;
+          runtime.speed = 0;
+        }
+      } else {
+        runtime.speed = velocity.current;
+      }
+      if (held.forward || held.strafe) invalidate();
+      if (velocity.current > 0.001) invalidate();
+      held.lookX = 0;
+      held.lookY = 0;
     } else if (runtime.arrived && runtime.arrivalTime < 1.1) {
       runtime.arrivalTime += dt;
       invalidate();
     }
     if (root.current) {
-      root.current.position.set(
-        runtime.position[0],
-        runtime.position[1] + originY,
-        runtime.position[2],
-      );
       root.current.rotation.y = runtime.yaw;
     }
     if (body.current) {
@@ -135,28 +333,79 @@ function Runtime({
     : undefined;
   return (
     <>
-      <group ref={root} name="WalkthroughAvatar" raycast={() => {}}>
-        <group ref={body}>
-          <AvatarObject object={avatar} color={avatar.avatarClothing} forceDetail />
+      <KinematicCapsule
+        ref={capsule}
+        feetPosition={[runtime.position[0], runtime.position[1] + originY, runtime.position[2]]}
+        validateSweep={(from, to) => clearance.validateSweep(from, to, CHARACTER_CONFIG).clear}
+        onResolvedMove={onResolvedMove}
+      >
+        <group ref={root} name="WalkthroughAvatar" raycast={() => {}}>
+          <group ref={body}>
+            <AvatarObject object={avatar} color={avatar.avatarClothing} forceDetail />
+          </group>
+          {mode === 'overview' && (
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, 0]} raycast={() => {}}>
+              <ringGeometry args={[0.32, 0.38, 24]} />
+              <meshBasicMaterial
+                color="#06B6D4"
+                toneMapped={false}
+                transparent
+                opacity={0.85}
+                depthWrite={false}
+              />
+            </mesh>
+          )}
         </group>
-        {mode === 'overview' && (
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, 0]} raycast={() => {}}>
-            <ringGeometry args={[0.32, 0.38, 24]} />
-            <meshBasicMaterial
-              color="#06B6D4"
-              toneMapped={false}
-              transparent
-              opacity={0.85}
-              depthWrite={false}
-            />
-          </mesh>
-        )}
-      </group>
+      </KinematicCapsule>
       {lower && lowerFloor && lowerFloor.source.id !== floorId && (
         <group position={[0, lowerFloor.source.heightOffset + originY, 0]}>
           <ProceduralObject object={lower} color={lower.color} />
         </group>
       )}
+      <Html fullscreen>
+        <div className="pointer-events-none fixed right-4 top-4 z-[100] flex max-w-[min(90vw,42rem)] flex-wrap justify-end gap-2">
+          {message && (
+            <div role="status" className="pointer-events-auto basis-full rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow">
+              {message}
+            </div>
+          )}
+          <button
+            type="button"
+            className="pointer-events-auto rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow"
+            aria-label={`Switch to ${mode === 'first' ? 'third' : 'first'} person view`}
+            onClick={(event) => {
+              event.stopPropagation();
+              const current = usePlaybackStore.getState().mode;
+              usePlaybackStore.getState().setMode(current === 'first' ? 'chase' : 'first');
+            }}
+          >
+            {mode === 'first' ? 'Third person' : 'First person'}
+          </button>
+          <button
+            type="button"
+            className="pointer-events-auto rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow"
+            aria-label={status === 'playing' ? 'Stop auto-walk' : status === 'arrived' ? 'Route complete' : 'Resume auto-walk'}
+            disabled={status === 'arrived'}
+            onClick={(event) => {
+              event.stopPropagation();
+              usePlaybackStore.getState().toggle();
+            }}
+          >
+            {status === 'playing' ? 'Stop' : status === 'arrived' ? 'Route complete' : 'Resume'}
+          </button>
+          <button
+            type="button"
+            className="pointer-events-auto rounded bg-slate-950/90 px-3 py-2 text-sm text-white shadow"
+            aria-label="Exit walkthrough"
+            onClick={(event) => {
+              event.stopPropagation();
+              usePlaybackStore.getState().exit();
+            }}
+          >
+            Exit
+          </button>
+        </div>
+      </Html>
       <CameraRig runtime={runtime} document={document} floorId={floorId} originY={originY} />
     </>
   );
@@ -166,12 +415,29 @@ export function WalkthroughLayer(props: {
   floorId: string;
   onFloor: (id: string) => boolean | void;
   originY?: number;
+  role?: Role;
+  roleAreas?: readonly import('./collision/capsule-clearance.ts').RoleAreaPolicy[];
 }) {
   const session = usePlaybackStore((state) => state.session);
   if (!session) {
     return null;
   }
-  const runtime = <Runtime {...props} originY={props.originY ?? 0} session={session} />;
+  const floor = props.document.floors.find((item) => item.source.id === props.floorId);
+  if (!floor) return null;
+  const runtime = (
+    <Physics timeStep={1 / 60} updateLoop="independent">
+      <CollisionWorld floor={floor} role={props.role ?? 'visitor'} roleAreas={props.roleAreas}>
+        <Runtime
+          key={session.generation}
+          document={props.document}
+          floorId={props.floorId}
+          onFloor={props.onFloor}
+          originY={props.originY ?? 0}
+          session={session}
+        />
+      </CollisionWorld>
+    </Physics>
+  );
   return import.meta.env.DEV ? (
     <Profiler
       id="WalkthroughRuntime"

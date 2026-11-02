@@ -66,7 +66,7 @@ export function CameraRig({
     candidate: Vec3 = useMemo(() => [0, 0, 0], []),
     safe: Vec3 = useMemo(() => [0, 0, 0], []);
   const samplePoint = useMemo<[number, number]>(() => [0, 0], []);
-  const free = useMemo(() => ({ yaw: 0, pitch: 0 }), []);
+  const free = useMemo(() => ({ yaw: 0, pitch: 0, orbitYaw: 0, orbitPitch: 0 }), []);
   const lastOrigin = useRef(originY);
   const obstacles = useMemo(() => cameraObstacles(document, floorId), [document, floorId]);
   useLayoutEffect(() => {
@@ -200,7 +200,8 @@ export function CameraRig({
       x = 0,
       y = 0;
     const down = (event: PointerEvent) => {
-      if (usePlaybackStore.getState().mode !== 'first' || event.button !== 0) {
+      const state = usePlaybackStore.getState();
+      if (state.status === 'playing' || !['first', 'chase'].includes(state.mode) || event.button !== 0) {
         return;
       }
       pointer = event.pointerId;
@@ -213,8 +214,15 @@ export function CameraRig({
       if (event.pointerId !== pointer) {
         return;
       }
-      free.yaw = Math.max(-1.1, Math.min(1.1, free.yaw - (event.clientX - x) * 0.004));
-      free.pitch = Math.max(-0.5, Math.min(0.5, free.pitch + (event.clientY - y) * 0.004));
+      const deltaX = event.clientX - x;
+      const deltaY = event.clientY - y;
+      if (usePlaybackStore.getState().mode === 'chase') {
+        free.orbitYaw = Math.max(-2.2, Math.min(2.2, free.orbitYaw - deltaX * 0.004));
+        free.orbitPitch = Math.max(-0.65, Math.min(0.55, free.orbitPitch + deltaY * 0.004));
+      } else {
+        free.yaw = Math.max(-1.1, Math.min(1.1, free.yaw - deltaX * 0.004));
+        free.pitch = Math.max(-0.5, Math.min(0.5, free.pitch + deltaY * 0.004));
+      }
       x = event.clientX;
       y = event.clientY;
       invalidate();
@@ -224,7 +232,9 @@ export function CameraRig({
         canvas.releasePointerCapture(pointer);
       }
       pointer = null;
-      gsap.to(free, { yaw: 0, pitch: 0, duration: 0.35, onUpdate: invalidate });
+      if (usePlaybackStore.getState().mode === 'first') {
+        gsap.to(free, { yaw: 0, pitch: 0, duration: 0.35, onUpdate: invalidate });
+      }
     };
     canvas.addEventListener('pointerdown', down);
     canvas.addEventListener('pointermove', move);
@@ -263,9 +273,10 @@ export function CameraRig({
     } else {
       // The hall's chase arm would pass through the cabin shell. Keep it inside while riding.
       const arm = inElevator ? 0.65 : 3.2;
-      candidate[0] = position[0] + (first ? 0 : Math.sin(runtime.yaw) * arm);
-      candidate[1] = position[1] + originY + (first ? 1.6 + bob : inElevator ? 1.95 : 3);
-      candidate[2] = position[2] + (first ? 0 : Math.cos(runtime.yaw) * arm);
+      const cameraYaw = runtime.yaw + (first ? free.yaw : free.orbitYaw);
+      candidate[0] = position[0] + (first ? 0 : Math.sin(cameraYaw) * arm);
+      candidate[1] = position[1] + originY + (first ? 1.6 + bob + free.pitch * 1.7 : inElevator ? 1.95 : 3 + free.orbitPitch * 1.7);
+      candidate[2] = position[2] + (first ? 0 : Math.cos(cameraYaw) * arm);
       const base =
         document.floors.find((floor) => floor.source.id === floorId)?.source.heightOffset ?? 0;
       safeCamera(
@@ -279,7 +290,7 @@ export function CameraRig({
       );
       desired.set(...safe);
       if (first) {
-        const yaw = runtime.yaw + free.yaw;
+        const yaw = cameraYaw;
         const dx = ahead[0] - position[0],
           dz = ahead[2] - position[2];
         const headYaw = Math.hypot(dx, dz) > 0.05 ? Math.atan2(-dx, -dz) : runtime.yaw;
@@ -292,9 +303,9 @@ export function CameraRig({
         );
       } else {
         look.set(
-          position[0] - Math.sin(runtime.yaw) * 0.8,
+          position[0] - Math.sin(cameraYaw) * 0.8,
           position[1] + originY + (inElevator ? 1 : -0.4),
-          position[2] - Math.cos(runtime.yaw) * 0.8,
+          position[2] - Math.cos(cameraYaw) * 0.8,
         );
       }
       matrix.lookAt(desired, look, owned.up);

@@ -2,6 +2,8 @@ import { Quaternion, Vector3, type Group } from 'three';
 import type { Follower } from './follower.ts';
 import { sampleLeg, type Vec3 } from './path.ts';
 import { pointInPolygon } from '@/utils/geometry/polygon.ts';
+import { CHARACTER_CONFIG } from './character-config.ts';
+import { sampleGait } from './rendering/gait.ts';
 
 interface Foot {
   anchor: Vector3;
@@ -50,12 +52,19 @@ export class AvatarRig {
     this.torso = root.getObjectByName('WalkTorso') as Group | null;
   }
   update(frame: Follower, originY: number) {
-    const walking =
-      frame.speed > 0.02 && !frame.arrived && frame.path.legs[frame.leg]?.kind !== 'escalator';
+    const legKind = frame.path.legs[frame.leg]?.kind;
+    const walking = frame.speed > 0.02 && !frame.arrived && legKind !== 'escalator' && legKind !== 'elevator';
     const stairs = frame.path.legs[frame.leg]?.kind === 'stairs';
-    const stride = stairs ? 0.48 : 0.96;
-    const phase = frame.gaitDistance / stride;
-    const bob = walking ? 0.012 * (1 - Math.cos(phase * 4 * Math.PI)) : 0;
+    const stride = CHARACTER_CONFIG.gaitStrideM;
+    const gait = sampleGait({
+      gaitDistanceM: frame.gaitDistance,
+      locomotion: walking ? (frame.speed > CHARACTER_CONFIG.walkSpeedMps ? 'run' : 'walk') : 'idle',
+      speedMps: frame.speed,
+      inclineRadians: Math.atan2(frame.tangent[1], Math.hypot(frame.tangent[0], frame.tangent[2])),
+      strideM: stride,
+    });
+    const phase = gait.phaseRadians / (Math.PI * 2);
+    const bob = gait.pelvisBobM;
     let pelvis = (stairs ? 0.68 : 0.73) + bob;
     const cos = Math.cos(frame.yaw),
       sin = Math.sin(frame.yaw);
@@ -110,10 +119,10 @@ export class AvatarRig {
     });
     if (this.torso) {
       this.torso.position.y = pelvis - 0.77;
-      this.torso.rotation.x =
-        frame.path.legs[frame.leg]?.kind === 'ramp'
+      this.torso.rotation.x = gait.torsoLeanRadians +
+        (frame.path.legs[frame.leg]?.kind === 'ramp'
           ? Math.max(-0.1, Math.min(0.1, -frame.tangent[1] * 0.2))
-          : 0;
+          : 0);
     }
     this.legs.forEach((rig, index) => {
       rig.hip.position.y = pelvis;
@@ -141,7 +150,9 @@ export class AvatarRig {
       rig.ankle.quaternion.copy(this.chain);
     });
     this.arms.forEach((arm, index) => {
-      arm.rotation.x = walking ? Math.sin((phase + index * 0.5) * 2 * Math.PI) * 0.35 : 0.04;
+      arm.rotation.x = walking
+        ? (index === 0 ? gait.leftArmRadians : gait.rightArmRadians)
+        : 0.04;
       if (frame.arrived && frame.arrivalTime < 1.1 && index === 1) {
         const wave = Math.sin((Math.PI * frame.arrivalTime) / 1.1);
         arm.rotation.x = 0.04 - 1.44 * wave;
