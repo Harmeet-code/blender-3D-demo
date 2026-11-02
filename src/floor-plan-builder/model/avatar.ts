@@ -1,4 +1,5 @@
 import type { PlanObject } from './types.ts';
+import { CHARACTER_CONFIG } from '../wayfinding/walkthrough/character-config.ts';
 
 /**
  * Layer-split helpers for `avatar` (§8–§10).
@@ -12,9 +13,13 @@ import type { PlanObject } from './types.ts';
  *   capsule for avatar-to-avatar/avatar-to-booth physics.
  */
 
-export const AVATAR_FOOTPRINT: [number, number, number] = [0.65, 1.8, 0.65];
-export const AVATAR_CAPSULE_RADIUS = 0.3;
-export const AVATAR_HEIGHT = 1.8;
+export const AVATAR_FOOTPRINT: [number, number, number] = [
+  CHARACTER_CONFIG.widthM,
+  CHARACTER_CONFIG.heightM,
+  CHARACTER_CONFIG.widthM,
+];
+export const AVATAR_CAPSULE_RADIUS = CHARACTER_CONFIG.radiusM;
+export const AVATAR_HEIGHT = CHARACTER_CONFIG.heightM;
 
 export function avatarDesignError(object: PlanObject): string | null {
   if (object.recipe !== 'avatar') {
@@ -30,7 +35,7 @@ export function avatarDesignError(object: PlanObject): string | null {
     Math.abs(h - AVATAR_FOOTPRINT[1]) > 1e-6 ||
     Math.abs(d - AVATAR_FOOTPRINT[2]) > 1e-6
   ) {
-    return 'Avatar dimensions are locked to the 0.65 × 1.8 × 0.65 m benchmark.';
+    return 'Avatar dimensions are locked to the 0.6 × 1.8 × 0.6 m benchmark.';
   }
   return null;
 }
