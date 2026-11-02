@@ -11,7 +11,7 @@ import { usePlaybackStore, type PlaybackSession } from '../store/playback-store.
 import { AvatarRig } from './avatar-rig.ts';
 import { CameraRig } from './CameraRig.tsx';
 import { useManualInput } from './locomotion/manual-input.ts';
-import { KinematicCapsule, type KinematicCapsuleHandle, type CapsuleMoveResult } from './foundation/kinematic-capsule.tsx';
+import { KinematicCapsule, type KinematicCapsuleHandle, type CapsuleMoveResult, type PhysicsMoveStep } from './foundation/kinematic-capsule.tsx';
 import { CollisionWorld, useCapsuleClearance } from './collision/collision-world.tsx';
 import type { CollisionMap, RoleAreaPolicy } from './collision/capsule-clearance.ts';
 import { CHARACTER_CONFIG } from './character-config.ts';
@@ -451,7 +451,41 @@ function Runtime({
     }
     invalidate();
   };
+  const autoPhysicsStep = useCallback<PhysicsMoveStep>((physicsDeltaSeconds) => {
+    const playback = usePlaybackStore.getState();
+    const leg = runtime.path.legs[runtime.leg];
+    if (playback.status !== 'playing' || runtime.arrived || !leg || leg.kind !== 'walk') {return null;}
+    const from: [number, number, number] = [...runtime.position];
+    const intent = steerRoute({
+      leg,
+      state: { distanceM: runtime.s, speedMps: runtime.speed, yawRadians: runtime.yaw },
+      dtSeconds: physicsDeltaSeconds,
+      timeScale: playback.speed,
+      speedLimitMps: CHARACTER_CONFIG.walkSpeedMps,
+      validateDisplacement: (position, displacement) => clearance.validateSweep(
+        [position[0], position[1] + originY, position[2]],
+        [position[0] + displacement[0], position[1] + displacement[1] + originY, position[2] + displacement[2]],
+        CHARACTER_CONFIG,
+      ).clear,
+    });
+    if (intent.blocked) {
+      playback.fail('Auto-walk stopped because the avatar capsule sweep is blocked or unsupported.');
+      return null;
+    }
+    if (intent.displacement.every((value) => Math.abs(value) <= 1e-7)) {
+      runtime.speed = intent.speedMps;
+      runtime.yaw = intent.targetYawRadians;
+      runtime.look = [...intent.gazeTarget];
+      runtime.arrived = intent.arrived;
+      if (intent.arrived) {playback.publish(runtime);}
+      return null;
+    }
+    pendingMove.current = { kind: 'route', intent, from };
+    pending.current = true;
+    return intent.displacement;
+  }, [runtime, clearance, originY]);
   useFrame((_, rawDelta) => {
+    capsule.current?.requestPhysicsStep(autoPhysicsStep);
     const state = usePlaybackStore.getState();
     const dt = window.document.hidden ? 0 : Math.min(rawDelta, 0.1);
     if (pending.current) {
@@ -482,35 +516,6 @@ function Runtime({
             invalidate();
             state.publish(runtime);
           }
-        }
-      } else {
-        const from: [number, number, number] = [...runtime.position];
-        const intent = steerRoute({
-          leg,
-          state: { distanceM: runtime.s, speedMps: runtime.speed, yawRadians: runtime.yaw },
-          dtSeconds: dt * state.speed,
-          speedLimitMps: CHARACTER_CONFIG.walkSpeedMps,
-          validateDisplacement: (position, displacement) => {
-            const result = clearance.validateSweep(
-              [position[0], position[1] + originY, position[2]],
-              [position[0] + displacement[0], position[1] + displacement[1] + originY, position[2] + displacement[2]],
-              CHARACTER_CONFIG,
-            );
-            return result.clear;
-          },
-        });
-        if (intent.blocked) {
-          state.fail('Auto-walk stopped because the avatar capsule sweep is blocked or unsupported.');
-        } else if (intent.displacement.some((value) => Math.abs(value) > 1e-7)) {
-          pending.current = true;
-          pendingMove.current = { kind: 'route', intent, from };
-          capsule.current?.requestMove(intent.displacement);
-        } else {
-          runtime.speed = intent.speedMps;
-          runtime.yaw = intent.targetYawRadians;
-          runtime.look = [...intent.gazeTarget];
-          runtime.arrived = intent.arrived;
-          if (intent.arrived) {state.publish(runtime);}
         }
       }
     } else if (state.status !== 'playing') {

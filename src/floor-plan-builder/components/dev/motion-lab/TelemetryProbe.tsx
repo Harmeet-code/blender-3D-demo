@@ -10,6 +10,7 @@ import { usePlaybackStore } from '../../../wayfinding/store/playback-store.ts';
 import type { Vec3 } from '../../../wayfinding/walkthrough/path.ts';
 import { getCollisionOpenDoorIds, subscribeCollisionDoorState } from '../../../wayfinding/game/door-state.ts';
 import { pointInPolygon } from '@/utils/geometry/polygon.ts';
+import { subscribeResolvedCapsuleMotion } from '../../../wayfinding/walkthrough/foundation/kinematic-capsule.tsx';
 
 const MOTION_LAB_DT = 1 / 30;
 
@@ -71,7 +72,7 @@ export function MotionLabTelemetryPanel({ active }: { active: boolean }) {
           : `UNMEASURED · n=${active ? liveMetrics.stanceSamples : 0} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s`}
       </div>
       <div>
-        Resolved-root acceleration: {active && liveMetrics.autoAccelerationMaxMps2 !== null
+        Resolved-root acceleration (physics-step samples): {active && liveMetrics.autoAccelerationMaxMps2 !== null
           ? `auto max ${liveMetrics.autoAccelerationMaxMps2.toFixed(3)} m/s² · n=${liveMetrics.autoAccelerationSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≤ 2.000 m/s² · ${autoAccelerationStatus}`
           : `auto max UNMEASURED · n=${liveMetrics.autoAccelerationSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≤ 2.000 m/s² · ${autoAccelerationStatus}`}
       </div>
@@ -82,7 +83,7 @@ export function MotionLabTelemetryPanel({ active }: { active: boolean }) {
           : `UNMEASURED · n=${liveMetrics.clearanceSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≥ 0 m · ${clearanceStatus}`}
       </div>
       <div>Current resolved-root acceleration: mode={liveMetrics.currentMode} · {liveMetrics.currentAccelerationMps2 === null ? 'UNMEASURED' : `${liveMetrics.currentAccelerationMps2.toFixed(3)} m/s²`} · gaze lead: UNMEASURED</div>
-      <div className="mt-1 opacity-75">Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.</div>
+      <div className="mt-1 opacity-75">Auto/manual acceleration uses resolved capsule positions sampled after fixed Rapier steps; the current acceleration line remains a render-sampled observation. Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.</div>
     </div>
   );
 }
@@ -318,11 +319,60 @@ export function MotionLabTelemetryProbe({
   const previousRenderedFeet = useRef<{ left: Vec3 | null; right: Vec3 | null; stance: [boolean, boolean]; floorId: string; generation: number } | null>(null);
   const manualKeys = useRef(new Set<string>());
   const metricClock = useRef(0);
+  const physicsMetricClock = useRef(0);
+  const previousPhysicsSample = useRef<{ generation: number; floorId: string; mode: MotionLabTelemetry['movementMode']; velocity: Vec3; accepted: boolean } | null>(null);
   const stanceSpeedSamples = useRef<{ value: number; time: number }[]>([]);
   const autoAccelerationSamples = useRef<{ value: number; time: number }[]>([]);
   const manualAccelerationSamples = useRef<{ value: number; time: number }[]>([]);
   const clearanceSamples = useRef<{ value: number; time: number }[]>([]);
   const lastPublish = useRef(0);
+  useEffect(() => subscribeResolvedCapsuleMotion((sample) => {
+    const session = usePlaybackStore.getState().session;
+    if (!session) {
+      previousPhysicsSample.current = null;
+      physicsMetricClock.current = 0;
+      return;
+    }
+    const { runtime, generation } = session;
+    const previous = previousPhysicsSample.current;
+    physicsMetricClock.current = previous?.generation === generation
+      ? physicsMetricClock.current + sample.physicsDeltaSeconds
+      : sample.physicsDeltaSeconds;
+    const hasManualDirection = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
+      .some((key) => manualKeys.current.has(key));
+    const mode: MotionLabTelemetry['movementMode'] = hasManualDirection
+      ? 'manual'
+      : usePlaybackStore.getState().status === 'playing' ? 'auto-walk' : 'paused';
+    const velocity: Vec3 = [
+      sample.displacement[0] / sample.physicsDeltaSeconds,
+      sample.displacement[1] / sample.physicsDeltaSeconds,
+      sample.displacement[2] / sample.physicsDeltaSeconds,
+    ];
+    const continuous = previous !== null && previous.generation === generation && previous.floorId === runtime.floorId &&
+      previous.mode === mode && previous.accepted && sample.accepted;
+    if (continuous && mode === 'auto-walk') {
+      const acceleration = Math.hypot(
+        velocity[0] - previous.velocity[0],
+        velocity[1] - previous.velocity[1],
+        velocity[2] - previous.velocity[2],
+      ) / sample.physicsDeltaSeconds;
+      if (Number.isFinite(acceleration)) {autoAccelerationSamples.current.push({ value: acceleration, time: physicsMetricClock.current });}
+    } else if (continuous && mode === 'manual') {
+      const acceleration = Math.hypot(
+        velocity[0] - previous.velocity[0],
+        velocity[1] - previous.velocity[1],
+        velocity[2] - previous.velocity[2],
+      ) / sample.physicsDeltaSeconds;
+      if (Number.isFinite(acceleration)) {manualAccelerationSamples.current.push({ value: acceleration, time: physicsMetricClock.current });}
+    }
+    previousPhysicsSample.current = {
+      generation,
+      floorId: runtime.floorId,
+      mode,
+      velocity,
+      accepted: sample.accepted,
+    };
+  }), []);
   useEffect(() => {
     if (activeSession) {return;}
     stanceSpeedSamples.current = [];
@@ -330,6 +380,8 @@ export function MotionLabTelemetryProbe({
     manualAccelerationSamples.current = [];
     clearanceSamples.current = [];
     metricClock.current = 0;
+    physicsMetricClock.current = 0;
+    previousPhysicsSample.current = null;
     publishLiveMetrics(emptyLiveMetrics);
   }, [activeSession]);
 
@@ -376,6 +428,8 @@ export function MotionLabTelemetryProbe({
       footPlant.current = createFootPlantState();
       previousRenderedFeet.current = null;
       metricClock.current = 0;
+      physicsMetricClock.current = 0;
+      previousPhysicsSample.current = null;
       stanceSpeedSamples.current = [];
       autoAccelerationSamples.current = [];
       manualAccelerationSamples.current = [];
@@ -456,8 +510,6 @@ export function MotionLabTelemetryProbe({
     }
     const accelerationMagnitude = Math.hypot(...acceleration);
     const accelerationSampleValid = !resetDerivatives && previous.movementMode === movementMode && Number.isFinite(accelerationMagnitude);
-    if (accelerationSampleValid && movementMode === 'auto-walk') {autoAccelerationSamples.current.push({ value: accelerationMagnitude, time: sampleTime });}
-    if (accelerationSampleValid && movementMode === 'manual') {manualAccelerationSamples.current.push({ value: accelerationMagnitude, time: sampleTime });}
     const previousPosition: Vec3 = previous.position;
     const connectorTraversal = leg && leg.kind !== 'walk';
     const clearance: { clear: boolean | null; blockerId?: string; source?: string; reason?: string } = connectorTraversal
@@ -474,7 +526,7 @@ export function MotionLabTelemetryProbe({
       ? null
       : measuredClearanceM - (CHARACTER_CONFIG.radiusM - CAPSULE_CLEARANCE_EPSILON_M);
     if (numericMarginM !== null && Number.isFinite(numericMarginM)) {clearanceSamples.current.push({ value: numericMarginM, time: sampleTime });}
-    const windowStart = sampleTime - 5;
+    const windowStart = physicsMetricClock.current - 5;
     stanceSpeedSamples.current = stanceSpeedSamples.current.filter((sample) => sample.time >= windowStart);
     autoAccelerationSamples.current = autoAccelerationSamples.current.filter((sample) => sample.time >= windowStart);
     manualAccelerationSamples.current = manualAccelerationSamples.current.filter((sample) => sample.time >= windowStart);
@@ -526,7 +578,7 @@ export function MotionLabTelemetryProbe({
         manualAccelerationSamples: manualAccelerationSamples.current.length,
         clearanceMarginM: numericMarginM,
         clearanceSamples: clearanceSamples.current.length,
-        windowSeconds: Math.min(5, sampleTime),
+        windowSeconds: Math.min(5, physicsMetricClock.current),
         currentMode: movementMode,
         currentAccelerationMps2: accelerationSampleValid ? accelerationMagnitude : null,
       });

@@ -15,6 +15,8 @@ export interface RouteSteeringInput {
   stop?: boolean;
   /** Optional movement speed cap, e.g. a caller-selected walk/sprint speed. */
   speedLimitMps?: number;
+  /** Playback rate applied to route distance; acceleration remains bounded in real seconds. */
+  timeScale?: number;
   /** Required swept-capsule check. Return true only when the full candidate is clear. */
   validateDisplacement: (from: Vec3, displacement: Vec3) => boolean;
 }
@@ -247,7 +249,11 @@ function nextCorner(leg: MotionLeg, distanceM: number) {
     const dot = ((before[0] - prior[0]) * (after[0] - before[0]) +
       (before[1] - prior[1]) * (after[1] - before[1]) +
       (before[2] - prior[2]) * (after[2] - before[2])) / (inLength * outLength);
-    return { distanceM: leg.lengths[i]!, turnRadians: Math.acos(Math.max(-1, Math.min(1, dot))) };
+    const turnRadians = Math.acos(Math.max(-1, Math.min(1, dot)));
+    const radiusM = turnRadians > EPSILON
+      ? (inLength + outLength) / (4 * Math.sin(turnRadians / 2))
+      : Number.POSITIVE_INFINITY;
+    return { distanceM: leg.lengths[i]!, turnRadians, radiusM };
   }
   return null;
 }
@@ -269,7 +275,8 @@ export function steerRoute(input: RouteSteeringInput): RouteSteeringIntent {
   const validInput = validLeg && finite(input.dtSeconds) && input.dtSeconds >= 0 &&
     finite(state.distanceM) && finite(state.speedMps) && state.speedMps >= 0 &&
     finite(state.yawRadians) && (input.speedLimitMps === undefined ||
-      (finite(input.speedLimitMps) && input.speedLimitMps >= 0));
+      (finite(input.speedLimitMps) && input.speedLimitMps >= 0)) &&
+    (input.timeScale === undefined || (finite(input.timeScale) && input.timeScale > 0));
   const gazeTarget: Vec3 = [0, 0, 0];
   if (!validInput) {
     return { displacement: [0, 0, 0], gazeTarget, targetYawRadians: 0,
@@ -278,6 +285,7 @@ export function steerRoute(input: RouteSteeringInput): RouteSteeringIntent {
       gazeLeadSeconds: GAZE_LEAD_SECONDS };
   }
   const dt = Math.min(input.dtSeconds, 0.1);
+  const timeScale = input.timeScale ?? 1;
   const currentDistance = Math.max(0, Math.min(leg.length, state.distanceM));
   const remaining = Math.max(0, leg.length - currentDistance);
   const limit = Math.max(0, input.speedLimitMps ?? CHARACTER_CONFIG.walkSpeedMps);
@@ -288,26 +296,36 @@ export function steerRoute(input: RouteSteeringInput): RouteSteeringIntent {
     ? Math.max(0, Math.min(1, (corner.turnRadians - slowdownStart) / (Math.PI - slowdownStart)))
     : 0;
   const cornerSpeedFactor = 1 - cornerSeverity * (1 - CHARACTER_CONFIG.cornerSlowdown.minSpeedFactor);
-  const turnSpeed = routeLimit * cornerSpeedFactor;
   const distanceToCorner = corner ? Math.max(0, corner.distanceM - currentDistance) : Number.POSITIVE_INFINITY;
-  const cornerBrakingSpeed = turnSpeed + Math.sqrt(2 * MAX_ACCELERATION_MPS2 * distanceToCorner);
-  const brakingSpeed = Math.sqrt(2 * MAX_ACCELERATION_MPS2 * remaining);
+  const cornerApproachDistance = Math.max(0.5, routeLimit * timeScale * CHARACTER_CONFIG.lookahead.maxSeconds);
+  const curvedApproach = !!corner && corner.turnRadians > slowdownStart && distanceToCorner <= cornerApproachDistance;
+  // Reserve half of the acceleration budget for lateral acceleration through a curve.
+  const tangentialAcceleration = curvedApproach ? MAX_ACCELERATION_MPS2 * 0.5 : MAX_ACCELERATION_MPS2;
+  const maxAcceleration = tangentialAcceleration / timeScale;
+  const curvatureSpeedLimit = corner
+    ? Math.sqrt(MAX_ACCELERATION_MPS2 * 0.85 * corner.radiusM) / timeScale
+    : Number.POSITIVE_INFINITY;
+  const turnSpeed = Math.min(routeLimit * cornerSpeedFactor, curvatureSpeedLimit);
+  const cornerBrakingSpeed = Math.sqrt(
+    (turnSpeed * timeScale) ** 2 + 2 * tangentialAcceleration * distanceToCorner,
+  ) / timeScale;
+  const brakingSpeed = Math.sqrt(2 * MAX_ACCELERATION_MPS2 * remaining) / timeScale;
   const desiredSpeed = input.stop ? 0 : Math.min(routeLimit, brakingSpeed, cornerBrakingSpeed);
-  const dv = Math.max(-MAX_ACCELERATION_MPS2 * dt,
-    Math.min(MAX_ACCELERATION_MPS2 * dt, desiredSpeed - Math.max(0, state.speedMps)));
+  const dv = Math.max(-maxAcceleration * dt,
+    Math.min(maxAcceleration * dt, desiredSpeed - Math.max(0, state.speedMps)));
   const speed = Math.max(0, state.speedMps + dv);
-  const advance = Math.min(remaining, Math.max(0, (state.speedMps + speed) * 0.5 * dt));
+  const advance = Math.min(remaining, Math.max(0, (state.speedMps + speed) * 0.5 * dt * timeScale));
   const nextDistance = currentDistance + advance;
-  const arrived = nextDistance >= leg.length - EPSILON && speed <= MAX_ACCELERATION_MPS2 * dt + EPSILON;
+  const arrived = nextDistance >= leg.length - EPSILON && speed <= maxAcceleration * dt + EPSILON;
 
   const position: Vec3 = [0, 0, 0];
   sampleLeg(leg, currentDistance, position, [0, 0, 0]);
   const lookaheadSeconds = CHARACTER_CONFIG.lookahead.maxSeconds - cornerSeverity *
     (CHARACTER_CONFIG.lookahead.maxSeconds - CHARACTER_CONFIG.lookahead.minSeconds);
   const lookaheadTangent: Vec3 = [0, 0, -1];
-  const lookaheadDistance = Math.min(leg.length, nextDistance + speed * lookaheadSeconds);
+  const lookaheadDistance = Math.min(leg.length, nextDistance + speed * timeScale * lookaheadSeconds);
   sampleLeg(leg, lookaheadDistance, [0, 0, 0], lookaheadTangent);
-  const gazeDistance = Math.min(leg.length, nextDistance + speed * GAZE_LEAD_SECONDS);
+  const gazeDistance = Math.min(leg.length, nextDistance + speed * timeScale * GAZE_LEAD_SECONDS);
   sampleLeg(leg, gazeDistance, gazeTarget, [0, 0, 0]);
 
   const horizontalLength = Math.hypot(lookaheadTangent[0], lookaheadTangent[2]);
@@ -344,7 +362,7 @@ export function steerRoute(input: RouteSteeringInput): RouteSteeringIntent {
     gazeTarget,
     targetYawRadians: yaw,
     speedMps: committedSpeed,
-    accelerationMps2: clear && dt > 0 ? (speed - state.speedMps) / dt : 0,
+    accelerationMps2: clear && dt > 0 ? (speed - state.speedMps) * timeScale / dt : 0,
     distanceM: committedDistance,
     arrived: clear && arrived,
     stopped: clear && stopped,

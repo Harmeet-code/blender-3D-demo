@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import { CapsuleCollider, RigidBody, useBeforePhysicsStep, useRapier, type RapierCollider, type RapierRigidBody } from '@react-three/rapier';
+import { CapsuleCollider, RigidBody, useAfterPhysicsStep, useBeforePhysicsStep, useRapier, type RapierCollider, type RapierRigidBody } from '@react-three/rapier';
 import type { ThreeElements } from '@react-three/fiber';
 import type { Vector3Tuple } from '@react-three/rapier';
 import { CHARACTER_CONFIG, CAPSULE_HALF_SEGMENT_M, CAPSULE_TOTAL_HEIGHT_M } from '../character-config.ts';
@@ -16,11 +16,33 @@ export interface CapsuleMoveResult {
   displacement: Vector3Tuple;
   grounded: boolean;
   collisionCount: number;
+  physicsTimeSeconds?: number;
+  physicsDeltaSeconds?: number;
+}
+
+export interface ResolvedCapsuleSample {
+  feetPosition: Vector3Tuple;
+  displacement: Vector3Tuple;
+  physicsTimeSeconds: number;
+  physicsDeltaSeconds: number;
+  accepted: boolean;
+}
+
+export type PhysicsMoveStep = (physicsDeltaSeconds: number) => Vector3Tuple | null;
+
+const resolvedMotionListeners = new Set<(sample: ResolvedCapsuleSample) => void>();
+
+/** Subscribe to fixed-step resolved capsule samples. Always unsubscribe on cleanup. */
+export function subscribeResolvedCapsuleMotion(listener: (sample: ResolvedCapsuleSample) => void) {
+  resolvedMotionListeners.add(listener);
+  return () => {resolvedMotionListeners.delete(listener);};
 }
 
 export interface KinematicCapsuleHandle {
   /** Queue an intended displacement. Callers in manual and auto-walk share this one gate. */
   requestMove(displacement: Vector3Tuple): void;
+  /** Install a persistent producer that advances once for every actual Rapier physics step. */
+  requestPhysicsStep(step: PhysicsMoveStep | null): void;
   getFeetPosition(): Vector3Tuple | null;
   getLastMove(): CapsuleMoveResult;
 }
@@ -61,6 +83,11 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
   const { world } = useRapier();
   const controller = useRef<ReturnType<typeof world.createCharacterController> | null>(null);
   const pendingMove = useRef<Vector3Tuple | null>(null);
+  const physicsStep = useRef<PhysicsMoveStep | null>(null);
+  const physicsTimeSeconds = useRef(0);
+  const physicsDeltaSeconds = useRef(0);
+  const lastStepAccepted = useRef(true);
+  const previousPhysicsPosition = useRef<Vector3Tuple | null>(null);
   const lastMove = useRef<CapsuleMoveResult>(ZERO_MOVE);
   const callback = useRef(onResolvedMove);
   const sweepValidator = useRef(validateSweep);
@@ -87,15 +114,30 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
   }, [world, maxClimbSlopeRadians, minSlideSlopeRadians, groundSnapDistanceM]);
 
   useBeforePhysicsStep(() => {
-    const desired = pendingMove.current;
+    const physicsDelta = world.timestep;
+    if (!Number.isFinite(physicsDelta) || physicsDelta <= 0) {return;}
+    physicsDeltaSeconds.current = physicsDelta;
+    physicsTimeSeconds.current += physicsDelta;
+    let desired = pendingMove.current;
+    pendingMove.current = null;
+    if (!desired && physicsStep.current) {
+      try {
+        desired = physicsStep.current(physicsDelta);
+      } catch {
+        desired = null;
+      }
+    }
     const body = bodyRef.current;
     const collider = colliderRef.current;
     const activeController = controller.current;
-    if (!desired || !body || !collider || !activeController) {return;}
-
-    pendingMove.current = null;
+    if (!body) {return;}
     const current = body.translation();
     const fromFeet: Vector3Tuple = [current.x, current.y - HALF_HEIGHT_M, current.z];
+    if (!desired || !collider || !activeController) {
+      body.setNextKinematicTranslation(current);
+      lastStepAccepted.current = true;
+      return;
+    }
     const intendedFeet: Vector3Tuple = [
       fromFeet[0] + desired[0],
       fromFeet[1] + desired[1],
@@ -110,8 +152,10 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
     if (!intendedAllowed) {
       body.setNextKinematicTranslation(current);
       const rejected: CapsuleMoveResult = { displacement: [0, 0, 0], grounded: false, collisionCount: 0 };
-      lastMove.current = rejected;
-      callback.current?.(rejected);
+      const rejectedResult = { ...rejected, physicsTimeSeconds: physicsTimeSeconds.current, physicsDeltaSeconds: physicsDelta };
+      lastMove.current = rejectedResult;
+      lastStepAccepted.current = false;
+      callback.current?.(rejectedResult);
       return;
     }
 
@@ -128,10 +172,14 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
       displacement: [resolved.x, resolved.y, resolved.z],
       grounded: activeController.computedGrounded(),
       collisionCount: activeController.numComputedCollisions(),
+      physicsTimeSeconds: physicsTimeSeconds.current,
+      physicsDeltaSeconds: physicsDelta,
     } : {
       displacement: [0, 0, 0],
       grounded: false,
       collisionCount: activeController.numComputedCollisions(),
+      physicsTimeSeconds: physicsTimeSeconds.current,
+      physicsDeltaSeconds: physicsDelta,
     };
     body.setNextKinematicTranslation(resolvedAllowed ? {
       x: current.x + resolved.x,
@@ -139,12 +187,35 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
       z: current.z + resolved.z,
     } : current);
     lastMove.current = result;
+    lastStepAccepted.current = resolvedAllowed;
     callback.current?.(result);
+  });
+
+  useAfterPhysicsStep(() => {
+    const body = bodyRef.current;
+    if (!body || physicsDeltaSeconds.current <= 0) {return;}
+    const current = body.translation();
+    const resolvedFeetPosition: Vector3Tuple = [current.x, current.y - HALF_HEIGHT_M, current.z];
+    const previous = previousPhysicsPosition.current ?? resolvedFeetPosition;
+    const sample: ResolvedCapsuleSample = {
+      feetPosition: resolvedFeetPosition,
+      displacement: [resolvedFeetPosition[0] - previous[0], resolvedFeetPosition[1] - previous[1], resolvedFeetPosition[2] - previous[2]],
+      physicsTimeSeconds: physicsTimeSeconds.current,
+      physicsDeltaSeconds: physicsDeltaSeconds.current,
+      accepted: lastStepAccepted.current,
+    };
+    previousPhysicsPosition.current = [...resolvedFeetPosition];
+    for (const listener of resolvedMotionListeners) {
+      try {listener(sample);} catch { /* Diagnostics must not interrupt the physics loop. */ }
+    }
   });
 
   useImperativeHandle(forwardedRef, () => ({
     requestMove(displacement) {
       pendingMove.current = [displacement[0], displacement[1], displacement[2]];
+    },
+    requestPhysicsStep(step) {
+      physicsStep.current = step;
     },
     getFeetPosition() {
       const position = bodyRef.current?.translation();
