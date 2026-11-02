@@ -17,13 +17,36 @@ export const characterConfigSchema = z.object({
   id: z.literal('venue-human-v1'),
   radiusM: z.literal(0.3),
   heightM: z.literal(1.8),
+  widthM: z.literal(0.6),
   maxStepM: finiteNumber.positive(),
   walkSpeedMps: finiteNumber.positive(),
   sprintSpeedMps: finiteNumber.positive(),
+  /** Manual acceleration profile; auto-walk uses maxAutoAccelerationMps2 instead. */
   accelerationMps2: finiteNumber.positive(),
   brakingMps2: finiteNumber.positive(),
+  maxAutoAccelerationMps2: z.literal(2),
+  maxYawRateDegPerSec: z.literal(180),
+  maxYawDeltaDegPerFrame: z.literal(15),
+  cornerSlowdown: z.object({
+    startAngleDeg: finiteNumber.positive().max(180),
+    minSpeedFactor: finiteNumber.positive().max(1),
+  }),
+  lookahead: z.object({
+    minSeconds: finiteNumber.positive(),
+    maxSeconds: finiteNumber.positive(),
+  }).refine((value) => value.maxSeconds >= value.minSeconds, {
+    message: 'Maximum lookahead must be at least minimum lookahead.',
+    path: ['maxSeconds'],
+  }),
+  gazeLeadSeconds: finiteNumber.min(0.4).max(0.6),
   eyeHeightM: z.literal(1.6),
   gaitStrideM: finiteNumber.positive(),
+  camera: z.object({
+    firstPersonFovDeg: finiteNumber.positive().max(179),
+    chaseOffsetM: position3Schema,
+    smoothingHalfLifeSeconds: finiteNumber.positive(),
+    maxAngularRateDegPerSec: finiteNumber.positive(),
+  }),
 }).refine((config) => config.sprintSpeedMps >= config.walkSpeedMps, {
   message: 'Sprint speed must be at least walk speed.',
   path: ['sprintSpeedMps'],

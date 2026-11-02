@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CHARACTER_CONFIG } from '../wayfinding/walkthrough/character-config.ts';
 import { boothDesignSchema } from './booth-schema.ts';
 import { circulationDesignSchema } from './circulation-schema.ts';
 import { parkingDesignSchema } from './parking-schema.ts';
@@ -244,7 +245,7 @@ const definitions: Omit<
     id: 'avatar',
     name: 'Standing person',
     category: 'Navigation',
-    dimensions: [0.65, 1.8, 0.65],
+    dimensions: [CHARACTER_CONFIG.widthM, CHARACTER_CONFIG.heightM, CHARACTER_CONFIG.widthM],
     collidable: false,
     color: '#9ac8d8',
   },
