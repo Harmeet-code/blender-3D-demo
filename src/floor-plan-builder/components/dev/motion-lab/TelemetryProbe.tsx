@@ -18,7 +18,11 @@ export type MotionLabTelemetry = {
   frame: TelemetryFrame;
   accelerationMps2: Vec3;
   jerkMps3: Vec3;
+  movementMode?: 'manual' | 'auto-walk' | 'paused';
+  accelerationSampleValid?: boolean;
   gazeDirection: Vec3;
+  /** Configured gaze target does not provide observed look-ahead time. */
+  gazeLeadSeconds?: null;
   feet: {
     left: Vec3;
     right: Vec3;
@@ -236,12 +240,50 @@ export function MotionLabTelemetryProbe({
     return [floor.source.id, buildCollisionMap(doorStateFloor, roleAreas)] as const;
   })), [document, roleAreas, collisionOpenDoorIds]);
   const tick = useRef(0);
-  const last = useRef<{ position: Vec3; floorId: string; velocity: Vec3; acceleration: Vec3; traveledMeters: number; generation: number } | null>(null);
+  const last = useRef<{ position: Vec3; floorId: string; velocity: Vec3; acceleration: Vec3; traveledMeters: number; generation: number; movementMode: MotionLabTelemetry['movementMode'] } | null>(null);
   const footPlant = useRef(createFootPlantState());
-  const previousRenderedFeet = useRef<{ left: Vec3 | null; right: Vec3 | null; floorId: string; generation: number } | null>(null);
-  const stanceSpeedSamples = useRef<number[]>([]);
+  const previousRenderedFeet = useRef<{ left: Vec3 | null; right: Vec3 | null; stance: [boolean, boolean]; floorId: string; generation: number } | null>(null);
+  const manualKeys = useRef(new Set<string>());
+  const metricClock = useRef(0);
+  const stanceSpeedSamples = useRef<{ value: number; time: number }[]>([]);
+  const autoAccelerationSamples = useRef<{ value: number; time: number }[]>([]);
+  const manualAccelerationSamples = useRef<{ value: number; time: number }[]>([]);
+  const clearanceSamples = useRef<{ value: number; time: number }[]>([]);
   const lastPublish = useRef(0);
-  const [liveMetrics, setLiveMetrics] = useState<{ stanceP99Mps: number | null; stanceSamples: number; clearanceMarginM: number | null }>({ stanceP99Mps: null, stanceSamples: 0, clearanceMarginM: null });
+  const [liveMetrics, setLiveMetrics] = useState<{ stanceP99Mps: number | null; stanceSamples: number; autoAccelerationMaxMps2: number | null; autoAccelerationSamples: number; manualAccelerationMaxMps2: number | null; manualAccelerationSamples: number; clearanceMarginM: number | null; clearanceSamples: number; windowSeconds: number; currentMode: MotionLabTelemetry['movementMode']; currentAccelerationMps2: number | null }>({ stanceP99Mps: null, stanceSamples: 0, autoAccelerationMaxMps2: null, autoAccelerationSamples: 0, manualAccelerationMaxMps2: null, manualAccelerationSamples: 0, clearanceMarginM: null, clearanceSamples: 0, windowSeconds: 0, currentMode: 'paused', currentAccelerationMps2: null });
+
+  useEffect(() => {
+    if (activeSession) {return;}
+    stanceSpeedSamples.current = [];
+    autoAccelerationSamples.current = [];
+    manualAccelerationSamples.current = [];
+    clearanceSamples.current = [];
+    metricClock.current = 0;
+    setLiveMetrics({ stanceP99Mps: null, stanceSamples: 0, autoAccelerationMaxMps2: null, autoAccelerationSamples: 0, manualAccelerationMaxMps2: null, manualAccelerationSamples: 0, clearanceMarginM: null, clearanceSamples: 0, windowSeconds: 0, currentMode: 'paused', currentAccelerationMps2: null });
+  }, [activeSession]);
+
+  useEffect(() => {
+    const editable = (target: EventTarget | null) => target instanceof HTMLElement && (
+      target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName)
+    );
+    const down = (event: KeyboardEvent) => {
+      if (editable(event.target)) {return;}
+      if (/^(Key[WASD]|Arrow(Up|Down|Left|Right))$/.test(event.code)) {manualKeys.current.add(event.code);}
+    };
+    const up = (event: KeyboardEvent) => {manualKeys.current.delete(event.code);};
+    const clear = () => {manualKeys.current.clear();};
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', clear);
+    window.document.addEventListener('visibilitychange', clear);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', clear);
+      window.document.removeEventListener('visibilitychange', clear);
+      clear();
+    };
+  }, []);
 
   useFrame((_, rawDelta) => {
     const { session, status, message } = usePlaybackStore.getState();
@@ -251,16 +293,22 @@ export function MotionLabTelemetryProbe({
       return;
     }
     const { runtime } = session;
+    const hasManualDirection = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].some((key) => manualKeys.current.has(key));
+    const movementMode: MotionLabTelemetry['movementMode'] = status !== 'playing' ? 'paused' : hasManualDirection ? 'manual' : 'auto-walk';
     const position: Vec3 = [...runtime.position];
     const { floorId } = runtime;
     const floor = document.floors.find((item) => item.source.id === floorId);
     const leg = runtime.path.legs[runtime.leg];
     const generationChanged = last.current?.generation !== session.generation;
     if (generationChanged) {
-      last.current = { position, floorId, velocity: [0, 0, 0], acceleration: [0, 0, 0], traveledMeters: 0, generation: session.generation };
+      last.current = { position, floorId, velocity: [0, 0, 0], acceleration: [0, 0, 0], traveledMeters: 0, generation: session.generation, movementMode };
       footPlant.current = createFootPlantState();
       previousRenderedFeet.current = null;
+      metricClock.current = 0;
       stanceSpeedSamples.current = [];
+      autoAccelerationSamples.current = [];
+      manualAccelerationSamples.current = [];
+      clearanceSamples.current = [];
       tick.current = 0;
       lastPublish.current = 0;
     }
@@ -321,19 +369,24 @@ export function MotionLabTelemetryProbe({
     const previousFeet = previousRenderedFeet.current;
     const renderedSpeedSamples: number[] = [];
     if (simpleWalkFeet && previousFeet && previousFeet.floorId === floorId && previousFeet.generation === session.generation && dtSeconds > 0) {
-      if (footPlant.current.stance[0] && renderedLeft && previousFeet.left) {
+      if (footPlant.current.stance[0] && previousFeet.stance[0] && renderedLeft && previousFeet.left) {
         renderedSpeedSamples.push(Math.hypot(renderedLeft[0] - previousFeet.left[0], renderedLeft[2] - previousFeet.left[2]) / dtSeconds);
       }
-      if (footPlant.current.stance[1] && renderedRight && previousFeet.right) {
+      if (footPlant.current.stance[1] && previousFeet.stance[1] && renderedRight && previousFeet.right) {
         renderedSpeedSamples.push(Math.hypot(renderedRight[0] - previousFeet.right[0], renderedRight[2] - previousFeet.right[2]) / dtSeconds);
       }
     }
-    previousRenderedFeet.current = { left: renderedLeft, right: renderedRight, floorId, generation: session.generation };
+    previousRenderedFeet.current = { left: renderedLeft, right: renderedRight, stance: [...footPlant.current.stance], floorId, generation: session.generation };
     const renderedStanceGroundSpeedMps = renderedSpeedSamples.length ? Math.max(...renderedSpeedSamples) : null;
+    if (dtSeconds > 0) {metricClock.current += dtSeconds;}
+    const sampleTime = metricClock.current;
     if (renderedStanceGroundSpeedMps !== null && Number.isFinite(renderedStanceGroundSpeedMps)) {
-      stanceSpeedSamples.current.push(renderedStanceGroundSpeedMps);
-      if (stanceSpeedSamples.current.length > 30000) {stanceSpeedSamples.current.shift();}
+      stanceSpeedSamples.current.push({ value: renderedStanceGroundSpeedMps, time: sampleTime });
     }
+    const accelerationMagnitude = Math.hypot(...acceleration);
+    const accelerationSampleValid = !resetDerivatives && previous.movementMode === movementMode && Number.isFinite(accelerationMagnitude);
+    if (accelerationSampleValid && movementMode === 'auto-walk') {autoAccelerationSamples.current.push({ value: accelerationMagnitude, time: sampleTime });}
+    if (accelerationSampleValid && movementMode === 'manual') {manualAccelerationSamples.current.push({ value: accelerationMagnitude, time: sampleTime });}
     const previousPosition: Vec3 = previous.position;
     const connectorTraversal = leg && leg.kind !== 'walk';
     const clearance: { clear: boolean | null; blockerId?: string; source?: string; reason?: string } = connectorTraversal
@@ -349,11 +402,20 @@ export function MotionLabTelemetryProbe({
     const numericMarginM = measuredClearanceM === null
       ? null
       : measuredClearanceM - (CHARACTER_CONFIG.radiusM - CAPSULE_CLEARANCE_EPSILON_M);
+    if (numericMarginM !== null && Number.isFinite(numericMarginM)) {clearanceSamples.current.push({ value: numericMarginM, time: sampleTime });}
+    const windowStart = sampleTime - 5;
+    stanceSpeedSamples.current = stanceSpeedSamples.current.filter((sample) => sample.time >= windowStart);
+    autoAccelerationSamples.current = autoAccelerationSamples.current.filter((sample) => sample.time >= windowStart);
+    manualAccelerationSamples.current = manualAccelerationSamples.current.filter((sample) => sample.time >= windowStart);
+    clearanceSamples.current = clearanceSamples.current.filter((sample) => sample.time >= windowStart);
     const record: MotionLabTelemetry = {
       frame,
       accelerationMps2: acceleration,
       jerkMps3: jerk,
+      movementMode,
+      accelerationSampleValid,
       gazeDirection,
+      gazeLeadSeconds: null,
       feet: {
         left: feet[0], right: feet[1], stance: [...footPlant.current.stance],
         renderedLeft, renderedRight, renderedStanceGroundSpeedMps,
@@ -380,32 +442,51 @@ export function MotionLabTelemetryProbe({
     previous.acceleration = acceleration;
     previous.traveledMeters = traveledMeters;
     previous.generation = session.generation;
+    previous.movementMode = movementMode;
     lastPublish.current += rawDelta;
     if (lastPublish.current >= 0.1) {
       lastPublish.current = 0;
       setLiveMetrics({
-        stanceP99Mps: percentile99(stanceSpeedSamples.current),
+        stanceP99Mps: percentile99(stanceSpeedSamples.current.map((sample) => sample.value)),
         stanceSamples: stanceSpeedSamples.current.length,
+        autoAccelerationMaxMps2: autoAccelerationSamples.current.length ? Math.max(...autoAccelerationSamples.current.map((sample) => sample.value)) : null,
+        autoAccelerationSamples: autoAccelerationSamples.current.length,
+        manualAccelerationMaxMps2: manualAccelerationSamples.current.length ? Math.max(...manualAccelerationSamples.current.map((sample) => sample.value)) : null,
+        manualAccelerationSamples: manualAccelerationSamples.current.length,
         clearanceMarginM: numericMarginM,
+        clearanceSamples: clearanceSamples.current.length,
+        windowSeconds: Math.min(5, sampleTime),
+        currentMode: movementMode,
+        currentAccelerationMps2: accelerationSampleValid ? accelerationMagnitude : null,
       });
       onFrame(record);
     }
   });
   const stanceP99 = liveMetrics.stanceP99Mps;
+  const stanceStatus = stanceP99 === null ? 'UNMEASURED' : stanceP99 < 0.05 ? 'PASS' : 'FAIL';
+  const autoAccelerationStatus = liveMetrics.autoAccelerationMaxMps2 === null ? 'UNMEASURED' : liveMetrics.autoAccelerationMaxMps2 <= 2 ? 'PASS' : 'FAIL';
+  const clearanceStatus = liveMetrics.clearanceMarginM === null ? 'UNMEASURED' : liveMetrics.clearanceMarginM >= 0 ? 'PASS' : 'FAIL';
   return (
     <Html fullscreen>
       <div className="pointer-events-none fixed bottom-3 left-3 max-w-[min(92vw,38rem)] rounded-md bg-slate-950/90 px-3 py-2 font-mono text-xs text-cyan-100 shadow">
         <div>
           Rendered stance-foot speed P99: {activeSession && stanceP99 !== null
-            ? `${stanceP99.toFixed(4)} m/s · n=${liveMetrics.stanceSamples} · ${stanceP99 < 0.05 ? '< 0.05 m/s target' : '≥ 0.05 m/s target'}`
-            : 'UNAVAILABLE · no measured stance samples'}
+            ? `${stanceP99.toFixed(4)} m/s · n=${liveMetrics.stanceSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · < 0.05 m/s · ${stanceStatus}`
+            : `UNMEASURED · n=0 · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s`}
         </div>
         <div>
-          Sampled clearance margin to 0.2999 m hard threshold: {activeSession && liveMetrics.clearanceMarginM !== null
-            ? `${liveMetrics.clearanceMarginM.toFixed(4)} m`
-            : 'UNAVAILABLE · unsupported geometry, connector, or missing collision sample'}
+          Resolved-root acceleration: {activeSession && liveMetrics.autoAccelerationMaxMps2 !== null
+            ? `auto max ${liveMetrics.autoAccelerationMaxMps2.toFixed(3)} m/s² · n=${liveMetrics.autoAccelerationSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≤ 2.000 m/s² · ${autoAccelerationStatus}`
+            : `auto max UNMEASURED · n=${liveMetrics.autoAccelerationSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≤ 2.000 m/s² · ${autoAccelerationStatus}`}
         </div>
-        <div className="mt-1 opacity-75">Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Clearance is sampled at 0.05 m intervals from the live collision map.</div>
+        <div>Manual max acceleration: {liveMetrics.manualAccelerationMaxMps2 === null ? 'UNMEASURED' : `${liveMetrics.manualAccelerationMaxMps2.toFixed(3)} m/s²`} · n={liveMetrics.manualAccelerationSamples} · window {liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s</div>
+        <div>
+          Sampled capsule-surface margin (centerline-to-edge minus 0.2999 m): {activeSession && liveMetrics.clearanceMarginM !== null
+            ? `${liveMetrics.clearanceMarginM.toFixed(4)} m · n=${liveMetrics.clearanceSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≥ 0 m · ${clearanceStatus}`
+            : `UNMEASURED · n=${liveMetrics.clearanceSamples} · window=${liveMetrics.windowSeconds.toFixed(1)} s / 5.0 s · ≥ 0 m · ${clearanceStatus}`}
+        </div>
+        <div>Current resolved-root acceleration: mode={liveMetrics.currentMode} · {liveMetrics.currentAccelerationMps2 === null ? 'UNMEASURED' : `${liveMetrics.currentAccelerationMps2.toFixed(3)} m/s²`} · gaze lead: UNMEASURED</div>
+        <div className="mt-1 opacity-75">Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.</div>
       </div>
     </Html>
   );

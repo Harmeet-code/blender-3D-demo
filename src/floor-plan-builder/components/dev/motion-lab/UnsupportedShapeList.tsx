@@ -1,3 +1,6 @@
+import { CHARACTER_CONFIG } from '../../../wayfinding/walkthrough/character-config.ts';
+import { CAPSULE_CLEARANCE_EPSILON_M } from '../../../wayfinding/walkthrough/collision/capsule-clearance.ts';
+
 export function UnsupportedShapeList({
   issues,
   routeComfort = [],
@@ -36,12 +39,12 @@ export function UnsupportedShapeList({
             {routeComfort.map((metric, index) => (
               <li key={`${metric.floorId}:${index}`}>
                 {metric.floorId}: {metric.clearanceP90M === null
-                  ? `UNAVAILABLE · ${metric.unavailableReason ?? 'No complete sample set.'}`
-                  : `${metric.clearanceP90M.toFixed(3)} m · ${metric.targetMet ? '≥ 0.50 m target met' : 'below 0.50 m target'}`}
+                  ? `UNMEASURED · ${metric.unavailableReason ?? 'No complete sample set.'}`
+                  : `centerline-to-edge P90 ${metric.clearanceP90M.toFixed(3)} m · capsule-surface margin P90 ${(metric.clearanceP90M - (CHARACTER_CONFIG.radiusM - CAPSULE_CLEARANCE_EPSILON_M)).toFixed(3)} m · centerline target ≥ 0.50 m · ${metric.targetMet === null ? 'UNMEASURED' : metric.targetMet ? 'PASS' : 'FAIL'} · n=UNAVAILABLE · window=route snapshot · available-space disposition=UNCLASSIFIED`}
               </li>
             ))}
           </ul>
-          <p className="mt-1 text-xs opacity-75">Samples use the mounted collision map and smoothed route points at ≤0.1 m spacing.</p>
+          <p className="mt-1 text-xs opacity-75">This P90 is a sampled collision-map estimate along the smoothed route (≤0.1 m spacing), not physical contact or a minimum-clearance guarantee. The capsule-surface value subtracts the configured capsule radius minus clearance epsilon. The route data does not expose sample count or whether a low margin is unavoidable in available geometry versus a steering choice.</p>
         </div>
       )}
     </section>
