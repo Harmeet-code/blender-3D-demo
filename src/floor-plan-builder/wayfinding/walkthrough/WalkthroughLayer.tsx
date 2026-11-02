@@ -299,8 +299,6 @@ function Runtime({
       }
       if (held.forward || held.strafe) invalidate();
       if (velocity.current > 0.001) invalidate();
-      held.lookX = 0;
-      held.lookY = 0;
     } else if (runtime.arrived && runtime.arrivalTime < 1.1) {
       runtime.arrivalTime += dt;
       invalidate();

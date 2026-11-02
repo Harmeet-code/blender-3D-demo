@@ -69,6 +69,19 @@ export function normalizeCollisionPolygon(polygon: readonly Point2[]): Point2[] 
       if (samePoint(points[i]!, points[j]!)) return null;
     }
   }
+  for (let i = 0; i < points.length; i++) {
+    const previous = points[(i + points.length - 1) % points.length]!;
+    const current = points[i]!;
+    const next = points[(i + 1) % points.length]!;
+    const toPrevious: Point2 = [previous[0] - current[0], previous[1] - current[1]];
+    const toNext: Point2 = [next[0] - current[0], next[1] - current[1]];
+    const cross = toPrevious[0] * toNext[1] - toPrevious[1] * toNext[0];
+    const dot = toPrevious[0] * toNext[0] + toPrevious[1] * toNext[1];
+    const scale = Math.max(1, Math.hypot(...toPrevious) * Math.hypot(...toNext));
+    // Collinear rays from the shared vertex that point the same way mean the
+    // adjacent edges overlap beyond that vertex (a backtracking spike).
+    if (Math.abs(cross) <= 1e-9 * scale && dot > 0) return null;
+  }
   let twiceArea = 0;
   for (let i = 0; i < points.length; i++) {
     const a = points[i]!, b = points[(i + 1) % points.length]!;
