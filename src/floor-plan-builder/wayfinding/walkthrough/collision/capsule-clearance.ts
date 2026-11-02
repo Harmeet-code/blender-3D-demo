@@ -50,8 +50,50 @@ const DEFAULT_PROFILE: CapsuleProfile = {
   heightM: CAPSULE_TOTAL_HEIGHT_M,
 };
 const finite = (n: number) => Number.isFinite(n);
-const validPolygon = (polygon: readonly Point2[]) =>
-  polygon.length >= 3 && polygon.every(([x, z]) => finite(x) && finite(z));
+
+/** Return the canonical simple ring shared by clearance and Rapier proxy generation. */
+export function normalizeCollisionPolygon(polygon: readonly Point2[]): Point2[] | null {
+  if (!Array.isArray(polygon)) return null;
+  const points: Point2[] = [];
+  for (const point of polygon as readonly unknown[]) {
+    if (!Array.isArray(point) || point.length !== 2 || !finite(point[0]) || !finite(point[1])) return null;
+    points.push([point[0], point[1]]);
+  }
+  // Authored rings sometimes repeat the first vertex to signal closure. Canonicalize
+  // that representation so both planar tests and triangulation see the same ring.
+  if (points.length > 3 && samePoint(points[0]!, points.at(-1)!)) points.pop();
+  if (points.length < 3) return null;
+  for (let i = 0; i < points.length; i++) {
+    if (samePoint(points[i]!, points[(i + 1) % points.length]!)) return null;
+    for (let j = i + 1; j < points.length; j++) {
+      if (samePoint(points[i]!, points[j]!)) return null;
+    }
+  }
+  let twiceArea = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i]!, b = points[(i + 1) % points.length]!;
+    twiceArea += a[0] * b[1] - b[0] * a[1];
+  }
+  if (!finite(twiceArea) || Math.abs(twiceArea) <= 1e-10) return null;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i]!, b = points[(i + 1) % points.length]!;
+    for (let j = i + 1; j < points.length; j++) {
+      const adjacent = j === i + 1 || (i === 0 && j === points.length - 1);
+      if (adjacent) continue;
+      const c = points[j]!, d = points[(j + 1) % points.length]!;
+      if (segmentDistance(a, b, c, d) <= 1e-9) return null;
+    }
+  }
+  return points;
+}
+
+export function isValidCollisionPolygon(polygon: readonly Point2[]): boolean {
+  return normalizeCollisionPolygon(polygon) !== null;
+}
+
+function samePoint(a: Point2, b: Point2): boolean {
+  return a[0] === b[0] && a[1] === b[1];
+}
 
 function pointSegmentDistance(p: Point2, a: Point2, b: Point2): number {
   const dx = b[0] - a[0], dz = b[1] - a[1];
@@ -101,11 +143,12 @@ function addPolygon(
   list: CollisionPolygon[], id: string, source: CollisionPolygon['source'], polygon: readonly Point2[], minY: number, maxY: number,
   unsupported: { id: string; reason: string }[],
 ) {
-  if (!validPolygon(polygon) || !finite(minY) || !finite(maxY) || maxY <= minY) {
+  const normalized = normalizeCollisionPolygon(polygon);
+  if (!normalized || !finite(minY) || !finite(maxY) || maxY <= minY) {
     unsupported.push({ id, reason: 'Collision footprint or vertical extent is malformed.' });
     return;
   }
-  list.push({ id, source, polygon, minY, maxY });
+  list.push({ id, source, polygon: normalized, minY, maxY });
 }
 
 /** Map document geometry to conservative, source-linked collision prisms. */
@@ -113,7 +156,24 @@ export function buildCollisionMap(floor: PlanFloor, roleAreas: readonly RoleArea
   const y = floor.source.heightOffset;
   const obstacles: CollisionPolygon[] = [], blockedAreas: CollisionPolygon[] = [];
   const unsupported: { id: string; reason: string }[] = [];
-  if (!validPolygon(floor.boundary)) unsupported.push({ id: floor.source.id, reason: 'Floor boundary is unavailable or malformed.' });
+  const boundary = normalizeCollisionPolygon(floor.boundary);
+  if (!boundary) unsupported.push({ id: floor.source.id, reason: 'Floor boundary is unavailable or malformed.' });
+  if (!finite(y)) unsupported.push({ id: floor.source.id, reason: 'Floor vertical position is malformed.' });
+  const normalizedRoleAreas: RoleAreaPolicy[] = [];
+  if (!Array.isArray(roleAreas)) {
+    unsupported.push({ id: floor.source.id, reason: 'Role-area policy list is malformed.' });
+  } else {
+    for (const [index, area] of roleAreas.entries()) {
+      const polygon = area && normalizeCollisionPolygon(area.polygon);
+      const roles = area?.allowedRoles;
+      const validRoles = Array.isArray(roles) && roles.every((role) => role === 'staff' || role === 'visitor');
+      if (!area || typeof area.id !== 'string' || !area.id.trim() || !polygon || !validRoles) {
+        unsupported.push({ id: typeof area?.id === 'string' && area.id.trim() ? area.id : `role-area:${index}`, reason: 'Role-area policy is missing a valid ID, polygon, or explicit allow-list.' });
+        continue;
+      }
+      normalizedRoleAreas.push({ id: area.id, polygon, allowedRoles: roles });
+    }
+  }
 
   const siblings = floor.objects;
   for (const object of siblings) {
@@ -153,7 +213,7 @@ export function buildCollisionMap(floor: PlanFloor, roleAreas: readonly RoleArea
       unsupported.push({ id: instance.id, reason: 'Authored instance geometry could not be resolved.' });
     }
   }
-  return { floorId: floor.source.id, floorY: y, boundary: floor.boundary, obstacles, blockedAreas, roleAreas, unsupported };
+  return { floorId: floor.source.id, floorY: y, boundary: boundary ?? [], obstacles, blockedAreas, roleAreas: normalizedRoleAreas, unsupported };
 }
 
 /** One capsule sweep contract for free motion, route samples, endpoints, and landings. */

@@ -28,6 +28,8 @@ export interface KinematicCapsuleHandle {
 export interface KinematicCapsuleProps extends Omit<ThreeElements['group'], 'position'> {
   /** Feet-origin world position; the Rapier body's origin remains at the capsule center. */
   feetPosition?: Vector3Tuple;
+  /** Required final authority for every requested and Rapier-resolved capsule sweep. */
+  validateSweep: (fromFeet: Vector3Tuple, toFeet: Vector3Tuple) => boolean;
   maxClimbSlopeRadians?: number;
   minSlideSlopeRadians?: number;
   groundSnapDistanceM?: number;
@@ -44,6 +46,7 @@ const ZERO_MOVE: CapsuleMoveResult = { displacement: [0, 0, 0], grounded: false,
 export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCapsuleProps>(function KinematicCapsule(
   {
     feetPosition = [0, 0, 0],
+    validateSweep,
     maxClimbSlopeRadians = DEFAULT_MAX_CLIMB_SLOPE_RADIANS,
     minSlideSlopeRadians = DEFAULT_MIN_SLIDE_SLOPE_RADIANS,
     groundSnapDistanceM = DEFAULT_GROUND_SNAP_M,
@@ -60,7 +63,9 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
   const pendingMove = useRef<Vector3Tuple | null>(null);
   const lastMove = useRef<CapsuleMoveResult>(ZERO_MOVE);
   const callback = useRef(onResolvedMove);
+  const sweepValidator = useRef(validateSweep);
   callback.current = onResolvedMove;
+  sweepValidator.current = validateSweep;
 
   const centerPosition = useMemo<Vector3Tuple>(
     () => [feetPosition[0], feetPosition[1] + HALF_HEIGHT_M, feetPosition[2]],
@@ -89,19 +94,50 @@ export const KinematicCapsule = forwardRef<KinematicCapsuleHandle, KinematicCaps
     if (!desired || !body || !collider || !activeController) return;
 
     pendingMove.current = null;
+    const current = body.translation();
+    const fromFeet: Vector3Tuple = [current.x, current.y - HALF_HEIGHT_M, current.z];
+    const intendedFeet: Vector3Tuple = [
+      fromFeet[0] + desired[0],
+      fromFeet[1] + desired[1],
+      fromFeet[2] + desired[2],
+    ];
+    let intendedAllowed = false;
+    try {
+      intendedAllowed = sweepValidator.current(fromFeet, intendedFeet);
+    } catch {
+      // A faulty policy callback must stop movement, never silently open the gate.
+    }
+    if (!intendedAllowed) {
+      body.setNextKinematicTranslation(current);
+      const rejected: CapsuleMoveResult = { displacement: [0, 0, 0], grounded: false, collisionCount: 0 };
+      lastMove.current = rejected;
+      callback.current?.(rejected);
+      return;
+    }
+
     activeController.computeColliderMovement(collider, { x: desired[0], y: desired[1], z: desired[2] });
     const resolved = activeController.computedMovement();
-    const result: CapsuleMoveResult = {
+    const resolvedFeet: Vector3Tuple = [fromFeet[0] + resolved.x, fromFeet[1] + resolved.y, fromFeet[2] + resolved.z];
+    let resolvedAllowed = false;
+    try {
+      resolvedAllowed = sweepValidator.current(fromFeet, resolvedFeet);
+    } catch {
+      // Fail closed if validation cannot establish clearance for Rapier's actual result.
+    }
+    const result: CapsuleMoveResult = resolvedAllowed ? {
       displacement: [resolved.x, resolved.y, resolved.z],
       grounded: activeController.computedGrounded(),
       collisionCount: activeController.numComputedCollisions(),
+    } : {
+      displacement: [0, 0, 0],
+      grounded: false,
+      collisionCount: activeController.numComputedCollisions(),
     };
-    const current = body.translation();
-    body.setNextKinematicTranslation({
+    body.setNextKinematicTranslation(resolvedAllowed ? {
       x: current.x + resolved.x,
       y: current.y + resolved.y,
       z: current.z + resolved.z,
-    });
+    } : current);
     lastMove.current = result;
     callback.current?.(result);
   });
