@@ -1,3 +1,4 @@
+import type { WalkLocalActions } from './local-actions.ts';
 import type { InteractionDescriptor, InteractionState, Role } from '../contracts.ts';
 import { checkWalkUseAccess, type WalkUseHandlerPolicy } from '../foundation/role-policy.ts';
 
@@ -9,6 +10,7 @@ export interface InteractionTarget extends InteractionDescriptor {
 
 export interface InteractionRuntimeOptions {
   role: Role;
+  localActions?: WalkLocalActions;
   targets: readonly InteractionTarget[];
   handlers?: readonly WalkUseHandlerPolicy[];
   onInspect?: (target: InteractionTarget) => void | Promise<void>;
@@ -24,6 +26,7 @@ export interface InteractionPose {
 
 /** Stateful near-field selector. Call update from the runtime frame after resolving motion. */
 export class ProximityInteractionRuntime {
+  readonly localActions?: WalkLocalActions;
   private readonly role: Role;
   private readonly targets: readonly InteractionTarget[];
   private readonly handlers: readonly WalkUseHandlerPolicy[];
@@ -35,12 +38,14 @@ export class ProximityInteractionRuntime {
   private dwellMs = 0;
   private inFlight = false;
   private pendingCapability: string | undefined;
+  private pendingTargetId: string | undefined;
   private current: InteractionState = { status: 'idle' };
 
   constructor(options: InteractionRuntimeOptions) {
     this.role = options.role;
     this.targets = options.targets;
-    this.handlers = options.handlers ?? [];
+    this.localActions = options.localActions;
+    this.handlers = [...(options.handlers ?? []), ...(options.localActions?.handlers() ?? [])];
     this.onInspect = options.onInspect;
     this.onDoorEffect = options.onDoorEffect;
     this.onState = options.onState;
@@ -57,6 +62,10 @@ export class ProximityInteractionRuntime {
 
   useUnavailableReason(capability?: string): string | null {
     if (!this.focused) {return 'No target is focused.';}
+    if (this.focused.allowedRoles && !this.focused.allowedRoles.includes(this.role)) {return 'Target role policy denies use.';}
+    if (capability === 'call-elevator' && !this.localActions) {return 'Elevator ride unavailable: physical connector integration is missing.';}
+    const localReason = capability && this.localActions?.unavailable(this.focused, capability);
+    if (localReason) {return localReason;}
     const result = checkWalkUseAccess(this.role, this.focused, capability, this.handlers, true);
     return result.allowed ? null : result.reason;
   }
@@ -74,7 +83,7 @@ export class ProximityInteractionRuntime {
       const distance = Math.hypot(dx, dy, dz);
       const threshold = target === this.focused ? target.radiusM + 0.5 : target.radiusM;
       const horizontal = Math.hypot(dx, dz);
-      const inFront = horizontal < 1e-5 || (dx * forwardX + dz * forwardZ) / horizontal > 0;
+      const inFront = horizontal < 1e-5 || (dx * forwardX + dz * forwardZ) / horizontal > (target === this.focused ? -0.15 : 0.1);
       return [{ target, distance, inRange: distance <= threshold, inFront }];
     });
     const activeNow = new Map(distances
@@ -93,8 +102,12 @@ export class ProximityInteractionRuntime {
     const candidates = distances
       .filter(({ inRange, inFront }) => inRange && inFront)
       .sort((a, b) => a.distance - b.distance);
-    const next = candidates[0]?.target ?? null;
+    const retained = candidates.find(({ target }) => target === this.focused);
+    const [nearest] = candidates;
+    const next = retained && (!nearest || retained.distance <= nearest.distance + 0.3) ? retained.target : nearest?.target ?? null;
     if (next !== this.focused) {
+      this.pendingCapability = undefined;
+      this.pendingTargetId = undefined;
       this.focused = next;
       this.dwellMs = 0;
       if (!next) {this.publish({ status: 'idle' });}
@@ -104,6 +117,7 @@ export class ProximityInteractionRuntime {
       const dwellRequired = next.infoDwellMs ?? 350;
       if (this.dwellMs >= dwellRequired && this.current.status === 'nearby') {
         this.publish({ status: 'info', descriptorId: next.id, targetId: next.targetId });
+        void this.inspect();
       }
     }
     return this.current;
@@ -125,9 +139,9 @@ export class ProximityInteractionRuntime {
     this.publish({ status: 'committing', descriptorId: target.id, action: 'inspect' });
     try {
       await this.onInspect(target);
-      this.publish({ status: 'completed', descriptorId: target.id, action: 'inspect' });
+      if (this.focused === target) {this.publish({ status: 'completed', descriptorId: target.id, action: 'inspect' });}
     } catch (error) {
-      this.publish({ status: 'failed', descriptorId: target.id, reason: error instanceof Error ? error.message : 'Inspect failed.' });
+      if (this.focused === target) {this.publish({ status: 'failed', descriptorId: target.id, reason: error instanceof Error ? error.message : 'Inspect failed.' });}
     } finally {
       this.inFlight = false;
     }
@@ -137,10 +151,16 @@ export class ProximityInteractionRuntime {
     if (this.inFlight) {return;}
     const target = this.focused;
     if (!target) {return;}
+    if (confirmed && (this.current.status !== 'confirmation-required' || this.pendingTargetId !== target.id || this.pendingCapability !== capability)) {
+      return this.publish({ status: 'denied', descriptorId: target.id, reason: 'Confirmation expired; select the current action again.' });
+    }
+    const unavailable = this.useUnavailableReason(capability);
+    if (unavailable) {return this.publish({ status: 'denied', descriptorId: target.id, reason: unavailable });}
     const access = checkWalkUseAccess(this.role, target, capability, this.handlers, confirmed);
     if (!access.allowed) {
       if (access.reason.startsWith('Confirmation is required')) {
         this.pendingCapability = capability;
+        this.pendingTargetId = target.id;
         this.publish({ status: 'confirmation-required', descriptorId: target.id, action: 'use' });
       } else {this.publish({ status: 'denied', descriptorId: target.id, reason: access.reason });}
       return;
@@ -157,12 +177,18 @@ export class ProximityInteractionRuntime {
     this.publish({ status: 'committing', descriptorId: target.id, action: 'use' });
     try {
       await handler.execute({ role: this.role, target, action });
-      this.publish({ status: 'completed', descriptorId: target.id, action: 'use' });
+      if (this.focused === target) {this.publish({ status: 'completed', descriptorId: target.id, action: 'use' });}
     } catch (error) {
-      this.publish({ status: 'failed', descriptorId: target.id, reason: error instanceof Error ? error.message : 'Use action failed.' });
+      if (this.focused === target) {this.publish({ status: 'failed', descriptorId: target.id, reason: error instanceof Error ? error.message : 'Use action failed.' });}
     } finally {
       this.inFlight = false;
     }
+  }
+
+  cancelConfirmation(): void {
+    this.pendingCapability = undefined;
+    this.pendingTargetId = undefined;
+    if (this.focused) {this.publish({ status: 'info', descriptorId: this.focused.id, targetId: this.focused.targetId });}
   }
 
   clear(): void {

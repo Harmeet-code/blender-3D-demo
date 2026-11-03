@@ -28,6 +28,7 @@ const STAFF_FIELDS = ['contactDetails', 'internalNotes'] as const satisfies read
  * Unknown fields, fieldVisibility, and absent source values are omitted.
  */
 export function projectBoothMetaView(booth: BoothMeta, role: Role): BoothMetaView {
+  if (role !== 'staff' && role !== 'visitor') {return {};}
   const allowed: readonly (keyof BoothMetaView)[] = role === 'visitor'
     ? VISITOR_FIELDS
     : [...VISITOR_FIELDS, ...STAFF_FIELDS];

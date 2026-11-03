@@ -1,3 +1,4 @@
+import { localActionsFor } from './local-actions.ts';
 import type { PlanDocument, PlanObject } from '../../../model/types.ts';
 import type { InteractionTarget } from './proximity.ts';
 import type { BoothMeta, Role } from '../contracts.ts';
@@ -71,12 +72,7 @@ export function createWalkInteractionTargets(
         targetKind: 'authored-instance',
         actions: [
           { kind: 'inspect', label: 'Inspect' },
-          ...(object.recipe === 'food-kiosk'
-            ? [{ kind: 'use' as const, label: 'Join local queue', capability: 'join-local-queue', commits: true, requiresConfirmation: true }]
-            : []),
-          ...(object.recipe === 'elevator' && object.portalId.trim()
-            ? [{ kind: 'use' as const, label: 'Open elevator doors at the authored cabin stop', capability: 'call-elevator', commits: true, requiresConfirmation: true }]
-            : []),
+          ...localActionsFor(object.recipe),
         ],
         radiusM: 2.25,
         infoDwellMs: 350,

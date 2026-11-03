@@ -1,3 +1,4 @@
+import { LocalActionPanel } from './LocalActionPanel.tsx';
 import type { InteractionAction, InteractionState } from '../contracts.ts';
 import type { InteractionTarget, ProximityInteractionRuntime } from '../interaction/proximity.ts';
 
@@ -44,16 +45,17 @@ export function InteractionPrompt({
       {statusMessage && <div role="status" className="mt-1 text-emerald-200">{statusMessage}</div>}
       {state.status === 'info' && <div className="mt-2 text-slate-200">Select an action to inspect or use this item.</div>}
       {unavailable && <div className="mt-2 text-amber-200">{unavailable}</div>}
+      {runtime.localActions && <LocalActionPanel actions={runtime.localActions} target={target} disabled={busy} onSelectionChange={() => runtime.cancelConfirmation()} />}
       <div className="mt-3 flex flex-wrap gap-2">
         {hasInspect && <button type="button" disabled={busy} className="rounded bg-cyan-700 px-3 py-2 hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runtime.inspect()}>Inspect</button>}
         {useActions.map((action) => {
           const ready = runtime.canUse(action.capability);
-          if (!ready) {return null;}
+          if (!ready) {return <span key={action.capability} className="text-amber-200">{action.label}: {runtime.useUnavailableReason(action.capability)}</span>;}
           const confirming = state.status === 'confirmation-required' && runtime.confirmationCapability === action.capability;
           return confirming ? (
             <span key={action.capability} className="flex gap-2">
               <button type="button" disabled={busy} className="rounded bg-amber-700 px-3 py-2 hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runtime.use(action.capability, true)}>Confirm {action.label}</button>
-              <button type="button" disabled={busy} className="rounded bg-slate-700 px-3 py-2 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => runtime.clear()}>Cancel</button>
+              <button type="button" disabled={busy} className="rounded bg-slate-700 px-3 py-2 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => runtime.cancelConfirmation()}>Cancel</button>
             </span>
           ) : (
             <button key={action.capability} type="button" disabled={busy} className="rounded bg-emerald-700 px-3 py-2 hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void runtime.use(action.capability)}>Use: {action.label}</button>
