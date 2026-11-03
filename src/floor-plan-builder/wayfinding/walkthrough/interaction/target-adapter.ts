@@ -1,7 +1,7 @@
 import type { PlanDocument, PlanObject } from '../../../model/types.ts';
 import type { InteractionTarget } from './proximity.ts';
 import type { BoothMeta, Role } from '../contracts.ts';
-import { projectBoothForRole } from '../foundation/role-policy.ts';
+import { projectBoothMetaView } from './booth-meta-view.ts';
 
 export interface WalkTargetDetails {
   label: string;
@@ -22,34 +22,24 @@ function detailsForObject(object: PlanObject, floorId: string, role: Role): Walk
   ];
   if (object.recipe === 'booth' || object.recipe === 'polygon-booth') {
     const fields = {
-      exhibitor: object.company || null,
-      boothType: object.boothType || null,
-      boothNumber: object.boothNumber || null,
-      status: object.status.toLowerCase(),
-      price: object.price ?? null,
-      tags: object.tags || null,
-      contactName: object.contactName || null,
-      contactEmail: object.contactEmail || null,
-      contactPhone: object.contactPhone || null,
+      ...(object.company ? { company: object.company } : {}),
+      ...(object.boothType ? { category: object.boothType } : {}),
+      ...(object.name ? { boothName: object.name } : {}),
+      ...(object.boothNumber ? { boothNumber: object.boothNumber } : {}),
+      ...(object.contactName || object.contactEmail || object.contactPhone
+        ? { contactDetails: [object.contactName, object.contactEmail, object.contactPhone].filter(Boolean).join(' · ') }
+        : {}),
     } satisfies BoothMeta['fields'];
-    // PlanObject does not yet carry per-field ACLs. Preserve its established public/staff
-    // split while routing presentation through the foundation projection used by BoothMeta.
-    const fieldVisibility = {
-      visitor: ['exhibitor', 'boothType', 'boothNumber', 'status', 'price', 'tags'],
-      staff: Object.keys(fields),
-    };
-    const projected = projectBoothForRole({
+    const projected = projectBoothMetaView({
       id: object.id,
       label: object.name,
       floorId,
       boundsM: { width: object.dimensions[0], height: object.dimensions[1], depth: object.dimensions[2] },
       fields,
-      fieldVisibility,
     }, role);
     const labels: Record<string, string> = {
-      exhibitor: 'Exhibitor', boothType: 'Booth type', boothNumber: 'Booth number',
-      status: 'Status', price: 'Price', tags: 'Tags', contactName: 'Contact',
-      contactEmail: 'Email', contactPhone: 'Phone',
+      company: 'Company', category: 'Booth type', boothName: 'Booth name',
+      boothNumber: 'Booth number', contactDetails: 'Contact',
     };
     common.push(...Object.entries(projected.fields).flatMap(([key, raw]) => {
       const value = describeValue(raw === null ? undefined : raw);
