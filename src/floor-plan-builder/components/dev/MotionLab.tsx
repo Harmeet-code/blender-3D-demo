@@ -14,6 +14,7 @@ import { MotionLabTelemetryPanel, MotionLabTelemetryProbe, MotionLabInputProbe, 
 import { runSharedRouteFuzzer, simulateSharedRoute, STANDARD_ROUTE_FIXTURES, type FixtureSummary } from './motion-lab/diagnostics.ts';
 import { createMotionLabDocument, createMotionLabZones, MOTION_LAB_CONNECTOR_STATUS, MOTION_LAB_FLOORS, MOTION_LAB_ROLE_AREAS, MOTION_LAB_STOPS, routeAllowsRestricted } from './motion-lab/world.ts';
 import { SchemaWallGeometry } from './motion-lab/SchemaWallGeometry.tsx';
+import { ItemCoverage } from './motion-lab/ItemCoverage.tsx';
 
 function downloadJson(filename: string, value: unknown) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
@@ -404,7 +405,7 @@ export default function MotionLab() {
             <button className="rounded-md bg-rose-700 px-3 py-2 text-sm" disabled={!playback} onClick={videoRecording ? stopVideoCapture : startVideoCapture}>{videoRecording ? 'Stop & save WebM' : 'Record screen'}</button>
           </div>
         </header>
-        <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <ItemCoverage document={document} role={role} />`r`n        <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="relative h-[min(70vh,720px)] min-h-[420px] overflow-hidden rounded-xl border border-slate-700 bg-slate-100">
             <Canvas shadows camera={{ position: [0, 10, 15], fov: 52 }}>
               <MotionLabStage document={document} floorId={selectedFloorId} role={role} activeRoute={activeRoute} destination={destination} destinationFloorId={destinationStop.floorId} telemetry={telemetry} onFrame={onTelemetry} captureMode={captureMode} heldInput={heldInput} inputTape={inputTape} replayEpoch={replayEpoch} onInputCount={onInputCount} onReplayComplete={onReplayComplete} onFloor={onFloor} />
@@ -508,3 +509,4 @@ export default function MotionLab() {
     </main>
   );
 }
+
