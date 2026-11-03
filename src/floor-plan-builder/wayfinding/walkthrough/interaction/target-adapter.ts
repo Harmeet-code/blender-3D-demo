@@ -36,12 +36,13 @@ function detailsForObject(object: PlanObject, floorId: string, role: Role): Walk
       floorId,
       boundsM: { width: object.dimensions[0], height: object.dimensions[1], depth: object.dimensions[2] },
       fields,
+      fieldVisibility: { staff: Object.keys(fields), visitor: ['company', 'category', 'boothName', 'boothNumber', 'publicDescription'] },
     }, role);
     const labels: Record<string, string> = {
       company: 'Company', category: 'Booth type', boothName: 'Booth name',
       boothNumber: 'Booth number', contactDetails: 'Contact',
     };
-    common.push(...Object.entries(projected.fields).flatMap(([key, raw]) => {
+    common.push(...Object.entries(projected).flatMap(([key, raw]) => {
       const value = describeValue(raw === null ? undefined : raw);
       return value === null ? [] : [{ label: labels[key] ?? key, value }];
     }));
@@ -95,3 +96,4 @@ export function createWalkInteractionTargets(
       return target;
     });
 }
+

@@ -1,4 +1,4 @@
-import type { BoothMeta, Role } from '../../contracts.ts';
+import type { BoothMeta, Role } from '../contracts.ts';
 
 /** Approved public booth metadata. Missing source fields stay absent. */
 export interface BoothMetaView {
