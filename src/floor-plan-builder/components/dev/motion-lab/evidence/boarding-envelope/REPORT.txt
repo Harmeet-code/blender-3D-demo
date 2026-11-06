@@ -1,0 +1,73 @@
+SUMMARY
+Bidirectional elevator fixture traversal completed in live Chromium at
+/preview?motionLab&connector=elevator. Both outputs contain Route complete.
+This establishes dev-fixture traversal, not production or full plan-v3.1 acceptance.
+
+CHANGES
+WalkthroughLayer computes boarding/exit height from the rounded capsule support
+envelope over the physical cabin floor: top +0.06 m, half-extents
+((width-0.35)/2, (depth-0.35)/2), transformed by authored position/yaw.
+Envelope uses the shared controller skin (0.01 m) and radius (0.30 m).
+Rapier resolves every request and existing intended/resolved sweep checks remain.
+The 0.025 m disagreement gate, capsule dimensions and clearance are unchanged.
+connector-session feeds accepted horizontal progress back into boarding time,
+delaying the timeline when physical contact slows movement instead of catching up.
+kinematic-capsule exports its existing controller offset without changing it.
+Capture script and artifacts reside under components/dev/motion-lab/evidence.
+Prior source edits preserved; edits left uncommitted. No tests, dependencies,
+backend changes, deletions, commits or subagents.
+
+EVIDENCE
+See summary.json, elevator-up.json, elevator-down.json and the video-path files
+in this directory. JSON contains full fixed-step samples, blocker events and UI.
+Up: 1889 samples, 0 rejected samples, 0 blockers, 0 page errors; Route complete;
+final feet approximately (-8.007,3.010,-0.033), mezzanine destination.
+Down: 2096 samples, 0 rejected samples, 0 blockers, 0 page errors; Route complete;
+final feet approximately (-8.007,0.010,-0.033), ground destination.
+Up connector interval t=10.066667 to 19.566668 physics seconds.
+Down connector interval t=10.066667 to 21.616668 physics seconds.
+Up sill frame t=11.933334 (physics tick 716): feet (-4.999982,0.032271,1.490271),
+resolved step (0,+0.012271,-0.019993), accepted=true.
+Down sill frame t=13.983334 (physics tick 839): feet (-4.999981,3.032271,1.490271),
+resolved step (0,+0.012271,-0.019993), accepted=true.
+Original report describes requested downward movement against rising sill support,
+creating ~0.0252 m disagreement. Original down JSON retains that reproduction:
+from (-4.999981,3.049125,1.438361), requested (0,-0.016734,-0.028062),
+resolved (0,+0.006748,-0.018799). Original capture lacked physics timestamps.
+Intermediate recordings are in sibling boarding-fix and boarding-final folders.
+boarding-supported was interrupted during iteration; do not use for acceptance.
+The first intermediate capture refreshed the legacy connector-capture/elevator-up
+JSON/PNG/video-path via the existing capture script. Original REPORT and down
+reproduction remain; final evidence is isolated in this directory.
+Stairs/escalator fresh JSON/PNG/WebM captures both report No path found and
+zero page errors. Exact technical obstacle: navigation/route-service.ts:546
+uses if (disabledPortals), where disabledPortals is always an array; lines 556-559
+therefore disable all non-elevator/non-ramp portals even on shortest routes.
+That file is outside this task's authorized ownership and was not changed.
+
+CHECKS
+Builder tsc --noEmit exit 0. Lint exit 1: 116 warnings, existing no-console
+errors at protected model/store.ts:1496 and :1525. See final check outputs.
+git diff --check on modified tracked runtime files passes.
+
+RISKS
+Headless SwiftShader recording has frame-rate limitations. Full video content
+was not independently reviewed or separately decoded. Fixed-step data and UI
+completion corroborate traversal. Overlay still reports motion-quality failures:
+up final auto acceleration max 13.813 m/s2; rendered yaw marked FAIL.
+Sill dimensions in the support calculation must stay aligned with ElevatorPhysics.
+The analytic envelope proposes a trajectory; physical and clearance gates remain
+the acceptance authority. Non-unit connector scale already fails closed.
+
+OPEN QUESTIONS
+Authorize a separate route-service fix for the unconditional portal disabling?
+Mid-ride Stop/recovery policy remains outside this demonstrated success path.
+
+WHAT I DID NOT VERIFY
+Free-mode boarding; repeated same-session rides; Stop/restart or door rejection
+recovery; ramp; ordinary production preview; forced-worker fallback; production
+build; every frame rate; all plan-v3.1 motion/contact targets; independent review.
+
+Chosen ones: A collision-safe endpoint does not make a collision-safe clock.
+When contact shortens a step, advancing the animation clock anyway turns the next
+step into catch-up motion. Feed accepted progress back into time ownership.

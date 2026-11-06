@@ -1,3 +1,5 @@
+import type { LocalActionOptions } from '../wayfinding/walkthrough/interaction/local-actions.ts';
+import { resolvePreviewRolePolicy, routeNavigationPolicyKey, type PreviewRolePolicyInput } from '../wayfinding/walkthrough/permissions/route-navigation-policy.ts';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Layers,
@@ -22,6 +24,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,14 +38,13 @@ import {
 } from '@/components/ui/dialog';
 import { StudioPersistence, localDraftKey } from '../api/persistence.ts';
 import { activeFloor, createStudioStore, unfinished, type StudioStore } from '../model/store.ts';
-import { decodeLayout, encodeLayout } from '../model/adapter.ts';
+import { encodeLayout } from '../model/adapter.ts';
 import { inventory } from '../model/inventory.ts';
 import { resolveEditorShortcut, isEditableTarget } from '../model/shortcuts.ts';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from 'zustand';
 import { isBooth, isConnector } from '../model/types.ts';
 import type { PlanDocument } from '../model/types.ts';
-import type { BuildingLayout } from '@/features/building/model/building-schema.ts';
 import { Inspector } from './Inspector.tsx';
 import { FloorSetupPanel, type FloorSetupDraftController } from './FloorSetupPanel.tsx';
 import { FloorCanvas } from './FloorCanvas.tsx';
@@ -107,21 +109,6 @@ const defaultSidebarSections: Record<SidebarSectionId, boolean> = {
   directions: true,
   shortcuts: false,
 };
-
-function layoutRecoverySummary(layout: BuildingLayout): string {
-  const instances = layout.floors.reduce(
-    (count, floor) => count + (floor.authoring?.instances.length ?? 0),
-    0,
-  );
-  const pois = layout.floors.reduce(
-    (count, floor) => count + (floor.authoring?.pois?.length ?? 0),
-    0,
-  );
-  const rooms = layout.rooms.length;
-  const placements = instances + pois + rooms;
-  const images = layout.floors.filter((floor) => !!floor.image).length;
-  return `${layout.floors.length} floors, ${placements} placed items (${instances} scene items, ${rooms} rooms, ${pois} POIs), ${images} images, ${layout.portals.length} portals`;
-}
 
 function SidebarSection({
   id,
@@ -500,29 +487,41 @@ function SelectionActions({
 function NavigationRouteControls({
   document,
   floorId,
+  zones,
   canWalk,
   blocked,
   notify,
+  onPreviewRoute,
+  selectingFreeWalkSpawn,
+  onSelectingFreeWalkSpawnChange,
 }: {
   document: PlanDocument;
   floorId: string;
+  zones: readonly WalkableZone[];
   canWalk: boolean;
   blocked: boolean;
   notify: (message: string) => void;
+  onPreviewRoute: (routeFloorId: string) => void;
+  selectingFreeWalkSpawn: boolean;
+  onSelectingFreeWalkSpawnChange: (selecting: boolean) => void;
 }) {
   const request = useWayfindingStore((item) => item.request);
+  const submittedRequest = useWayfindingStore((item) => item.submittedRequest);
   const status = useWayfindingStore((item) => item.status);
   const outcome = useWayfindingStore((item) => item.outcome);
   const setRequest = useWayfindingStore((item) => item.setRequest);
   const route = useWayfindingStore(selectActiveResult);
   const session = usePlaybackStore((item) => item.session);
+  const playbackMessage = usePlaybackStore((item) => item.message);
+  const speed = usePlaybackStore((item) => item.speed);
   const notifiedFailure = useRef<string | null>(null);
   const choices = useMemo(
     () =>
       document.floors.flatMap((planFloor) => [
         {
           key: `${planFloor.source.id}::spawn`,
-          label: `${planFloor.source.name} · Entrance`,
+          label: `${planFloor.source.name} · Authored spawn`,
+          searchText: `${planFloor.source.name} entrance`.toLowerCase(),
           endpoint: {
             floorId: planFloor.source.id,
             kind: 'point' as const,
@@ -531,15 +530,21 @@ function NavigationRouteControls({
         },
         ...planFloor.objects.map((object) => ({
           key: `${planFloor.source.id}::${object.id}`,
-          label: `${object.name} · ${planFloor.source.name}`,
+          label: `${object.boothNumber ? `Booth ${object.boothNumber} · ` : ''}${object.name} · ${planFloor.source.name}`,
+          searchText: `${object.name} ${object.boothNumber} ${object.recipe} ${planFloor.source.name}`.toLowerCase(),
           endpoint: { floorId: planFloor.source.id, kind: 'item' as const, itemId: object.id },
         })),
       ]),
     [document],
   );
+  const [startSearch, setStartSearch] = useState('');
+  const [destSearch, setDestSearch] = useState('');
   const [startKey, setStartKey] = useState('');
   const [destKey, setDestKey] = useState('');
   const commit = (which: 'start' | 'dest', key: string) => {
+    onSelectingFreeWalkSpawnChange(false);
+    usePlaybackStore.getState().exit();
+    useWayfindingStore.getState().clear();
     if (which === 'start') {
       setStartKey(key);
     } else {
@@ -573,7 +578,7 @@ function NavigationRouteControls({
       return;
     }
     notifiedFailure.current = outcome.failure;
-    notify(outcome.failure);
+    notify(outcome.failure.includes('outside a walkable zone') ? `${outcome.failure} Choose an authored Entrance item or another reachable start, or correct the authored walkable zone.` : outcome.failure);
   }, [status, request, outcome, notify]);
   useEffect(
     () => () => {
@@ -586,92 +591,169 @@ function NavigationRouteControls({
     [],
   );
   const clear = () => {
-    usePlaybackStore.getState().exit();
+    onSelectingFreeWalkSpawnChange(false);
+    if (usePlaybackStore.getState().session?.kind === 'route') {
+      usePlaybackStore.getState().exit();
+    }
     useWayfindingStore.getState().clear();
     setStartKey('');
     setDestKey('');
     notifiedFailure.current = null;
   };
   const startWalkthrough = () => {
-    if (!startKey || !destKey || status !== 'ready' || !route || blocked) {
-      notify('Choose a start and destination, then wait for a route before starting.');
+    if (!startKey || !destKey || status !== 'ready' || !route || blocked || outcome?.request !== submittedRequest) {
+      notify('Choose a start and destination, then fetch a route before starting.');
       return;
     }
-    usePlaybackStore.getState().begin(route, document, floorId);
+    onSelectingFreeWalkSpawnChange(false);
+    if (window.document.pointerLockElement) { window.document.exitPointerLock(); }
+    usePlaybackStore.getState().begin(route, document, floorId, submittedRequest, zones);
     const result = usePlaybackStore.getState();
+    if (result.session) {
+      result.setMode('chase');
+    }
     if (!result.session && result.message) {
       notify(result.message);
     }
   };
-  if (!canWalk) {
-    return (
-      <div className="fp-route-test" aria-label="Route test">
-        <strong>Test a route</strong>
-        <p className="fp-muted">This floor has no walkable zone yet.</p>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => notify('Draw a walkable zone before generating a route.')}
-        >
-          Test route
-        </Button>
-      </div>
-    );
-  }
   return (
     <div className="fp-route-test" aria-label="Route test">
-      <strong>Test a route</strong>
-      <label>
-        Start
-        <select
-          aria-label="Route start"
-          value={startKey}
-          onChange={(event) => commit('start', event.target.value)}
-        >
-          <option value="">Choose a start…</option>
-          {choices.map((choice) => (
-            <option key={choice.key} value={choice.key}>
-              {choice.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Destination
-        <select
-          aria-label="Route destination"
-          value={destKey}
-          onChange={(event) => commit('dest', event.target.value)}
-        >
-          <option value="">Choose a destination…</option>
-          {choices.map((choice) => (
-            <option key={choice.key} value={choice.key}>
-              {choice.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      {status === 'routing' && (
-        <p className="fp-muted" role="status">
-          Finding a route…
-        </p>
+      <strong>Walk the floor</strong>
+      {!session && (
+        <label>
+          Walk speed
+          <select
+            aria-label="Walk speed before starting"
+            value={speed}
+            onChange={(event) => usePlaybackStore.getState().setSpeed(Number(event.target.value))}
+          >
+            {[0.5, 1, 2, 4].map((value) => (
+              <option key={value} value={value}>{value}×</option>
+            ))}
+          </select>
+        </label>
       )}
-      {route && !session && (
+      {!session && (
         <Button
           size="sm"
-          variant="outline"
-          disabled={blocked || !startKey || !destKey || status !== 'ready'}
-          onClick={startWalkthrough}
+          variant={selectingFreeWalkSpawn ? 'secondary' : 'outline'}
+          disabled={blocked && !selectingFreeWalkSpawn}
+          onClick={() => onSelectingFreeWalkSpawnChange(!selectingFreeWalkSpawn)}
         >
-          Start walkthrough
+          {selectingFreeWalkSpawn ? 'Cancel start selection' : 'Choose free-walk start'}
         </Button>
       )}
-      {session && (
+      {!session && selectingFreeWalkSpawn && (
+        <p className="fp-muted" role="status">
+          Click a clear point on the floor or a walkable zone. Physical support and full capsule clearance will be checked before the camera enters walk mode.
+        </p>
+      )}
+      {session?.kind === 'free' && (
+        <Button size="sm" variant="outline" onClick={() => usePlaybackStore.getState().exit()}>
+          Stop free walk
+        </Button>
+      )}
+      {playbackMessage && !session && (
+        <p className="fp-muted" role="status">{playbackMessage}</p>
+      )}
+      <strong>Test a route</strong>
+      {!canWalk ? (
+        <>
+          <p className="fp-muted">This floor has no walkable zone. Free walk is still available; auto routing is not.</p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => notify('Draw a walkable zone before generating an automatic route.')}
+          >
+            Add zone for auto route
+          </Button>
+        </>
+      ) : (
+        <>
+          <label>
+            Start
+            <input aria-label="Filter route start" placeholder="Search booth, name or type" value={startSearch} onChange={(event) => setStartSearch(event.target.value)} />
+            <select
+              aria-label="Route start"
+              value={startKey}
+              onChange={(event) => commit('start', event.target.value)}
+            >
+              <option value="">Choose a start…</option>
+              {choices.filter((choice) => choice.key === startKey || choice.searchText.includes(startSearch.trim().toLowerCase())).map((choice) => (
+                <option key={choice.key} value={choice.key}>
+                  {choice.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Destination
+            <input aria-label="Filter route destination" placeholder="Search booth, name or type" value={destSearch} onChange={(event) => setDestSearch(event.target.value)} />
+            <select
+              aria-label="Route destination"
+              value={destKey}
+              onChange={(event) => commit('dest', event.target.value)}
+            >
+              <option value="">Choose a destination…</option>
+              {choices.filter((choice) => choice.key === destKey || choice.searchText.includes(destSearch.trim().toLowerCase())).map((choice) => (
+                <option key={choice.key} value={choice.key}>
+                  {choice.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button
+            size="sm"
+            disabled={blocked || !startKey || !destKey || !request || status === 'routing' || !!session}
+            onClick={() => {
+              onSelectingFreeWalkSpawnChange(false);
+              notifiedFailure.current = null;
+              useWayfindingStore.getState().fetchRoute();
+              onPreviewRoute(request?.start.floorId ?? floorId);
+            }}
+          >
+            Fetch route
+          </Button>
+          {status === 'idle' && (
+            <p className="fp-muted">Choose both endpoints, then fetch the route to see it from above.</p>
+          )}
+          {status === 'routing' && (
+            <p className="fp-muted" role="status">
+              Finding a route…
+            </p>
+          )}
+          {route && !session && (
+            <>
+              <p className="fp-muted" role="status">
+                {route.lengthM.toFixed(1)} m · about {Math.ceil(route.secondsEta / speed)} seconds at {speed}×.
+                Start walkthrough follows the avatar in third person.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={blocked || status !== 'ready'}
+                onClick={() => onPreviewRoute(request?.start.floorId ?? floorId)}
+              >
+                Top view route
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={blocked || !startKey || !destKey || status !== 'ready'}
+                onClick={startWalkthrough}
+              >
+                Start walkthrough
+              </Button>
+            </>
+          )}
+        </>
+      )}
+      {session?.kind === 'route' && (
         <Button size="sm" variant="outline" onClick={() => usePlaybackStore.getState().exit()}>
           Stop walkthrough
         </Button>
       )}
-      {(request || session) && (
+      {(request || session?.kind === 'route') && (
         <Button size="sm" variant="ghost" onClick={clear}>
           Clear route
         </Button>
@@ -721,9 +803,9 @@ function UnsavedNavigationDialog({
   );
 }
 
-export default function StudioPage() {
+export default function StudioPage({ runtimePolicy: suppliedRuntimePolicy, localActionInputs, devFixture }: { devFixture?: PlanDocument; runtimePolicy?: PreviewRolePolicyInput; localActionInputs?: Pick<LocalActionOptions, 'items' | 'destinations'> } = {}) {
   const router = useBuilderRouter();
-  const eventId =
+  const eventId = devFixture && import.meta.env.DEV ? devFixture.baseline.buildingId :
     new URLSearchParams(window.location.search).get('eventId')?.trim() || 'floor-plan-studio';
   const store = useMemo(() => createStudioStore(eventId), [eventId]);
   // The page subscribes only to what it renders. The pointer preview changes on every mouse
@@ -764,7 +846,40 @@ export default function StudioPage() {
   const floor = activeFloor(state);
   const persistence = useMemo(() => new StudioPersistence(eventId, store), [eventId, store]);
   const [view, setView] = useState(() => ({ ...initialView, preview: router.route === 'preview' }));
+  const routeFramingRevision = useRef<number | null>(null);
   const [walkRole, setWalkRole] = useState<Role>('visitor');
+  const wayfindingZones = useMemo<WalkableZone[]>(
+    () =>
+      state.document.floors.flatMap((planFloor) =>
+        planFloor.zones
+          .filter((zone) => zone.type === 'walkable')
+          .map((zone) => ({
+            id: zone.id,
+            floorId: planFloor.source.id,
+            name: zone.label || 'Walkable zone',
+            type: 'general' as const,
+            polygon: zone.polygon as [number, number][],
+            holes: [],
+            revision: state.revision,
+          })),
+      ),
+    [state.document, state.revision],
+  );
+  const { policy: runtimePolicy, error: runtimePolicyError } = useMemo(
+    () => resolvePreviewRolePolicy(suppliedRuntimePolicy, state.document, wayfindingZones),
+    [suppliedRuntimePolicy, state.document, wayfindingZones],
+  );
+  const runtimePolicyKey = routeNavigationPolicyKey(runtimePolicy);
+  const previousWalkAccess = useRef({ role: walkRole, policyKey: runtimePolicyKey });
+  useEffect(() => {
+    const previous = previousWalkAccess.current;
+    previousWalkAccess.current = { role: walkRole, policyKey: runtimePolicyKey };
+    // Suspense can reconnect effects when the physics scene first loads.
+    // Only an actual access change invalidates the active session.
+    if (previous.role !== walkRole || previous.policyKey !== runtimePolicyKey) {
+      usePlaybackStore.getState().exit();
+    }
+  }, [walkRole, runtimePolicyKey]);
   const [selectedParkingBay, setSelectedParkingBay] = useState<{
     objectId: string;
     bayId: string;
@@ -785,14 +900,8 @@ export default function StudioPage() {
   useStudioDebug(store);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [serverDraft, setServerDraft] = useState<BuildingLayout | null>(null);
-  const [checkingServerVersions, setCheckingServerVersions] = useState(false);
-  const [localDraft, setLocalDraft] = useState<BuildingLayout | null>(null);
-  const [localDraftExists, setLocalDraftExists] = useState(false);
-  const [localDraftReadError, setLocalDraftReadError] = useState(false);
   const [localRecoveryNeedsDecision, setLocalRecoveryNeedsDecision] = useState(false);
   const [recoveryReadEvent, setRecoveryReadEvent] = useState<string | null>(null);
-  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [deleteFloor, setDeleteFloor] = useState(false);
   const [inventoryOpen, setInventoryOpen] = useState(
@@ -803,40 +912,12 @@ export default function StudioPage() {
   );
   const scanLocalRecovery = useCallback(() => {
     setRecoveryReadEvent(null);
-    setLocalDraft(null);
-    setLocalDraftExists(false);
-    setLocalDraftReadError(false);
-    setRecoveryMessage(null);
+    // Existing snapshots remain protected even without recovery controls in the toolbar.
+    // Only check for their presence; malformed entries must be preserved too.
     try {
-      const cached = localStorage.getItem(localDraftKey(eventId));
-      if (!cached) {
-        setLocalRecoveryNeedsDecision(false);
-        setRecoveryMessage('No local recovery snapshot was found for this floor plan.');
-        return;
-      }
-      setLocalDraftExists(true);
+      setLocalRecoveryNeedsDecision(!!localStorage.getItem(localDraftKey(eventId)));
+    } catch {
       setLocalRecoveryNeedsDecision(true);
-      const parsed: unknown = JSON.parse(cached);
-      if (!parsed || typeof parsed !== 'object' || !('eventId' in parsed) || !('layout' in parsed)) {
-        throw new Error('The saved recovery entry is incomplete. It has been preserved.');
-      }
-      const entry = parsed as { eventId: unknown; layout: unknown };
-      if (entry.eventId !== eventId) {
-        throw new Error('The saved recovery entry belongs to a different floor plan.');
-      }
-      const decoded = decodeLayout(entry.layout);
-      if (decoded.baseline.buildingId !== eventId) {
-        throw new Error('The saved recovery entry belongs to a different floor plan.');
-      }
-      setLocalDraft(entry.layout as BuildingLayout);
-      setRecoveryMessage('A local recovery snapshot is ready to restore.');
-    } catch (error) {
-      setLocalDraftReadError(true);
-      setRecoveryMessage(
-        error instanceof Error
-          ? `${error.message} Use Clear progress only if you no longer need that saved data.`
-          : 'The saved recovery entry could not be read. It has been preserved.',
-      );
     } finally {
       setRecoveryReadEvent(eventId);
     }
@@ -863,6 +944,7 @@ export default function StudioPage() {
     setFloorDraftDirty(!!controller?.hasDraft);
   }, []);
   const [navigationMode, setNavigationMode] = useState(false);
+  const [walkSpawnPicking, setWalkSpawnPicking] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<BuilderRoute | null>(null);
   const [showFloorSetup, setShowFloorSetup] = useState(false);
   const [restoredFloorEvent, setRestoredFloorEvent] = useState<string | null>(null);
@@ -877,23 +959,9 @@ export default function StudioPage() {
     height: number;
   } | null>(null);
   const playbackActive = usePlaybackStore((playbackState) => !!playbackState.session);
-  const wayfindingZones = useMemo<WalkableZone[]>(
-    () =>
-      state.document.floors.flatMap((planFloor) =>
-        planFloor.zones
-          .filter((zone) => zone.type === 'walkable')
-          .map((zone) => ({
-            id: zone.id,
-            floorId: planFloor.source.id,
-            name: zone.label || 'Walkable zone',
-            type: 'general' as const,
-            polygon: zone.polygon as [number, number][],
-            holes: [],
-            revision: state.revision,
-          })),
-      ),
-    [state.document, state.revision],
-  );
+  useEffect(() => {
+    setWalkSpawnPicking(false);
+  }, [state.floorId, playbackActive]);
   const notifyRoute = useCallback(
     (message: string) => {
       store.getState().notify(message);
@@ -914,7 +982,7 @@ export default function StudioPage() {
     },
     [store],
   );
-  useWayfindingRoute(state.document, state.revision, wayfindingZones, notifyRoute, walkRole);
+  useWayfindingRoute(state.document, state.revision, wayfindingZones, notifyRoute, walkRole, runtimePolicy);
   const saveExplicitly = useCallback(async () => {
     const draft = floorDraftController.current;
     if (draft?.hasDraft && draft.invalid) {
@@ -955,6 +1023,7 @@ export default function StudioPage() {
     }
     const { revision } = ready;
     try {
+      if (import.meta.env.DEV && devFixture) { toast.info('Dev fixture is local only; saving is disabled.'); return; }
       await persistence.saveDraft();
     } catch (error) {
       toast.error(
@@ -969,8 +1038,6 @@ export default function StudioPage() {
       if (latest.revision === latest.savedRevision) {
         if (!localRecoveryNeedsDecision) {
           localStorage.removeItem(localDraftKey(eventId));
-          setLocalDraft(null);
-          setLocalDraftExists(false);
         }
       }
       toast.success('Floor plan saved.');
@@ -1005,9 +1072,6 @@ export default function StudioPage() {
     }
     floorDraftController.current?.discard();
     localStorage.removeItem(localDraftKey(eventId));
-    setLocalDraft(null);
-    setLocalDraftExists(false);
-    setLocalDraftReadError(false);
     setLocalRecoveryNeedsDecision(false);
     const next = pendingNavigation;
     setPendingNavigation(null);
@@ -1055,18 +1119,20 @@ export default function StudioPage() {
     const controller = new AbortController();
     setLoading(true);
     setLoadError(null);
-    setServerDraft(null);
     setHasStableFrame(false);
     setPhase('floor');
     setReadinessGeneration((generation) => generation + 1);
+    if (import.meta.env.DEV && devFixture) {
+      store.getState().load(structuredClone(devFixture));
+      setRecoveryReadEvent(eventId);
+      setLocalRecoveryNeedsDecision(false);
+      setLoading(false);
+      setPhase('assets');
+      return () => controller.abort();
+    }
     scanLocalRecovery();
     void persistence
       .load(controller.signal)
-      .then((loaded) => {
-        if (!controller.signal.aborted) {
-          setServerDraft(loaded.draft ?? loaded.restoredDraft ?? null);
-        }
-      })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) {
           setLoadError(error instanceof Error ? error.message : 'Could not load the floor plan.');
@@ -1079,7 +1145,7 @@ export default function StudioPage() {
         }
       });
     return () => controller.abort();
-  }, [eventId, persistence, retry, scanLocalRecovery]);
+  }, [eventId, persistence, retry, scanLocalRecovery, devFixture, store]);
   useEffect(() => {
     const refresh = () => scanLocalRecovery();
     window.addEventListener('focus', refresh);
@@ -1104,9 +1170,6 @@ export default function StudioPage() {
         localDraftKey(eventId),
         JSON.stringify({ eventId, layout, updatedAt: Date.now() }),
       );
-      setLocalDraft(layout);
-      setLocalDraftExists(true);
-      setLocalDraftReadError(false);
     } catch {
       toast.error('Local recovery could not be written.');
     }
@@ -1306,51 +1369,6 @@ export default function StudioPage() {
     state.saveState === 'Error';
   const commandModifier =
     typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform) ? '⌘' : 'Ctrl';
-  const restore = (layout: BuildingLayout, source: 'local' | 'server') => {
-    try {
-      const restored = decodeLayout(layout);
-      if (restored.baseline.buildingId !== eventId) {
-        throw new Error('This recovery draft belongs to a different project.');
-      }
-      setHasStableFrame(false);
-      setPhase('assets');
-      setReadinessGeneration((generation) => generation + 1);
-      store.getState().load(restored, true);
-      if (source === 'local') {
-        setLocalDraft(null);
-        setServerDraft(null);
-        setLocalRecoveryNeedsDecision(false);
-      } else {
-        setServerDraft(null);
-      }
-      toast.success(
-        source === 'local'
-          ? 'Local recovery restored.'
-          : 'Server draft restored.',
-      );
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Draft invalid.');
-    }
-  };
-  const checkServerVersions = async () => {
-    setCheckingServerVersions(true);
-    try {
-      const candidates = await persistence.fetchRecoveryCandidates();
-      setServerDraft(candidates.draft);
-      toast.success('Server versions checked. Choose a version to restore it.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not check server versions.');
-    } finally {
-      setCheckingServerVersions(false);
-    }
-  };
-  const clearRestoreProgress = () => {
-    localStorage.removeItem(localDraftKey(eventId));
-    setLocalDraft(null);
-    setLocalDraftExists(false);
-    setLocalDraftReadError(false);
-    setLocalRecoveryNeedsDecision(false);
-  };
   const beginPolygon = () => store.getState().setTool(navigationMode ? 'zone-polygon' : 'polygon');
   const openCustomize = (id?: string) => {
     if (id && !store.getState().select({ kind: 'object', id })) {
@@ -1401,6 +1419,12 @@ export default function StudioPage() {
       data-testid="floor-plan-studio"
     >
       <header className="fp-header fp-header-compact">
+        {view.preview && runtimePolicyError && (
+          <Alert variant="destructive">
+            <AlertTitle>Venue access policy unavailable</AlertTitle>
+            <AlertDescription>{runtimePolicyError}</AlertDescription>
+          </Alert>
+        )}
         <div className="fp-brand">
           <span className="fp-mark">
             <Layers size={20} />
@@ -1410,7 +1434,7 @@ export default function StudioPage() {
             <p>{eventId}</p>
           </div>
         </div>
-        <div className="fp-header-actions fp-header-actions-recovery">
+        <div className="fp-header-actions">
           <Button
             size="sm"
             variant={router.route === 'builder' ? 'secondary' : 'ghost'}
@@ -1459,83 +1483,6 @@ export default function StudioPage() {
           >
             <Redo2 size={17} />
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            aria-label="Restore progress from local storage"
-            title={
-              localDraft
-                ? 'Restore the saved local recovery snapshot'
-                : localDraftReadError
-                  ? 'A local recovery entry exists, but it could not be decoded. It has been preserved.'
-                  : recoveryReadEvent !== eventId
-                    ? 'Checking for a local recovery snapshot…'
-                    : 'No local recovery snapshot is available for this project yet.'
-            }
-            disabled={recoveryReadEvent !== eventId || !localDraft}
-            onClick={() => localDraft && restore(localDraft, 'local')}
-          >
-            Restore progress
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label="Check local recovery progress again"
-            title="Check this browser origin for a saved recovery snapshot again"
-            onClick={scanLocalRecovery}
-          >
-            Check again
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label="Find server floor plan versions"
-            disabled={checkingServerVersions || loading}
-            onClick={() => void checkServerVersions()}
-          >
-            {checkingServerVersions ? 'Checking server…' : 'Find server versions'}
-          </Button>
-          <span className="fp-recovery-status" role="status" aria-live="polite">
-            {recoveryReadEvent !== eventId
-              ? 'Checking local recovery…'
-              : (recoveryMessage ??
-                (localDraftReadError
-                  ? 'A saved recovery entry could not be read and has been preserved.'
-                  : 'No local recovery snapshot is available.'))}
-          </span>
-          {recoveryReadEvent === eventId && localDraftExists && (
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="Clear restore progress"
-              title="Remove the local recovery snapshot"
-              onClick={clearRestoreProgress}
-            >
-              Clear progress
-            </Button>
-          )}
-          {recoveryReadEvent === eventId && serverDraft && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                aria-label="Restore server draft"
-                onClick={() => restore(serverDraft, 'server')}
-              >
-                Restore server draft ({layoutRecoverySummary(serverDraft)})
-              </Button>
-            </>
-          )}
-          <span
-            className={`fp-save-status fp-save-${hasUnsavedChanges ? 'unsynced' : state.saveState.toLowerCase()}`}
-            role="status"
-          >
-            {state.saveState === 'Saving'
-              ? 'Saving…'
-              : hasUnsavedChanges
-                ? 'Unsaved changes'
-                : 'Saved'}
-          </span>
           <Button
             size="sm"
             title={`Save · ${commandModifier}+S`}
@@ -1689,7 +1636,16 @@ export default function StudioPage() {
             <FloorCanvas
               store={store}
               view={view}
+              frameRoute={routeFramingRevision.current === view.cameraRevision}
               role={walkRole}
+              runtimePolicy={runtimePolicy}
+              localActionInputs={localActionInputs}
+              onSelectWalkSpawn={walkSpawnPicking ? (point) => {
+                setWalkSpawnPicking(false);
+                usePlaybackStore
+                  .getState()
+                  .beginFreeWalk(state.document, floor.source.id, point, wayfindingZones);
+              } : undefined}
               onSelectionAnchor={setActionAnchor}
               onCustomizeObject={openCustomize}
               onStableFrame={() => {
@@ -1803,6 +1759,7 @@ export default function StudioPage() {
                 onToggle={toggleSection}
               >
                 <div className="fp-context-panel">
+
                   {showFloorSetup && (
                     <div className="fp-floor-setup-callout">
                       <strong>Set up this floor</strong>
@@ -1927,12 +1884,43 @@ export default function StudioPage() {
                 onToggle={toggleSection}
               >
                 <div className="fp-context-panel">
+                  {!playbackActive && <label>
+                    Walk role
+                    <select aria-label="Walk role" value={walkRole} onChange={(event) => setWalkRole(event.target.value as Role)}>
+                      <option value="visitor">Visitor</option>
+                      <option value="staff">Staff</option>
+                    </select>
+                  </label>}
+                  {runtimePolicyError ? (
+                    <Alert variant="destructive">
+                      <AlertTitle>Venue access policy unavailable</AlertTitle>
+                      <AlertDescription>{runtimePolicyError}</AlertDescription>
+                    </Alert>
+                  ) : (
+                    <p className="fp-muted" role="status">
+                      Local role policy: {suppliedRuntimePolicy?.source}, revision {suppliedRuntimePolicy?.revision}.
+                      Role selection simulates local rules; it does not authenticate staff or protect downloaded data.
+                    </p>
+                  )}
                   <NavigationRouteControls
                     document={state.document}
                     floorId={floor.source.id}
+                    zones={wayfindingZones}
                     canWalk={walkableAvailable}
-                    blocked={unfinished(state)}
+                    blocked={unfinished(state) || runtimePolicy.status !== 'resolved'}
                     notify={notifyRoute}
+                    selectingFreeWalkSpawn={walkSpawnPicking}
+                    onSelectingFreeWalkSpawnChange={setWalkSpawnPicking}
+                    onPreviewRoute={(routeFloorId) => {
+                      if (!store.getState().setFloor(routeFloorId)) {return;}
+                      routeFramingRevision.current = view.cameraRevision + 1;
+                      setView((current) => ({
+                        ...current,
+                        camera: 'top',
+                        cameraRevision: current.cameraRevision + 1,
+                        touring: false,
+                      }));
+                    }}
                   />
                   <div className="fp-directions-camera">
                     <CameraHud view={view} setView={setView} />
@@ -2056,13 +2044,13 @@ export default function StudioPage() {
                     <dt>
                       <kbd>Space</kbd>
                     </dt>
-                    <dd>Play / pause walkthrough</dd>
+                    <dd>Stop auto-walk or recalculate it from your current position</dd>
                   </div>
                   <div>
                     <dt>
-                      <kbd>← / →</kbd>
+                      <kbd>WASD / arrows</kbd>
                     </dt>
-                    <dd>Scrub walkthrough</dd>
+                    <dd>Walk manually; taking over pauses auto-walk</dd>
                   </div>
                 </dl>
                 <p className="fp-muted">

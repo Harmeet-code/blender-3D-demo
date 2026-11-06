@@ -144,7 +144,7 @@ export function WashroomObject({
         receiveShadow
       >
         <boxGeometry args={[w, 0.05, d]} />
-        <meshStandardMaterial color={wallColor} {...panel} transparent={ghost} opacity={opacity} />
+        <meshStandardMaterial color={accent} {...panel} transparent={ghost} opacity={opacity} />
       </mesh>
       <mesh position={[0, h / 2, hd - 1.0]} castShadow receiveShadow>
         <boxGeometry args={[1.4, h, t]} />

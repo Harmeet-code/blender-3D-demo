@@ -1,0 +1,232 @@
+﻿{
+  "target": "http://localhost:5175/preview?eventId=floor-plan-studio",
+  "before": {
+    "blockers": [
+      {
+        "direct": [
+          {
+            "handle": 2.6764732917676e-310,
+            "position": {
+              "x": 0,
+              "y": 0,
+              "z": 0
+            },
+            "toi": 0.38010159134864807
+          }
+        ],
+        "fromFeet": [
+          295.8590393066406,
+          0.010101592540740834,
+          98.69029235839844
+        ],
+        "intendedFeet": [
+          295.8523118571375,
+          0.010101592540740834,
+          98.70912694002124
+        ],
+        "rayOrigin": {
+          "x": 295.8590393066406,
+          "y": 0.38010159254074083,
+          "z": 98.69029235839844
+        },
+        "stage": "support"
+      },
+      {
+        "acceptedDisplacement": [
+          0,
+          0,
+          0
+        ],
+        "collider": 6.2316e-320,
+        "desired": [
+          -0.006727449503102889,
+          0,
+          0.01883458162279794
+        ],
+        "fromFeet": [
+          295.8590393066406,
+          0.010101592540740834,
+          98.69029235839844
+        ],
+        "intendedFeet": [
+          295.8523118571375,
+          0.010101592540740834,
+          98.70912694002124
+        ],
+        "stage": "intended-or-support"
+      }
+    ],
+    "s": {
+      "message": "Capsule physics disagreed with the route clearance preview; auto-walk stopped.",
+      "snapshot": {
+        "distance": 3.1800005253389028,
+        "floorId": "9979813e-becc-4729-ba5f-15a20d5929a4",
+        "phase": "Walking",
+        "progress": 0.10099749996004091,
+        "remaining": 28.30593255812407,
+        "speed": 0,
+        "x": 295.85715362400856,
+        "y": 0.00010154323535971344,
+        "z": 98.6899552964504
+      },
+      "status": "paused"
+    }
+  },
+  "arrival": {
+    "blockers": [],
+    "s": {
+      "message": null,
+      "snapshot": {
+        "distance": 31.484408916213486,
+        "floorId": "9979813e-becc-4729-ba5f-15a20d5929a4",
+        "phase": "Walking",
+        "progress": 0.9999515921206639,
+        "remaining": 0.0015241672494887837,
+        "speed": 0,
+        "x": 300.90389970568117,
+        "y": 0.00010154323535971344,
+        "z": 122.42070687654346
+      },
+      "status": "arrived"
+    },
+    "seconds": 58.95329999999702,
+    "supportCount": 6,
+    "supports": [
+      {
+        "collider": 2.6764732917676e-310,
+        "fromFeet": [
+          295.8590393066406,
+          0.010101592540740834,
+          98.69029235839844
+        ],
+        "rayOrigin": {
+          "x": 295.8590393066406,
+          "y": 0.38010159254074083,
+          "z": 98.69029235839844
+        },
+        "toi": 0.38010159134864807
+      },
+      {
+        "collider": 2.6764732917676e-310,
+        "fromFeet": [
+          295.8590393066406,
+          0.010101592540740834,
+          98.69029235839844
+        ],
+        "rayOrigin": {
+          "x": 295.8523118571375,
+          "y": 0.38010159254074083,
+          "z": 98.70912694002124
+        },
+        "toi": 0.38010159134864807
+      },
+      {
+        "collider": 5.352946582289e-310,
+        "fromFeet": [
+          294.8519592285156,
+          0.010101592540740834,
+          101.51583862304688
+        ],
+        "rayOrigin": {
+          "x": 294.8519592285156,
+          "y": 0.38010159254074083,
+          "z": 101.51583862304688
+        },
+        "toi": 0.38010159134864807
+      },
+      {
+        "collider": 5.352946582289e-310,
+        "fromFeet": [
+          294.8519592285156,
+          0.010101592540740834,
+          101.51583862304688
+        ],
+        "rayOrigin": {
+          "x": 294.8452317790125,
+          "y": 0.38010159254074083,
+          "z": 101.53467320466969
+        },
+        "toi": 0.38010159134864807
+      },
+      {
+        "collider": 8.0294198740566e-310,
+        "fromFeet": [
+          293.6434631347656,
+          0.010101592540740834,
+          104.906494140625
+        ],
+        "rayOrigin": {
+          "x": 293.6434631347656,
+          "y": 0.38010159254074083,
+          "z": 104.906494140625
+        },
+        "toi": 0.38010159134864807
+      },
+      {
+        "collider": 8.0294198740566e-310,
+        "fromFeet": [
+          293.6434631347656,
+          0.010101592540740834,
+          104.906494140625
+        ],
+        "rayOrigin": {
+          "x": 293.63673568526247,
+          "y": 0.38010159254074083,
+          "z": 104.92532872224781
+        },
+        "toi": 0.38010159134864807
+      }
+    ]
+  },
+  "stop": {
+    "message": null,
+    "session": true,
+    "snapshot": {
+      "distance": 5.380000627483624,
+      "floorId": "9979813e-becc-4729-ba5f-15a20d5929a4",
+      "phase": "Walking",
+      "progress": 0.17086997591026784,
+      "remaining": 26.10593245597935,
+      "speed": 0,
+      "x": 295.11713417378974,
+      "y": 0.00010154323535971344,
+      "z": 100.76175925984431
+    },
+    "status": "paused"
+  },
+  "escape": {
+    "message": null,
+    "session": true,
+    "snapshot": {
+      "distance": 11.404082284056964,
+      "floorId": "9979813e-becc-4729-ba5f-15a20d5929a4",
+      "phase": "Walking",
+      "progress": 0.36219610369579963,
+      "remaining": 20.081850799406013,
+      "speed": 0,
+      "x": 293.446170951607,
+      "y": 0.00010154323535971344,
+      "z": 106.42382558467658
+    },
+    "status": "paused"
+  },
+  "recording": {
+    "id": "thread-delegated-task-command-3amcp-3a308064ff-b5ab-4ef4-972a-0554ce0e86c0-3adel-b3c77dc1-b241-4995-a0e1-d1e8e28de1c1-mp4",
+    "tabId": "tab_3_6b7d7ebc-2804-4a62-abf8-38a0b3f9481c",
+    "path": "C:\\Users\\HarmeetSingh\\.t3\\userdata\\attachments\\thread-delegated-task-command-3amcp-3a308064ff-b5ab-4ef4-972a-0554ce0e86c0-3adel-b3c77dc1-b241-4995-a0e1-d1e8e28de1c1-mp4.mp4",
+    "mimeType": "video/mp4",
+    "sizeBytes": 8531333,
+    "createdAt": "2026-11-03T11:42:48.560Z",
+    "toolIcon": {
+      "_tag": "website",
+      "pageUrl": "http://localhost:5175/preview?eventId=floor-plan-studio"
+    }
+  },
+  "checks": {
+    "rootTypecheck": "pass",
+    "floorPlanTypecheck": "pass",
+    "changedRuntimeLint": "pass",
+    "repositoryLint": "failed: preexisting FloorCanvas.tsx no-console",
+    "tests": "not run"
+  }
+}

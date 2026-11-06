@@ -24,6 +24,7 @@ import {
   Vector3,
   UnsignedByteType,
 } from 'three';
+import { washRackVariantProfiles } from '../model/wash-rack.ts';
 
 export type WashRackVariant = 'equestrian' | 'livestock' | 'vehicle-bay';
 export interface WashRackRowConnections {
@@ -815,6 +816,10 @@ export function WashRackObject({
   rowConnections = { left: false, right: false },
 }: Props) {
   const [width, height, depth] = dimensions;
+  const [baseWidth, baseHeight, baseDepth] = washRackVariantProfiles[variant].dimensions;
+  const widthRatio = width / baseWidth;
+  const heightRatio = height / baseHeight;
+  const depthRatio = depth / baseDepth;
   const wet = Math.max(0, Math.min(1, wetness));
   const signTexture = useMemo(
     () =>
@@ -891,16 +896,41 @@ export function WashRackObject({
       ]),
     [depth],
   );
+  const equineMatPositions = useMemo(
+    () =>
+      [-0.9, 0.9].flatMap((x) =>
+        [1, 3.8].map((z): [number, number, number] => [
+          x * widthRatio,
+          -0.015,
+          z * depthRatio,
+        ]),
+      ),
+    [depthRatio, widthRatio],
+  );
+  const equineMatSize: [number, number, number] = [
+    Math.max(0.1, Math.min(width - 0.2, 1.2 * widthRatio)),
+    0.02,
+    Math.max(0.1, Math.min(depth - 0.2, 1.8 * depthRatio)),
+  ];
+  const drainLength = Math.max(0.1, Math.min(depth - 0.2, 2 * depthRatio));
+  const vehicleMatLength = Math.max(0.1, Math.min(depth - 0.2, 2.14 * depthRatio));
   const postZ = [0.12, depth * 0.5, depth - 0.12];
-  const frameHeight =
-    variant === 'vehicle-bay' ? height - 0.12 : variant === 'equestrian' ? 1.72 : 1.32;
-  const manifoldY = variant === 'vehicle-bay' ? 2.35 : frameHeight - 0.05;
-  const railYs =
+  const baseFrameHeight =
+    variant === 'vehicle-bay' ? baseHeight - 0.12 : variant === 'equestrian' ? 1.72 : 1.32;
+  const frameHeight = Math.max(
+    0.3,
+    Math.min(Math.max(0.3, height - 0.12), baseFrameHeight * heightRatio),
+  );
+  const manifoldY = variant === 'vehicle-bay'
+    ? Math.min(frameHeight - 0.05, 2.35 * heightRatio)
+    : frameHeight - 0.05;
+  const baseRailYs =
     variant === 'equestrian'
       ? [0.92, 1.28, 1.6]
       : variant === 'vehicle-bay'
         ? [0.72, 1.3, 1.9]
         : [0.55, 0.88, 1.2];
+  const railYs = baseRailYs.map((value) => Math.min(frameHeight - 0.04, value * heightRatio));
   const vehicle = variant === 'vehicle-bay';
   const equine = variant === 'equestrian';
   const looseHoseStart: [number, number, number] = [-railX + 0.2, 0.9, depth - 0.58];
@@ -910,10 +940,10 @@ export function WashRackObject({
     depth - 1.02,
   ];
   const sprayPoint: [number, number, number] = equine
-    ? [0, 2.22, 2.18]
+    ? [0, Math.min(height - 0.12, 2.22 * heightRatio), 2.18 * depthRatio]
     : vehicle
-      ? [railX - 0.1, 1.92, 1.12]
-      : [-railX + 0.14, 1.72, 0.78];
+      ? [railX - 0.1, Math.min(height - 0.12, 1.92 * heightRatio), 1.12 * depthRatio]
+      : [-railX + 0.14, Math.min(height - 0.12, 1.72 * heightRatio), 0.78 * depthRatio];
   const canopyY = height - 0.12;
   const roofSlatPositions = useMemo(
     () =>
@@ -927,6 +957,8 @@ export function WashRackObject({
   const signY = Math.min(2.5, height - 0.25);
   const signSupportY = Math.min(height - 0.03, signY + 0.24);
   const postXs = [-railX, railX];
+  const gearBoardWidth = Math.max(0.2, Math.min(width - 0.3, 1.35 * widthRatio));
+  const gearPositions = [-0.42, -0.14, 0.14, 0.42].map((x) => x * widthRatio);
   const hoseCurve = useMemo(
     () =>
       new CatmullRomCurve3([
@@ -955,25 +987,23 @@ export function WashRackObject({
         <primitive object={floorMaterial} attach="material" />
       </mesh>
       {equine &&
-        [-0.9, 0.9].flatMap((x) =>
-          [1, 3.8].map((z) => (
-            <mesh key={`mat:${x}:${z}`} position={[x, -0.015, z]} receiveShadow>
-              <boxGeometry args={[1.2, 0.02, 1.8]} />
-              <meshStandardMaterial
-                color="#1F2937"
-                roughness={0.9 - wet * 0.7}
-                metalness={0.05}
-                map={matTexture ?? undefined}
-                bumpMap={matTexture ?? undefined}
-                bumpScale={0.012}
-              />
-            </mesh>
-          )),
-        )}
+        equineMatPositions.map(([x, y, z]) => (
+          <mesh key={`mat:${x}:${z}`} position={[x, y, z]} receiveShadow>
+            <boxGeometry args={equineMatSize} />
+            <meshStandardMaterial
+              color="#1F2937"
+              roughness={0.9 - wet * 0.7}
+              metalness={0.05}
+              map={matTexture ?? undefined}
+              bumpMap={matTexture ?? undefined}
+              bumpScale={0.012}
+            />
+          </mesh>
+        ))}
       {vehicle && (
         <group>
           <mesh position={[0, -0.046, depth / 2]} receiveShadow>
-            <boxGeometry args={[0.48, 0.006, 2.14]} />
+            <boxGeometry args={[0.48, 0.006, vehicleMatLength]} />
             <primitive object={blackRubber} attach="material" />
           </mesh>
           <mesh position={[0, 0.025, depth / 2]} receiveShadow>
@@ -1003,16 +1033,16 @@ export function WashRackObject({
       {!vehicle && (
         <group>
           <mesh position={[0, -0.035, depth / 2]} receiveShadow>
-            <boxGeometry args={[0.3, 0.012, 2]} />
+            <boxGeometry args={[0.3, 0.012, drainLength]} />
             <primitive object={galvanized} attach="material" />
           </mesh>
           <InstancedBars
             positions={drainSlatPositions}
-            size={[0.004, 0.018, 2]}
+            size={[0.004, 0.018, drainLength]}
             material={galvanized}
           />
           <mesh position={[0, -0.039, depth / 2]}>
-            <boxGeometry args={[0.28, 0.012, 2.02]} />
+            <boxGeometry args={[0.28, 0.012, drainLength + 0.02]} />
             <primitive object={blackRubber} attach="material" />
           </mesh>
         </group>
@@ -1255,10 +1285,10 @@ export function WashRackObject({
         />
       ))}
       <mesh position={[0.12, 0.94, depth - 0.16]} castShadow receiveShadow>
-        <boxGeometry args={[1.35, 0.78, 0.08]} />
+        <boxGeometry args={[gearBoardWidth, 0.78, 0.08]} />
         <meshStandardMaterial color="#7C6549" roughness={0.78} />
       </mesh>
-      {[-0.42, -0.14, 0.14, 0.42].map((x, index) => (
+      {gearPositions.map((x, index) => (
         <group key={`gear:${index}`} position={[x, 0.92, depth - 0.23]}>
           <mesh position={[0, 0.11, -0.055]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
             <cylinderGeometry args={[0.012, 0.012, 0.11, 8]} />

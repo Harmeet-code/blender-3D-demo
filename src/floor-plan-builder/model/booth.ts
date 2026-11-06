@@ -99,6 +99,29 @@ export function wallRuns(edge: BoothEdge): [number, number][] {
     [edge.length - side, edge.length],
   ];
 }
+function convexBoothSolid(points: BoothPoint[]): BoothPoint[] {
+  const sorted = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const unique = sorted.filter(
+    (point, index) =>
+      !index || Math.hypot(point[0] - sorted[index - 1]![0], point[1] - sorted[index - 1]![1]) > 1e-9,
+  );
+  const cross = (a: BoothPoint, b: BoothPoint, c: BoothPoint) =>
+    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const half = (input: BoothPoint[]) => {
+    const result: BoothPoint[] = [];
+    for (const point of input) {
+      while (result.length >= 2 && cross(result.at(-2)!, result.at(-1)!, point) <= 1e-10) {
+        result.pop();
+      }
+      result.push(point);
+    }
+    return result;
+  };
+  if (unique.length < 3) {
+    return unique;
+  }
+  return half(unique).slice(0, -1).concat(half([...unique].reverse()).slice(0, -1));
+}
 export function edgePoint(edge: BoothEdge, distance: number, inset = 0): BoothPoint {
   return [
     edge.a[0] + edge.tangent[0] * distance + edge.inward[0] * inset,
@@ -129,14 +152,14 @@ export function wallPolygon(
   to: number,
   thickness = 0.08,
 ): BoothPoint[] {
-  return [
+  return convexBoothSolid([
     edgePoint(edge, from),
     edgePoint(edge, to),
     to >= edge.length - 1e-6
       ? cornerInset(edges, (edge.index + 1) % edges.length, thickness)
       : edgePoint(edge, to, thickness),
     from <= 1e-6 ? cornerInset(edges, edge.index, thickness) : edgePoint(edge, from, thickness),
-  ];
+  ]);
 }
 export function boothWorldPoints(object: PlanObject, points: BoothPoint[]): BoothPoint[] {
   const [a, b, c, d] = object.planarMatrix ?? [1, 0, 0, 1];

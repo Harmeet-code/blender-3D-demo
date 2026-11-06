@@ -1,0 +1,95 @@
+{
+  "kind": "Live browser observation, no test suite",
+  "stairsUp": {
+    "blockers": [],
+    "message": null,
+    "snapshot": {
+      "distance": 38.20499399222962,
+      "floorId": "motion-lab-mezzanine",
+      "phase": "Walking",
+      "progress": 0.9265236608145518,
+      "remaining": 3.0297802591281453,
+      "speed": 1.2,
+      "x": -7.168387729696406,
+      "y": 3.01,
+      "z": 2.913415427043219
+    },
+    "status": "playing",
+    "url": "http://localhost:5175/preview?motionLab&connector=stairs"
+  },
+  "stairsDown": {
+    "blockers": [],
+    "message": null,
+    "snapshot": {
+      "distance": 30.553564584367276,
+      "floorId": "motion-lab-ground",
+      "phase": "Walking",
+      "progress": 0.7409659666357672,
+      "remaining": 10.681209966872448,
+      "speed": 1.2,
+      "x": -7.043132007151144,
+      "y": 0.01,
+      "z": 10.638116794194502
+    },
+    "status": "playing",
+    "url": "http://localhost:5175/preview?motionLab&connector=stairs"
+  },
+  "escalatorUp": {
+    "blockers": [],
+    "message": null,
+    "snapshot": {
+      "distance": 41.63948497843885,
+      "floorId": "motion-lab-mezzanine",
+      "phase": "Walking",
+      "progress": 0.9999999998906651,
+      "remaining": 4.552646259980975e-9,
+      "speed": 0,
+      "x": -8.000000003230525,
+      "y": 3.0100000000000002,
+      "z": 5.704350769519806e-9
+    },
+    "status": "arrived",
+    "url": "http://localhost:5175/preview?motionLab&connector=escalator"
+  },
+  "escalatorDown": {
+    "blockers": [],
+    "message": null,
+    "snapshot": {
+      "distance": 45.135066177405044,
+      "floorId": "motion-lab-ground",
+      "phase": "Walking",
+      "progress": 0.9999976526223974,
+      "remaining": 0.00010594929214136073,
+      "speed": 0,
+      "x": -7.999999933046638,
+      "y": 0.010000000000000009,
+      "z": -6.039044819772243e-8
+    },
+    "status": "arrived",
+    "url": "http://localhost:5175/preview?motionLab&connector=escalator"
+  },
+  "actualPreview": {
+  "blockers": [],
+  "leg": 0,
+  "message": null,
+  "renderCommits": 7,
+  "snapshot": {
+    "distance": 0,
+    "floorId": "motion-lab-ground",
+    "phase": "Ready",
+    "progress": 0,
+    "remaining": 9.891697320881432,
+    "speed": 0,
+    "x": -5,
+    "y": 0,
+    "z": 19.490000000000002
+  },
+  "status": "playing",
+  "url": "http://localhost:5175/preview?devFixture&connector=stairs"
+},
+  "notes": [
+    "Uphill later reached arrived at x=-8,y=3.01,z≈0; zero captured blockers.",
+    "Downhill observation is after the connector exited to ground, while the remaining walk was still playing.",
+    "No free-mode, elevator or ramp acceptance claim."
+  ]
+}

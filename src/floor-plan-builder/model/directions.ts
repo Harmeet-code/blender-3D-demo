@@ -1,30 +1,29 @@
+import {
+  CAPSULE_TOTAL_HEIGHT_M,
+  CHARACTER_CONFIG,
+} from '../wayfinding/walkthrough/character-config.ts';
+import {
+  validateCapsuleEndpoint,
+  validateCapsuleSweep,
+} from '../wayfinding/walkthrough/collision/capsule-clearance.ts';
+import {
+  createPlanningNavigationContext,
+  NAV_AGENT_RADIUS_M,
+  NAV_PLANNING_RADIUS_M,
+  planningSupportObstacles,
+  type PlanningNavigationContext,
+} from '../wayfinding/navigation/planning-context.ts';
 import type { PortalType } from '@/features/building/model/building-schema.ts';
 import type { AreaQueryFilter } from '@/features/building/model/navigation-protocol.ts';
 import { NavigationClient } from '@/features/building/model/navigation-client.ts';
-import { normalizeLayout } from '@/features/building/model/normalize-layout.ts';
-import { isFloorPointClear } from '@/features/building/model/floor-point-clear.ts';
-import { clearEndpointJoin } from './navigation-clearance.ts';
-import { encodeLayout } from './adapter.ts';
-import { footprint, objectPoints } from './geometry.ts';
-import { boothNavigationPolygons } from './booth.ts';
-import { tentCollisionLocal, tentWalkableLocal } from './tent.ts';
-import { entranceCollisionLocal } from './entrance.ts';
-import { washroomObstacleLocal } from './washroom.ts';
 import {
-  washRackApproachLocal,
-  washRackObstacleLocal,
-  washRackRowConnections,
-  washRackWalkableLocal,
-} from './wash-rack-spatial.ts';
-import { kidsObstacleLocal } from './kids.ts';
-import { infoObstaclesLocal } from './information.ts';
-import { exitCollisionFor } from './exit.ts';
-import { benchObstacleLocal } from './bench.ts';
-import { tableObstacleLocal } from './table.ts';
-import { barrierObstacleLocal } from './barrier.ts';
-import { planterObstacleLocal } from './planter.ts';
-import { isBooth, isShellStructure, type PlanDocument } from './types.ts';
+  normalizeLayout,
+  type NormalizedLayout,
+} from '@/features/building/model/normalize-layout.ts';
+import { encodeLayout } from './adapter.ts';
+import type { PlanDocument } from './types.ts';
 import { parseWorkerRoute } from '../wayfinding/model/route-schema.ts';
+import type { WalkableZone } from '../wayfinding/model/zone-schema.ts';
 
 export interface RoutePoint {
   floorId: string;
@@ -55,10 +54,44 @@ export interface WayfindingPlanOptions {
   disabledPortals?: readonly string[];
   enabledPortalTypes?: readonly PortalType[];
   straight?: boolean;
+  role?: 'staff' | 'visitor';
+  /** Shared role-resolved geometry for worker input and every local clearance gate. */
+  planningContext?: PlanningNavigationContext;
+}
+
+const ROUTING_BOUNDARY_MARGIN_M = 1;
+
+function routingBoundary(
+  fallback: [number, number][],
+  zones: NonNullable<WayfindingPlanOptions['walkableZones']>,
+): [number, number][] {
+  const points = zones.flatMap((zone) => zone.polygon);
+  if (!points.length || points.some((point) => !point.every(Number.isFinite))) {
+    return fallback;
+  }
+  const xs = points.map(([x]) => x);
+  const zs = points.map(([, z]) => z);
+  const minX = Math.min(...xs) - ROUTING_BOUNDARY_MARGIN_M;
+  const maxX = Math.max(...xs) + ROUTING_BOUNDARY_MARGIN_M;
+  const minZ = Math.min(...zs) - ROUTING_BOUNDARY_MARGIN_M;
+  const maxZ = Math.max(...zs) + ROUTING_BOUNDARY_MARGIN_M;
+  return [
+    [minX, minZ],
+    [maxX, minZ],
+    [maxX, maxZ],
+    [minX, maxZ],
+  ];
+}
+
+interface PreparedNavigationLayout {
+  document: PlanDocument;
+  layout: NormalizedLayout;
+  zonedFloors: ReadonlySet<string>;
 }
 
 /** Own worker lifetime; share Recast without sharing old viewer/editor state. */
 export class StudioNavigator {
+  private preparedLayouts = new WeakMap<PlanningNavigationContext, PreparedNavigationLayout>();
   private client = new NavigationClient(
     () =>
       new Worker(new URL('../../features/building/workers/navigation.worker.ts', import.meta.url), {
@@ -70,6 +103,7 @@ export class StudioNavigator {
   }
   dispose() {
     this.client.dispose();
+    this.preparedLayouts = new WeakMap();
   }
   async plan(
     document: PlanDocument,
@@ -83,148 +117,124 @@ export class StudioNavigator {
     if (!from || !to) {
       throw new Error('Start and destination must have clearance inside a walkable area.');
     }
-    const normalized = normalizeLayout(encodeLayout(document));
-    if (normalized.isErr()) {
-      throw new Error(normalized.error.message);
+    const role = wayfinding?.role ?? 'visitor';
+    const fallbackZones: WalkableZone[] = (wayfinding?.walkableZones ?? []).map((zone) => ({
+      ...zone,
+      name: zone.id,
+      type: 'general',
+      holes: zone.holes ?? [],
+      revision: 0,
+    }));
+    const planning =
+      wayfinding?.planningContext ??
+      createPlanningNavigationContext(document, fallbackZones, role);
+    if (planning.buildingId !== document.baseline.buildingId || planning.role !== role) {
+      throw new Error('Route planning geometry does not match the current building or role.');
     }
-    const objectIds = new Set(
-      document.floors.flatMap((floor) => floor.objects.map((object) => object.id)),
-    );
-    const layout = {
-      ...normalized.value,
-      rooms: normalized.value.rooms.filter((room) => !objectIds.has(room.id)),
-      floors: normalized.value.floors.map((floor) => {
-        const source = document.floors.find((item) => item.source.id === floor.id)!;
-        const extraZones = (wayfinding?.walkableZones ?? []).filter(
-          (zone) => zone.floorId === floor.id,
-        );
-        return Object.assign({}, floor, {
-          authoring: floor.authoring && {
-            ...floor.authoring,
-            instances: [],
-            zones: [
-              ...(floor.authoring.zones ?? []),
-              ...extraZones.map((zone) => ({
-                id: `fpb-walk:${zone.id}`,
-                label: zone.id,
-                type: 'walkable' as const,
-                polygon: zone.polygon,
-              })),
-              ...((floor.authoring.zones ?? []).some((zone) => zone.type === 'walkable')
-                ? [
-                    ...source.objects
-                      .filter((object) => isBooth(object) || isShellStructure(object))
-                      .map((object) => ({
-                        id: `fpb-interior:${object.id}`,
-                        label: `${object.name} interior`,
-                        type: 'walkable' as const,
-                        polygon: footprint(object),
-                      })),
-                    ...source.objects
-                      .filter((object) => object.recipe === 'barn-tent')
-                      .map((object) => ({
-                        id: `fpb-tent-interior:${object.id}`,
-                        label: `${object.name} interior`,
-                        type: 'walkable' as const,
-                        polygon: objectPoints(object, tentWalkableLocal(object)),
-                      })),
-                    ...source.objects
-                      .filter(
-                        (object) =>
-                          object.recipe === 'wash-rack' &&
-                          object.washRackVariant &&
-                          object.collidable,
-                      )
-                      .map((object) => ({
-                        id: `fpb-wash-rack-interior:${object.id}`,
-                        label: `${object.name} interior`,
-                        type: 'walkable' as const,
-                        polygon: objectPoints(object, washRackWalkableLocal(object)),
-                      })),
-                    ...source.objects
-                      .filter(
-                        (object) =>
-                          object.recipe === 'wash-rack' &&
-                          object.washRackVariant &&
-                          object.collidable,
-                      )
-                      .map((object) => ({
-                        id: `fpb-wash-rack-approach:${object.id}`,
-                        label: `${object.name} entrance approach`,
-                        type: 'walkable' as const,
-                        polygon: objectPoints(object, washRackApproachLocal(object)),
-                      })),
-                  ]
-                : []),
-            ],
-            obstacles: [
-              ...floor.authoring.obstacles,
-              ...extraZones.flatMap((zone) => zone.holes ?? []),
-              ...source.objects
-                .filter((object) => object.collidable)
-                .flatMap((object) => {
-                  if (isBooth(object) || isShellStructure(object)) {
-                    return boothNavigationPolygons(object);
-                  }
-                  if (object.recipe === 'barn-tent') {
-                    return tentCollisionLocal(object).map((polygon) =>
-                      objectPoints(object, polygon),
-                    );
-                  }
-                  if (object.recipe === 'entrance') {
-                    return entranceCollisionLocal(object).map((polygon) =>
-                      objectPoints(object, polygon),
-                    );
-                  }
-                  if (object.recipe === 'washroom-men' || object.recipe === 'washroom-women') {
-                    return [objectPoints(object, washroomObstacleLocal(object))];
-                  }
-                  if (object.recipe === 'wash-rack') {
-                    if (!object.washRackVariant) {
-                      return [footprint(object)];
-                    }
-                    return washRackObstacleLocal(
-                      object,
-                      washRackRowConnections(object, source.objects),
-                    ).map((polygon) => objectPoints(object, polygon));
-                  }
-                  if (object.recipe === 'kids-zone') {
-                    return kidsObstacleLocal(object).map((polygon) =>
-                      objectPoints(object, polygon),
-                    );
-                  }
-                  if (object.recipe === 'exit') {
-                    return exitCollisionFor(object).map((polygon) => objectPoints(object, polygon));
-                  }
-                  if (object.recipe === 'information') {
-                    return infoObstaclesLocal(object).map((polygon) =>
-                      objectPoints(object, polygon),
-                    );
-                  }
-                  if (object.recipe === 'bench') {
-                    return [objectPoints(object, benchObstacleLocal(object))];
-                  }
-                  if (object.recipe === 'table' || object.recipe === 'chair') {
-                    return [objectPoints(object, tableObstacleLocal(object))];
-                  }
-                  if (object.recipe === 'barrier') {
-                    return barrierObstacleLocal(object).map((polygon) =>
-                      objectPoints(object, polygon),
-                    );
-                  }
-                  if (object.recipe === 'planter') {
-                    return [objectPoints(object, planterObstacleLocal(object))];
-                  }
-                  return [footprint(object)];
-                }),
-            ],
-          },
-        });
-      }),
+    const routingZones = planning.walkableZones;
+    let prepared = this.preparedLayouts.get(planning);
+    const zonedFloors = prepared?.document === document
+      ? prepared.zonedFloors
+      : new Set(routingZones.map((zone) => zone.floorId));
+    if (!zonedFloors.has(start.floorId) || !zonedFloors.has(end.floorId)) {
+      throw new Error('Draw a walkable zone on every route floor before planning a route.');
+    }
+    if (!prepared || prepared.document !== document) {
+      const normalized = normalizeLayout(encodeLayout(document));
+      if (normalized.isErr()) {
+        throw new Error(normalized.error.message);
+      }
+      const objectIds = new Set(
+        document.floors.flatMap((floor) => floor.objects.map((object) => object.id)),
+      );
+      const layout: NormalizedLayout = {
+        ...normalized.value,
+        portals: [...planning.portals],
+        rooms: normalized.value.rooms.filter((room) => !objectIds.has(room.id)),
+        floors: normalized.value.floors.map((floor) => {
+          const physical = planning.collisionMaps.get(floor.id);
+          if (!physical) {throw new Error(`Route planning geometry is missing floor ${floor.id}.`);}
+          if (physical.unsupported.length) {
+            const issue = physical.unsupported[0]!;
+            const sourceFloor = document.floors.find((candidate) => candidate.source.id === floor.id);
+            const objectId = issue.id.replace(/:\d+$/, '');
+            const object = sourceFloor?.objects.find((candidate) => candidate.id === objectId);
+            const shape = object ? `"${object.name}" (${issue.id})` : issue.id;
+            throw new Error(
+              `Route collision geometry on "${sourceFloor?.source.name ?? floor.id}" (${floor.id}) cannot represent ${shape}: ${issue.reason}`,
+            );
+          }
+          const extraZones = routingZones.filter(
+            (zone) => zone.floorId === floor.id,
+          );
+          return Object.assign({}, floor, {
+            authoring: floor.authoring && {
+              ...floor.authoring,
+              boundary: routingBoundary(floor.authoring.boundary, extraZones),
+              instances: [],
+              zones: [
+                ...(floor.authoring.zones ?? []).filter((zone) => zone.type !== 'walkable'),
+                ...extraZones.map((zone) => ({
+                  id: `fpb-walk:${zone.id}`,
+                  label: zone.id,
+                  type: 'walkable' as const,
+                  polygon: zone.polygon,
+                })),
+              ],
+              obstacles: [
+                ...physical.obstacles.filter((item) => item.minY < physical.floorY + CAPSULE_TOTAL_HEIGHT_M && item.maxY > physical.floorY).map((item) => item.polygon.map(([x, z]): [number, number] => [x, z])),
+                ...physical.blockedAreas.map((item) => item.polygon.map(([x, z]): [number, number] => [x, z])),
+                ...extraZones.flatMap((zone) => zone.holes ?? []),
+                ...planningSupportObstacles(physical),
+              ],
+            },
+          });
+        }),
+      };
+      prepared = { document, layout, zonedFloors };
+      this.preparedLayouts.set(planning, prepared);
+    }
+    const { layout } = prepared;
+    const disabledPortals = new Set(wayfinding?.disabledPortals ?? []);
+    for (const portal of layout.portals) {
+      const floorIds = portal.entries?.map((entry) => entry.floorId) ?? portal.connects;
+      if (floorIds.some((floorId) => !zonedFloors.has(floorId))) {
+        disabledPortals.add(portal.id);
+      }
+    }
+    const profile = { ...CHARACTER_CONFIG, radiusM: NAV_AGENT_RADIUS_M };
+    const endpointClear = (floorId: string, point: [number, number]) => {
+      const floor = document.floors.find((item) => item.source.id === floorId);
+      const map = planning.collisionMaps.get(floorId);
+      return !!floor && !!map && validateCapsuleEndpoint(
+        map,
+        role,
+        [point[0], floor.source.heightOffset, point[1]],
+        profile,
+      ).clear;
+    };
+    const endpointJoinClear = (
+      floorId: string,
+      a: [number, number],
+      b: [number, number],
+    ) => {
+      const floor = document.floors.find((item) => item.source.id === floorId);
+      const map = planning.collisionMaps.get(floorId);
+      if (!floor || !map) {
+        return false;
+      }
+      const y = floor.source.heightOffset;
+      return validateCapsuleSweep(
+        map,
+        role,
+        [a[0], y, a[1]],
+        [b[0], y, b[1]],
+        profile,
+      ).clear;
     };
     if (
-      !isFloorPointClear(layout, start.floorId, start.point) ||
-      !isFloorPointClear(layout, end.floorId, end.point)
+      !endpointClear(start.floorId, start.point) ||
+      !endpointClear(end.floorId, end.point)
     ) {
       throw new Error(
         'Start and destination need clearance for the whole avatar in the walkable area.',
@@ -241,12 +251,12 @@ export class StudioNavigator {
         ...(wayfinding?.enabledPortalTypes
           ? { enabledPortalTypes: [...wayfinding.enabledPortalTypes] }
           : {}),
-        ...(wayfinding?.disabledPortals
-          ? { disabledPortals: [...wayfinding.disabledPortals] }
+        ...(disabledPortals.size
+          ? { disabledPortals: [...disabledPortals] }
           : {}),
-        ...(wayfinding?.queryFilter ? { queryFilter: wayfinding.queryFilter } : {}),
+        queryFilter: { ...wayfinding?.queryFilter, agentRadiusM: NAV_PLANNING_RADIUS_M },
         ...(wayfinding?.straight ? { straight: true } : {}),
-        ...(wayfinding?.navAreas ? { navAreas: wayfinding.navAreas } : {}),
+        ...(Object.keys(planning.navAreas).length ? { navAreas: planning.navAreas } : {}),
       },
     );
     if (!route?.points.length) {
@@ -286,8 +296,8 @@ export class StudioNavigator {
       if (
         !startPoint ||
         !endPoint ||
-        !clearEndpointJoin(layout, start.floorId, start.point, startPoint) ||
-        !clearEndpointJoin(layout, end.floorId, endPoint, end.point)
+        !endpointJoinClear(start.floorId, start.point, startPoint) ||
+        !endpointJoinClear(end.floorId, endPoint, end.point)
       ) {
         straightSegments = undefined;
       }
@@ -299,8 +309,8 @@ export class StudioNavigator {
     if (
       first.floorId !== start.floorId ||
       last.floorId !== end.floorId ||
-      !clearEndpointJoin(layout, start.floorId, start.point, firstPoint) ||
-      !clearEndpointJoin(layout, end.floorId, lastPoint, end.point)
+      !endpointJoinClear(start.floorId, start.point, firstPoint) ||
+      !endpointJoinClear(end.floorId, lastPoint, end.point)
     ) {
       throw new Error(
         'The chosen endpoint cannot safely reach the Recast path. Move the start or destination farther into a clear walkable area.',

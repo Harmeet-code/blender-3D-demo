@@ -59,6 +59,8 @@ export function createWalkInteractionTargets(
   floorId: string,
   originY: number,
   role: Role,
+  policyStatus: 'resolved' | 'unavailable' = 'unavailable',
+  staffDoorIds: readonly string[] = [],
 ): AdaptedWalkTarget[] {
   const floor = document.floors.find((candidate) => candidate.source.id === floorId);
   if (!floor) {return [];}
@@ -83,10 +85,11 @@ export function createWalkInteractionTargets(
             : Math.min(1.2, Math.max(0.5, object.dimensions[1] / 2))),
           object.position[1],
         ],
-        details: detailsForObject(object, floorId, role),
+        details: policyStatus === 'resolved' ? detailsForObject(object, floorId, role) : [{ label: 'Details', value: 'Runtime role policy unavailable.' }],
+        allowedRoles: policyStatus !== 'resolved' ? [] : staffDoorIds.includes(object.id) ? ['staff'] : undefined,
       };
       // Entrance authoring has no role ACL. Do not infer one from the selected walkthrough role.
-      if (object.recipe === 'entrance' && object.entranceGate === 'arch-sliding-doors') {
+      if (policyStatus === 'resolved' && object.recipe === 'entrance' && object.entranceGate === 'arch-sliding-doors') {
         target.proximityEffect = { kind: 'reversible-door', openOnEnter: true, closeOnExit: true };
       }
       return target;

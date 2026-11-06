@@ -10,7 +10,7 @@ import {
 const point2 = z.tuple([z.number().finite(), z.number().finite()]);
 const ring = z.array(point2).min(3).max(256);
 
-/** Corridors narrower than the agent diameter (2r) vanish from the navmesh. */
+/** Advisory routing thresholds. They are not zone-authoring validity constraints. */
 export const WAYFINDING_AGENT_RADIUS = 0.4;
 export const WAYFINDING_MIN_CORRIDOR = WAYFINDING_AGENT_RADIUS * 2;
 export const WAYFINDING_MIN_AREA = 1;
@@ -68,25 +68,17 @@ export const walkableZoneSchema = z
   .refine((zone) => isSimplePolygon(zone.polygon), {
     message: 'Zone boundary must be a simple polygon without crossings.',
   })
-  .refine((zone) => ringArea(zone.polygon) >= WAYFINDING_MIN_AREA, {
-    message: `Zone area must be at least ${WAYFINDING_MIN_AREA} m².`,
+  .refine((zone) => ringArea(zone.polygon) > 0, {
+    message: 'Zone must have positive area.',
   })
-  .refine(
-    (zone) =>
-      narrowestCorridor(zone.polygon as [number, number][]) >= WAYFINDING_MIN_CORRIDOR - 1e-6,
-    {
-      message: `Zone has a passage narrower than the agent diameter (${WAYFINDING_MIN_CORRIDOR} m); it will not survive navmesh erosion.`,
-    },
-  )
-  .refine((zone) => zone.holes.every((hole) => isSimplePolygon(hole) && ringArea(hole) > 1e-6), {
+  .refine((zone) => zone.holes.every((hole) => isSimplePolygon(hole) && ringArea(hole) > 0), {
     message: 'Zone holes must be simple polygons without crossings.',
   })
   .refine(
     (zone) =>
-      ringArea(zone.polygon) - zone.holes.reduce((sum, hole) => sum + ringArea(hole), 0) >=
-      WAYFINDING_MIN_AREA,
+      ringArea(zone.polygon) - zone.holes.reduce((sum, hole) => sum + ringArea(hole), 0) > 0,
     {
-      message: 'Walkable area after subtracting holes must be at least 1 m².',
+      message: 'Walkable area after subtracting holes must be positive.',
     },
   )
   .refine(
@@ -116,3 +108,22 @@ export const walkableZoneSchema = z
   );
 
 export type WalkableZone = z.infer<typeof walkableZoneSchema>;
+
+/** Advisory only: valid authored geometry need not support an agent-sized route. */
+export function zoneNavigationWarnings(
+  polygon: [number, number][],
+  holes: [number, number][][] = [],
+): string[] {
+  const warnings: string[] = [];
+  const area = ringArea(polygon) - holes.reduce((sum, hole) => sum + ringArea(hole), 0);
+  if (area < WAYFINDING_MIN_AREA) {
+    warnings.push(`Small zone: less than ${WAYFINDING_MIN_AREA} square meters remain for navigation.`);
+  }
+  // This is advisory: the gap heuristic is not proof of connected capsule clearance.
+  if (narrowestCorridor(polygon) < WAYFINDING_MIN_CORRIDOR) {
+    warnings.push(
+      `Narrow zone: some passages may not provide the ${WAYFINDING_MIN_CORRIDOR} m clearance required to route the avatar.`,
+    );
+  }
+  return warnings;
+}

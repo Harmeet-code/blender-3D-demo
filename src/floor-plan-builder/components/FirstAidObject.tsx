@@ -36,6 +36,39 @@ export function useGreenCross(size = 256) {
   return texture;
 }
 
+function useFirstAidSign(size = 512) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = Math.round(size * 0.28);
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return null;
+    }
+    const unit = size / 512;
+    context.fillStyle = '#ECFDF5';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = '#047857';
+    context.fillRect(0, 0, canvas.width, 10 * unit);
+    context.fillRect(0, canvas.height - 10 * unit, canvas.width, 10 * unit);
+    context.fillRect(28 * unit, 22 * unit, 96 * unit, 96 * unit);
+    context.fillStyle = '#FFFFFF';
+    context.fillRect(66 * unit, 34 * unit, 20 * unit, 72 * unit);
+    context.fillRect(40 * unit, 60 * unit, 72 * unit, 20 * unit);
+    context.fillStyle = '#065F46';
+    context.font = `700 ${52 * unit}px Inter, Arial, sans-serif`;
+    context.textAlign = 'left';
+    context.textBaseline = 'middle';
+    context.fillText('FIRST AID', 150 * unit, canvas.height / 2);
+    const value = new CanvasTexture(canvas);
+    value.colorSpace = SRGBColorSpace;
+    value.anisotropy = 4;
+    return value;
+  }, [size]);
+  useEffect(() => () => texture?.dispose(), [texture]);
+  return texture;
+}
+
 export function FirstAidObject({
   object,
   color,
@@ -72,7 +105,9 @@ export function FirstAidObject({
   });
 
   const cross = useGreenCross();
+  const firstAidSign = useFirstAidSign();
   const opacity = ghost ? 0.45 : 1;
+  const identityOpacity = ghost ? 0.8 : 1;
   const panel = { roughness: 0.85, metalness: 0.05 };
   const hw = w / 2;
   const hd = d / 2;
@@ -80,6 +115,9 @@ export function FirstAidObject({
   const cotW = Math.min(0.7, hw - 0.3);
   const cotX = hw - 0.05 - cotW / 2 - 0.3;
   const entry = firstAidEntryLocal(object);
+  const bandY = Math.min(h - 0.28, Math.max(0.65, h * 0.58));
+  const signY = Math.max(0.3, h - 0.22);
+  const signW = Math.max(0.2, Math.min(1.35, w - 0.12));
   // Elevated sign header: fixed 2.5 m, floating above the roof on tall rooms.
   const towerY = Math.max(2.5, h + 0.35);
 
@@ -100,8 +138,7 @@ export function FirstAidObject({
             opacity={opacity}
           />
         </mesh>
-        {!ghost &&
-          cross &&
+        {cross &&
           [0, Math.PI / 2, Math.PI, -Math.PI / 2].map((yaw) => (
             <mesh
               key={yaw}
@@ -109,7 +146,7 @@ export function FirstAidObject({
               rotation={[0, yaw, 0]}
             >
               <planeGeometry args={[0.6, 0.6]} />
-              <meshBasicMaterial map={cross} toneMapped={false} />
+              <meshBasicMaterial map={cross} toneMapped={false} transparent opacity={identityOpacity} />
             </mesh>
           ))}
       </group>
@@ -117,11 +154,15 @@ export function FirstAidObject({
   }
 
   const crossPlane = (key: string, size: number, at: readonly [number, number, number], yaw = 0) =>
-    !ghost &&
     cross && (
       <mesh key={key} position={[...at]} rotation={[0, yaw, 0]}>
         <planeGeometry args={[size, size]} />
-        <meshBasicMaterial map={cross} toneMapped={false} transparent />
+        <meshBasicMaterial
+          map={cross}
+          toneMapped={false}
+          transparent
+          opacity={identityOpacity}
+        />
       </mesh>
     );
 
@@ -166,6 +207,59 @@ export function FirstAidObject({
         <boxGeometry args={[w, 0.05, d]} />
         <meshStandardMaterial color="#F8F9FA" {...panel} transparent={ghost} opacity={opacity} />
       </mesh>
+      <group name="HospitalExteriorIdentity">
+        {[-1, 1].map((side) => (
+          <mesh
+            key={`front-band-${side}`}
+            position={[side * (doorW / 2 + (w - doorW) / 4), bandY, hd + 0.008]}
+          >
+            <boxGeometry args={[Math.max(0.04, (w - doorW) / 2 - 0.04), 0.16, 0.012]} />
+            <meshStandardMaterial
+              color="#047857"
+              emissive="#064E3B"
+              emissiveIntensity={0.18}
+              roughness={0.55}
+              transparent={ghost}
+              opacity={identityOpacity}
+            />
+          </mesh>
+        ))}
+        <mesh position={[0, bandY, -hd - 0.008]}>
+          <boxGeometry args={[Math.max(0.08, w - 0.08), 0.16, 0.012]} />
+          <meshStandardMaterial
+            color="#047857"
+            emissive="#064E3B"
+            emissiveIntensity={0.18}
+            roughness={0.55}
+            transparent={ghost}
+            opacity={identityOpacity}
+          />
+        </mesh>
+        {[-1, 1].map((side) => (
+          <mesh key={`side-band-${side}`} position={[side * (hw + 0.008), bandY, 0]}>
+            <boxGeometry args={[0.012, 0.16, Math.max(0.08, d - 0.08)]} />
+            <meshStandardMaterial
+              color="#047857"
+              emissive="#064E3B"
+              emissiveIntensity={0.18}
+              roughness={0.55}
+              transparent={ghost}
+              opacity={identityOpacity}
+            />
+          </mesh>
+        ))}
+        {firstAidSign && (
+          <mesh position={[0, signY, hd + 0.016]}>
+            <planeGeometry args={[signW, signW * 0.28]} />
+            <meshBasicMaterial
+              map={firstAidSign}
+              toneMapped={false}
+              transparent
+              opacity={identityOpacity}
+            />
+          </mesh>
+        )}
+      </group>
       <group name="EntryDoor" position={[-doorW / 2 + 0.02, 0, hd]}>
         {/* Four opaque pieces surround a real 0.4 × 0.5 m opening. */}
         {[
@@ -276,10 +370,15 @@ export function FirstAidObject({
               </mesh>
             )),
           )}
-        {!ghost && cross && (
+        {cross && (
           <mesh position={[-0.3, 0.8, hd - 0.095]}>
             <planeGeometry args={[0.2, 0.2]} />
-            <meshBasicMaterial map={cross} toneMapped={false} transparent />
+            <meshBasicMaterial
+              map={cross}
+              toneMapped={false}
+              transparent
+              opacity={identityOpacity}
+            />
           </mesh>
         )}
         {!ghost && near && (
@@ -330,8 +429,7 @@ export function FirstAidObject({
           <boxGeometry args={[0.8, 0.4, 0.8]} />
           <meshStandardMaterial color="#F8F9FA" {...panel} transparent={ghost} opacity={opacity} />
         </mesh>
-        {!ghost &&
-          cross &&
+        {cross &&
           [0, Math.PI / 2, Math.PI, -Math.PI / 2].map((yaw, index) => (
             <mesh
               key={index}
@@ -339,7 +437,12 @@ export function FirstAidObject({
               rotation={[0, yaw, 0]}
             >
               <planeGeometry args={[0.5, 0.32]} />
-              <meshBasicMaterial map={cross} toneMapped={false} transparent />
+              <meshBasicMaterial
+                map={cross}
+                toneMapped={false}
+                transparent
+                opacity={identityOpacity}
+              />
             </mesh>
           ))}
       </group>

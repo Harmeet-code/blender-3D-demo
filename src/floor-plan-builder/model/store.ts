@@ -144,7 +144,11 @@ export interface StudioState {
   deleteFloor: (id: string) => void;
   reorderFloor: (delta: number) => void;
   updateFloor: (updates: Partial<PlanFloor>) => boolean;
-  linkConnector: (targetFloor: string, position?: [number, number]) => boolean;
+  linkConnector: (
+    targetFloor: string,
+    position?: [number, number],
+    targetObjectId?: string,
+  ) => boolean;
   unlinkConnector: (targetFloor: string) => boolean;
   markSaved: (revision: number, savedDocument?: PlanDocument) => void;
   notify: (message: string) => void;
@@ -586,6 +590,11 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       }
       set((state) => {
         const prior = state.selectionHistory[state.floorId];
+        const focusConnector =
+          selection?.kind === 'object' &&
+          activeFloor(state).objects.some(
+            (object) => object.id === selection.id && isConnector(object.recipe),
+          );
         const entries = selection
           ? [
               ...(prior?.entries.slice(0, prior.cursor + 1) ?? []).filter(
@@ -598,6 +607,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           selection,
           selectionSet: selection ? [selection] : [],
           focusId: selection?.id ?? null,
+          focusTick: focusConnector ? state.focusTick + 1 : state.focusTick,
           selectionHistory: {
             ...state.selectionHistory,
             [state.floorId]: { entries, cursor: entries.length - 1 },
@@ -1152,8 +1162,8 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
             names.push(label);
             return { ...structuredClone(zone), id: crypto.randomUUID(), label };
           });
-          if (zoneCopies.some((zone) => !insideBoundary(zone.polygon, floor.boundary))) {
-            set({ message: 'Keep the zone inside the floor.' });
+          if (zoneCopies.some((zone) => !polygonSchema.safeParse(zone.polygon).success)) {
+            set({ message: 'Zone requires a simple polygon with positive area.' });
             return false;
           }
           const candidateFloor = {
@@ -1185,8 +1195,8 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           });
           return true;
         }
-        if (movedZones.some((zone) => !insideBoundary(zone.polygon, floor.boundary))) {
-          set({ message: 'Keep the zone inside the floor.' });
+        if (movedZones.some((zone) => !polygonSchema.safeParse(zone.polygon).success)) {
+          set({ message: 'Zone requires a simple polygon with positive area.' });
           return false;
         }
         const candidateFloor = {
@@ -1356,10 +1366,9 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
             return false;
           }
           if (
-            !polygonSchema.safeParse(zone.polygon).success ||
-            !insideBoundary(zone.polygon, floor.boundary)
+            !polygonSchema.safeParse(zone.polygon).success
           ) {
-            set({ message: 'Zone requires a valid polygon inside the floor.' });
+            set({ message: 'Zone requires a simple polygon with positive area.' });
             return false;
           }
         }
@@ -1383,6 +1392,30 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           set({ message: parsed.error.issues[0]?.message ?? 'Check object properties.' });
           return false;
         }
+        const original = floor.objects.find((item) => item.id === parsed.data.id);
+        const normalize = (value: string) => value.trim().toLowerCase();
+        if (isBooth(parsed.data)) {
+          const others = floor.objects.filter(
+            (item) => item.id !== parsed.data.id && isBooth(item),
+          );
+          const name = normalize(parsed.data.name);
+          const number = normalize(parsed.data.boothNumber);
+          if (
+            name !== normalize(original?.name ?? '') &&
+            others.some((item) => normalize(item.name) === name)
+          ) {
+            set({ message: 'Booth name already exists on this floor. Choose a unique name.' });
+            return false;
+          }
+          if (
+            number &&
+            number !== normalize(original?.boothNumber ?? '') &&
+            others.some((item) => normalize(item.boothNumber) === number)
+          ) {
+            set({ message: 'Booth number already exists on this floor. Choose a unique number.' });
+            return false;
+          }
+        }
         const bounds = polygonBounds(parsed.data.polygon);
         const object = {
           ...parsed.data,
@@ -1397,19 +1430,7 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
             bounds.maxZ - bounds.minZ,
           ] as [number, number, number],
         };
-        const duplicate =
-          object.boothNumber &&
-          floor.objects.some(
-            (other) =>
-              other.id !== object.id &&
-              other.boothNumber.trim().toLowerCase() === object.boothNumber.trim().toLowerCase(),
-          );
-        if (duplicate) {
-          set({ message: 'Booth number already exists on this floor. Choose a unique number.' });
-          return false;
-        }
-        const original = floor.objects.find((item) => item.id === object.id)!;
-        const members = transformGroup(floor, original, object);
+        const members = transformGroup(floor, original!, object);
         const candidateFloor = {
           ...floor,
           objects: floor.objects.map(
@@ -1433,8 +1454,8 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
           return false;
         }
         const result = polygonSchema.safeParse(state.pendingZone.polygon);
-        if (!result.success || !insideBoundary(state.pendingZone.polygon, floor.boundary)) {
-          set({ message: 'Zone requires a valid polygon inside the floor.' });
+        if (!result.success) {
+          set({ message: 'Zone requires a simple polygon with positive area.' });
           return false;
         }
         if (
@@ -1477,13 +1498,20 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
             [a![0], b![1]],
           ];
         }
-        if (!polygonSchema.safeParse(points).success || !insideBoundary(points, floor.boundary)) {
+        const drawingValidation = polygonSchema.safeParse(points);
+        const drawingZone = state.tool.includes('zone') || state.tool === 'blocked-rectangle';
+        if (
+          !drawingValidation.success ||
+          (!drawingZone && !insideBoundary(points, floor.boundary))
+        ) {
           set({
-            message: 'Drawing must have unique vertices, no crossings, and stay inside the floor.',
+            message: drawingZone
+              ? 'Zone must have unique vertices, positive area, and no crossings.'
+              : 'Drawing must have unique vertices, no crossings, and stay inside the floor.',
           });
           return false;
         }
-        if (state.tool.includes('zone') || state.tool === 'blocked-rectangle') {
+        if (drawingZone) {
           const zone: PlanZone = {
             id: crypto.randomUUID(),
             label: uniqueName(
@@ -1696,21 +1724,50 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       }
       return state.commitFloor({ ...(state.pendingFloor ?? activeFloor(state)), ...updates });
     },
-    linkConnector: (targetFloor, position) => {
+    linkConnector: (targetFloor, position, targetObjectId) => {
       let state = get();
       if (unfinished(state) && !commitPendingForm(state)) { return false; }
       state = get();
       const current = activeFloor(state),
         object = current.objects.find((o) => o.id === state.selection?.id),
         target = state.document.floors.find((floor) => floor.source.id === targetFloor);
-      if (
-        !object ||
-        !isConnector(object.recipe) ||
-        !target ||
-        current.source.id === targetFloor ||
-        unfinished(state)
-      ) {
+      if (!object) {
+        state.notify('Select a connector before linking floors.');
         return false;
+      }
+      if (!isConnector(object.recipe)) {
+        state.notify('The selected object is not a floor connector.');
+        return false;
+      }
+      if (object.locked) {
+        state.notify(`Unlock ${object.name} before linking it to another floor.`);
+        return false;
+      }
+      if (!target) {
+        state.notify('The target floor no longer exists. Choose another floor.');
+        return false;
+      }
+      if (current.source.id === targetFloor) {
+        state.notify('Choose a different floor for the paired connector.');
+        return false;
+      }
+      if (unfinished(state)) {
+        state.notify('Apply or discard unfinished edits before linking connectors.');
+        return false;
+      }
+      const existing = targetObjectId
+        ? target.objects.find((item) => item.id === targetObjectId)
+        : undefined;
+      if (
+        targetObjectId &&
+        (!existing || existing.recipe !== object.recipe || existing.portalId || existing.locked)
+      ) {
+        state.notify('Choose an unlocked, unlinked connector of the same type on the target floor.');
+        return false;
+      }
+      if (existing) {
+        const { position: existingPosition } = existing;
+        position = existingPosition;
       }
       position ??= object.targetLanding;
       if (!position.every(Number.isFinite)) {
@@ -1719,87 +1776,106 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       }
       const portalId = object.portalId || `fpb-portal:${crypto.randomUUID()}`;
       if (target.objects.some((o) => o.portalId === portalId)) {
-        set({ message: 'This connector already has a landing on that floor.' });
+        state.notify('This connector already has a landing on that floor.');
         return false;
       }
-      const fresh = createObject(object.recipe, position, target.objects, floorNames(target));
-      let source = object;
-      if (object.circulationDesign) {
-        if (
-          object.circulationDesign.role === 'upper' ||
-          object.connectsFloorIds.length > 1 ||
-          target.source.heightOffset <= current.source.heightOffset
-        ) {
-          state.notify(
-            'Link this two-level connector from its lower floor to one higher floor. Disconnect existing landings before changing its floor span.',
-          );
-          return false;
-        }
-        source = fitCirculation({
-          ...object,
-          dimensions: [
-            object.dimensions[0],
-            target.source.heightOffset - current.source.heightOffset,
-            object.dimensions[2],
-          ],
-        });
-        const sourceError = placementError(source, current);
-        if (sourceError) {
-          state.notify(`Connector fitted to floor rise: ${sourceError}`);
-          return false;
-        }
-      }
-      let companion: PlanObject = {
+      const fresh =
+        existing ?? createObject(object.recipe, position, target.objects, floorNames(target));
+      const targetSeed: PlanObject = existing ?? {
         ...object,
         id: fresh.id,
         name: fresh.name,
         boothNumber: fresh.boothNumber,
         position,
+      };
+      const currentIsLower = current.source.heightOffset < target.source.heightOffset;
+      const sameElevation = current.source.heightOffset === target.source.heightOffset;
+      const lowerFloor = currentIsLower ? current : target;
+      const upperFloor = currentIsLower ? target : current;
+      const lowerSeed = currentIsLower ? object : targetSeed;
+      const upperSeed = currentIsLower ? targetSeed : object;
+      const connectedFloorIds = [lowerFloor.source.id, upperFloor.source.id];
+      const design =
+        lowerSeed.circulationDesign ?? upperSeed.circulationDesign ?? object.circulationDesign;
+      if (design && (sameElevation || object.portalId || object.connectsFloorIds.length > 1)) {
+        state.notify(
+          sameElevation
+            ? 'Choose connector floors with different elevations.'
+            : 'This two-level connector is already paired. Disconnect its existing landing before changing the floor span.',
+        );
+        return false;
+      }
+      let lowerConnector: PlanObject = {
+        ...lowerSeed,
+        managed: true,
+        portalId,
+        connectsFloorIds: connectedFloorIds,
+      };
+      let upperLanding: PlanObject = {
+        ...upperSeed,
         managed: true,
         groupId: '',
         legacyPoiId: undefined,
         portalId,
-        connectsFloorIds: [current.source.id, targetFloor],
+        connectsFloorIds: connectedFloorIds,
       };
-      if (source.circulationDesign) {
+      if (design) {
+        lowerConnector = fitCirculation({
+          ...lowerConnector,
+          circulationDesign: { ...design, role: 'lower' },
+          dimensions: [
+            lowerConnector.dimensions[0],
+            upperFloor.source.heightOffset - lowerFloor.source.heightOffset,
+            lowerConnector.dimensions[2],
+          ],
+        });
         const width =
-            source.circulationDesign.layout === 'switchback'
-              ? source.circulationDesign.clearWidth
-              : source.dimensions[0],
+            lowerConnector.circulationDesign!.layout === 'switchback'
+              ? lowerConnector.circulationDesign!.clearWidth
+              : lowerConnector.dimensions[0],
           depth = 1.5;
-        companion = {
-          ...companion,
-          dimensions: [width, source.dimensions[1], depth],
+        upperLanding = {
+          ...upperLanding,
+          dimensions: [width, lowerConnector.dimensions[1], depth],
           polygon: rectangle(width, depth),
           scale: [1, 1, 1],
           planarMatrix: undefined,
-          circulationDesign: { ...source.circulationDesign, role: 'upper' },
+          circulationDesign: { ...lowerConnector.circulationDesign!, role: 'upper' },
         };
       }
-      const error = placementError(companion, target);
-      if (error) {
-        set({ message: `Place the target landing first: ${error}` });
+      const lowerError = placementError(lowerConnector, lowerFloor);
+      if (lowerError) {
+        state.notify(
+          `${lowerSeed.name} cannot be the lower connector on ${lowerFloor.source.name}: ${lowerError}`,
+        );
         return false;
       }
+      const upperError = placementError(upperLanding, upperFloor);
+      if (upperError) {
+        state.notify(
+          `${upperSeed.name} cannot be the upper landing on ${upperFloor.source.name}: ${upperError}`,
+        );
+        return false;
+      }
+      const currentReplacement = currentIsLower ? lowerConnector : upperLanding;
+      const targetReplacement = currentIsLower ? upperLanding : lowerConnector;
       const floors = state.document.floors.map((floor) =>
         floor.source.id === current.source.id
           ? {
               ...floor,
               objects: floor.objects.map((o) =>
-                o.id === object.id
-                  ? {
-                      ...source,
-                      portalId,
-                      managed: true,
-                      connectsFloorIds: [
-                        ...new Set([...o.connectsFloorIds, current.source.id, targetFloor]),
-                      ],
-                    }
-                  : o,
+                o.id === object.id ? currentReplacement : o,
               ),
             }
           : floor.source.id === targetFloor
-            ? { ...floor, objects: [...floor.objects, companion] }
+            ? {
+                ...floor,
+                objects: existing
+                  ? floor.objects.map((item) =>
+                      item.id === existing.id ? targetReplacement : item,
+                    )
+                  : [...floor.objects, targetReplacement],
+              }
             : floor,
       );
       if (!state.commitFloors(floors)) {
@@ -1807,7 +1883,9 @@ export function createStudioStore(eventId: string, initial = blankDocument(event
       }
       set({
         message:
-          'Connected floors. Undo this link on the source floor; position its landing on the target floor.',
+          existing
+            ? `Connected the existing connectors between ${lowerFloor.source.name} and ${upperFloor.source.name}. Undo from ${current.source.name} to restore both.`
+            : `Connected ${lowerFloor.source.name} and ${upperFloor.source.name}. Undo from ${current.source.name} to remove the created pair.`,
       });
       return true;
     },

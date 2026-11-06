@@ -1,0 +1,58 @@
+SUMMARY
+BLOCKED: completed physical cross-floor traversal remains unverified.
+
+CHANGES
+Linked procedural lower/upper fixtures round-trip through BuildingLayout v2.
+Lab supplies explicit resolved local policy and shared FloorSurface apertures.
+Actual Studio /preview?devFixture uses the isolated fixture, skips draft loading,
+and disables saving. Ordinary venue preview retains its existing policy gate.
+Memoized connector deduplication fixes timeline resets on telemetry renders.
+Ramp recipe binds to its supported stairs portal encoding.
+Physics rejection messages expose requested/resolved displacement.
+FloorCanvas drawing debug payload is retained as a DOM event instead of console.
+
+EVIDENCE
+Base: http://localhost:5175
+/preview?motionLab&connector=elevator
+ elevator-up.json and elevator-down.json reproduce capsule boarding rejection.
+ Cabin floor top: 0.060 m. Requested displacement at the lower threshold:
+ (0,-0.016764,-0.027975) m; Rapier resolved (0,0.006706,-0.018802) m.
+ Disagreement: approximately 0.0252 m, exceeding the existing 0.025 m gate.
+ Linear boarding pulls down while the physical cabin floor lifts the capsule.
+ Up recording: page@a3c16d39faff34beced1cc63270758ed.webm.
+/preview?motionLab&connector=stairs
+ stairs-route-blocker.json: no path; no capsule traversal established.
+/preview?motionLab&connector=escalator
+ escalator-route-blocker.json: no path; no capsule traversal established.
+/preview?motionLab&connector=ramp
+ ramp-up.json: inconclusive idle snapshot, unmatched route after start attempt.
+/preview?devFixture&connector=elevator
+ actual-preview.json/png: resolved fixture policy, route offers Start walkthrough,
+ zero draft API resource entries, zero page errors. Ride not captured here.
+Standalone Playwright capture is recording evidence, not a test.
+Headless software rendering limits frame rate; videos lack independent review.
+Earlier live approach overlay reported auto acceleration 4.648 m/s2 and yaw
+365.9 degrees/s (FAIL); contact and gaze remained UNMEASURED.
+
+CHECKS
+Builder TypeScript: exit 0, final-typecheck.txt.
+Lint: exit 1, 116 warnings, two no-console errors in protected model/store.ts
+at 1496 and 1525. Protected file untouched. See final-lint.txt.
+No tests authored/executed, dependencies, backend changes, commits or subagents.
+
+RISKS
+Boarding support/path disagreement; unresolved stairs/escalator routing;
+inconclusive ramp capture. Fixture is illustrative schema data, not a real venue
+or server ACL. Inventory flags procedural encoding as outside canonical assets.
+
+OPEN QUESTIONS
+Should boarding follow physical support under bounded horizontal motion, or
+should the recipe supply a threshold trajectory? How should mid-ride Stop recover?
+
+WHAT I DID NOT VERIFY
+Free-mode both directions, completed elevator ride/contact, actual-preview
+capsule traversal, repeat handoff, Stop/restart, door rejection recovery,
+forced-worker fallback, complete motion targets, production build or fresh review.
+
+Chosen ones: React identity participates in simulation ownership. Rebuilding an
+array can reset a physical timeline even when its elements are unchanged.

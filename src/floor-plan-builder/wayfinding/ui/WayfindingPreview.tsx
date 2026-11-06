@@ -17,6 +17,7 @@ import { GameScene } from '../game/GameScene.tsx';
 import { Minimap } from '../rendering/Minimap.tsx';
 import { WalkthroughLayer } from '../walkthrough/WalkthroughLayer.tsx';
 import { PlaybackMotionProvider } from '../walkthrough/motion-context.tsx';
+import { ManeuverOverlay } from '../walkthrough/ui/ManeuverOverlay.tsx';
 import { usePlaybackStore } from '../store/playback-store.ts';
 import { fitCirculation } from '../../model/circulation.ts';
 import { routeGhostIds } from '../rendering/route-ghost.ts';
@@ -252,7 +253,7 @@ export default function WayfindingPreview() {
     }
     return fallback;
   };
-  const [picking, setPicking] = useState<'start' | 'dest' | null>(null);
+  const [picking, setPicking] = useState<'start' | 'dest' | 'walk' | null>(null);
 
   const animated = useWayfindingStore((state) => state.animated);
   const setAnimated = useWayfindingStore((state) => state.setAnimated);
@@ -270,6 +271,8 @@ export default function WayfindingPreview() {
   const setOption = useWayfindingStore((state) => state.setOption);
   const liveRoute = useWayfindingStore(selectActiveResult);
   const playback = usePlaybackStore((state) => state.session);
+  const walking = usePlaybackStore((state) => state.session !== null && state.mode !== 'overview');
+  const playbackMessage = usePlaybackStore((state) => state.message);
   const active = playback?.route ?? liveRoute;
   const ghostIds = useMemo(() => {
     const ids = new Set<string>();
@@ -323,6 +326,11 @@ export default function WayfindingPreview() {
     if (!picking) {
       return;
     }
+    if (picking === 'walk') {
+      setPicking(null);
+      usePlaybackStore.getState().beginFreeWalk(document, floor.source.id, point, zones);
+      return;
+    }
     const endpoint = { floorId: floor.source.id, kind: 'point' as const, point };
     setRequest({
       start: picking === 'start' ? endpoint : (request?.start ?? endpoint),
@@ -370,6 +378,15 @@ export default function WayfindingPreview() {
             <option value="accessible">Accessible</option>
           </select>
         </label>
+        <Button
+          disabled={!request || routing || !!playback}
+          onClick={() => {
+            useWayfindingStore.getState().fetchRoute();
+            setTopDown(true);
+          }}
+        >
+          Fetch route
+        </Button>
         <span aria-live="polite" className="text-slate-300">
           {routing
             ? 'Routing…'
@@ -383,6 +400,18 @@ export default function WayfindingPreview() {
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-3 border-b border-white/10 p-3">
+        <Button
+          variant={picking === 'walk' ? 'default' : 'outline'}
+          disabled={!!playback}
+          onClick={() => setPicking((current) => current === 'walk' ? null : 'walk')}
+        >
+          {picking === 'walk' ? 'Cancel free-walk start' : 'Choose free-walk start'}
+        </Button>
+        {picking === 'walk' && (
+          <span role="status" className="text-slate-300">
+            Click a clear supported point in the scene.
+          </span>
+        )}
         <Button variant="outline" aria-pressed={animated} onClick={() => setAnimated(!animated)}>
           {animated ? 'Pause route effects' : 'Resume route effects'}
         </Button>
@@ -417,8 +446,24 @@ export default function WayfindingPreview() {
             onChange={(event) => setProgress(Number(event.target.value))}
           />
         </label>
+        {playbackMessage && !playback && (
+          <span role="status" className="text-amber-300">{playbackMessage}</span>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2 text-sm">
+        <label>
+          Walk role{' '}
+          <select
+            disabled={!!playback}
+            aria-label="Walk role"
+            className="rounded border border-white/20 bg-slate-900 p-2"
+            value={walkRole}
+            onChange={(event) => setWalkRole(event.target.value as Role)}
+          >
+            <option value="visitor">Visitor</option>
+            <option value="staff">Staff</option>
+          </select>
+        </label>
         <label>
           Scenario{' '}
           <select
@@ -504,9 +549,9 @@ export default function WayfindingPreview() {
                     key={object.id}
                     object={object}
                     color={object.color}
-                    topDown={topDown}
+                    topDown={topDown && !(walking && object.recipe === 'barn-tent')}
                     windSway={false}
-                    routeCutaway={ghostIds.has(object.id)}
+                    routeCutaway={ghostIds.has(object.id) && !(walking && object.recipe === 'barn-tent')}
                   />
                 ))}
               {input.obstacles.map((polygon, index) => (
@@ -544,6 +589,8 @@ export default function WayfindingPreview() {
                 document={document}
                 floorId={floor.source.id}
                 role={walkRole}
+                roleAreas={[]}
+                navigationZones={zones}
                 originY={-floor.source.heightOffset}
                 onFloor={(id) => {
                   const index = document.floors.findIndex((item) => item.source.id === id);
@@ -554,6 +601,7 @@ export default function WayfindingPreview() {
               />
             </PlaybackMotionProvider>
           </Canvas>
+          <ManeuverOverlay document={document} />
           <Minimap floor={floor} zones={zones} />
         </div>
         <aside className="w-72 shrink-0 space-y-6 overflow-y-auto border-l border-white/10 p-4">

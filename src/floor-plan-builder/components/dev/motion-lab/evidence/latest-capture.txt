@@ -1,0 +1,99 @@
+resolved tick 37 · walk · floor motion-lab-ground
+pos -5.74, 0.00, -0.00 · yaw -1.57 rad
+speed 0.65 m/s · accel 8.83 · jerk 160.50
+rendered yaw Δ 0.00° · 0.0°/s
+clearance capsule sweep clear · feet L swing estimate, R stance estimate
+Live Motion Acceptance
+Rendered stance-foot speed P99: 0.0000 m/s · n=18 · window=2.2 s / 5.0 s · < 0.05 m/s · PASS
+Resolved-root acceleration (physics-step samples): auto max 1.845 m/s² · n=132 · window=2.2 s / 5.0 s · ≤ 2.000 m/s² · PASS
+Auto peak step: Δv=0.0307 m/s ÷ dt=0.01667 s at t=0.217 s · [0.34, 0.01, -0.00] → [0.37, 0.00, 0.00] m/s · commanded 0.36→0.39 m/s · rate 1.00×
+Manual max acceleration: UNMEASURED · n=0 · window 2.2 s / 5.0 s
+Sampled capsule-surface margin (centerline-to-edge minus 0.2999 m): 2.2936 m · n=38 · window=2.2 s / 5.0 s · ≥ 0 m · PASS
+Current resolved-root acceleration: mode=auto-walk · 8.827 m/s² · gaze lead: UNMEASURED
+Rendered yaw maxima: 0.00°/frame · 0.0°/s · n=37 · limits 15° / 180°/s · PASS
+Auto/manual acceleration uses resolved capsule positions sampled after fixed Rapier steps and movement-source tags from the capsule controller; bounded auto-stop samples remain in the auto window. The current acceleration line remains render-sampled. Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.
+
+
+resolved tick 49 · walk · floor motion-lab-ground
+pos -4.80, 0.00, -0.00 · yaw -1.57 rad
+speed 0.62 m/s · accel 19.27 · jerk 659.50
+rendered yaw Δ 0.00° · 0.0°/s
+clearance capsule sweep clear · feet L stance estimate, R swing estimate
+Live Motion Acceptance
+Rendered stance-foot speed P99: 0.0000 m/s · n=30 · window=3.0 s / 5.0 s · < 0.05 m/s · PASS
+Resolved-root acceleration (physics-step samples): auto max 1.845 m/s² · n=179 · window=3.0 s / 5.0 s · ≤ 2.000 m/s² · PASS
+Auto peak step: Δv=0.0307 m/s ÷ dt=0.01667 s at t=0.217 s · [0.34, 0.01, -0.00] → [0.37, 0.00, 0.00] m/s · commanded 0.36→0.39 m/s · rate 1.00×
+Manual max acceleration: UNMEASURED · n=0 · window 3.0 s / 5.0 s
+Sampled capsule-surface margin (centerline-to-edge minus 0.2999 m): 2.2052 m · n=50 · window=3.0 s / 5.0 s · ≥ 0 m · PASS
+Current resolved-root acceleration: mode=auto-walk · 19.271 m/s² · gaze lead: UNMEASURED
+Rendered yaw maxima: 0.00°/frame · 0.0°/s · n=49 · limits 15° / 180°/s · PASS
+Auto/manual acceleration uses resolved capsule positions sampled after fixed Rapier steps and movement-source tags from the capsule controller; bounded auto-stop samples remain in the auto window. The current acceleration line remains render-sampled. Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.
+
+
+resolved tick 61 · walk · floor motion-lab-ground
+pos -3.92, 0.00, -0.00 · yaw -1.57 rad
+speed 0.57 m/s · accel 18.30 · jerk 589.23
+rendered yaw Δ 0.00° · 0.0°/s
+clearance capsule sweep clear · feet L stance estimate, R stance estimate
+Live Motion Acceptance
+Rendered stance-foot speed P99: 0.0000 m/s · n=42 · window=3.7 s / 5.0 s · < 0.05 m/s · PASS
+Resolved-root acceleration (physics-step samples): auto max 1.845 m/s² · n=223 · window=3.7 s / 5.0 s · ≤ 2.000 m/s² · PASS
+Auto peak step: Δv=0.0307 m/s ÷ dt=0.01667 s at t=0.217 s · [0.34, 0.01, -0.00] → [0.37, 0.00, 0.00] m/s · commanded 0.36→0.39 m/s · rate 1.00×
+Manual max acceleration: UNMEASURED · n=0 · window 3.7 s / 5.0 s
+Sampled capsule-surface margin (centerline-to-edge minus 0.2999 m): 2.4078 m · n=62 · window=3.7 s / 5.0 s · ≥ 0 m · PASS
+Current resolved-root acceleration: mode=auto-walk · 18.297 m/s² · gaze lead: UNMEASURED
+Rendered yaw maxima: 0.00°/frame · 0.0°/s · n=61 · limits 15° / 180°/s · PASS
+Auto/manual acceleration uses resolved capsule positions sampled after fixed Rapier steps and movement-source tags from the capsule controller; bounded auto-stop samples remain in the auto window. The current acceleration line remains render-sampled. Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.
+
+
+resolved tick 73 · walk · floor motion-lab-ground
+pos -3.08, 0.00, -0.00 · yaw -1.57 rad
+speed 0.59 m/s · accel 19.03 · jerk 645.08
+rendered yaw Δ 0.00° · 0.0°/s
+clearance capsule sweep clear · feet L swing estimate, R stance estimate
+Live Motion Acceptance
+Rendered stance-foot speed P99: 0.0000 m/s · n=54 · window=4.4 s / 5.0 s · < 0.05 m/s · PASS
+Resolved-root acceleration (physics-step samples): auto max 1.845 m/s² · n=265 · window=4.4 s / 5.0 s · ≤ 2.000 m/s² · PASS
+Auto peak step: Δv=0.0307 m/s ÷ dt=0.01667 s at t=0.217 s · [0.34, 0.01, -0.00] → [0.37, 0.00, 0.00] m/s · commanded 0.36→0.39 m/s · rate 1.00×
+Manual max acceleration: UNMEASURED · n=0 · window 4.4 s / 5.0 s
+Sampled capsule-surface margin (centerline-to-edge minus 0.2999 m): 2.7827 m · n=74 · window=4.4 s / 5.0 s · ≥ 0 m · PASS
+Current resolved-root acceleration: mode=auto-walk · 19.029 m/s² · gaze lead: UNMEASURED
+Rendered yaw maxima: 0.00°/frame · 0.0°/s · n=73 · limits 15° / 180°/s · PASS
+Auto/manual acceleration uses resolved capsule positions sampled after fixed Rapier steps and movement-source tags from the capsule controller; bounded auto-stop samples remain in the auto window. The current acceleration line remains render-sampled. Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.
+
+
+resolved tick 87 · walk · floor motion-lab-ground
+pos -2.06, 0.00, -0.00 · yaw -1.57 rad
+speed 0.61 m/s · accel 22.84 · jerk 931.17
+rendered yaw Δ 0.00° · 0.0°/s
+clearance capsule sweep clear · feet L stance estimate, R swing estimate
+Live Motion Acceptance
+Rendered stance-foot speed P99: 0.0000 m/s · n=68 · window=5.0 s / 5.0 s · < 0.05 m/s · PASS
+Resolved-root acceleration (physics-step samples): auto max 1.801 m/s² · n=300 · window=5.0 s / 5.0 s · ≤ 2.000 m/s² · PASS
+Auto peak step: Δv=0.0300 m/s ÷ dt=0.01667 s at t=0.583 s · [1.00, 0.00, 0.00] → [1.04, 0.00, 0.00] m/s · commanded 1.02→1.05 m/s · rate 1.00×
+Manual max acceleration: UNMEASURED · n=0 · window 5.0 s / 5.0 s
+Sampled capsule-surface margin (centerline-to-edge minus 0.2999 m): 1.8080 m · n=86 · window=5.0 s / 5.0 s · ≥ 0 m · PASS
+Current resolved-root acceleration: mode=auto-walk · 22.839 m/s² · gaze lead: UNMEASURED
+Rendered yaw maxima: 0.00°/frame · 0.0°/s · n=87 · limits 15° / 180°/s · PASS
+Auto/manual acceleration uses resolved capsule positions sampled after fixed Rapier steps and movement-source tags from the capsule controller; bounded auto-stop samples remain in the auto window. The current acceleration line remains render-sampled. Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.
+
+
+resolved tick 99 · walk · floor motion-lab-ground
+pos -1.20, 0.00, -0.00 · yaw -1.57 rad
+speed 0.62 m/s · accel 19.96 · jerk 689.21
+rendered yaw Δ 0.00° · 0.0°/s
+clearance capsule sweep clear · feet L stance estimate, R stance estimate
+Live Motion Acceptance
+Rendered stance-foot speed P99: 0.0000 m/s · n=80 · window=5.0 s / 5.0 s · < 0.05 m/s · PASS
+Resolved-root acceleration (physics-step samples): auto max 0.000 m/s² · n=300 · window=5.0 s / 5.0 s · ≤ 2.000 m/s² · PASS
+Auto peak step: Δv=0.0000 m/s ÷ dt=0.01667 s at t=1.017 s · [1.20, 0.00, 0.00] → [1.20, 0.00, 0.00] m/s · commanded 1.20→1.20 m/s · rate 1.00×
+Manual max acceleration: UNMEASURED · n=0 · window 5.0 s / 5.0 s
+Sampled capsule-surface margin (centerline-to-edge minus 0.2999 m): 1.0397 m · n=82 · window=5.0 s / 5.0 s · ≥ 0 m · PASS
+Current resolved-root acceleration: mode=auto-walk · 19.957 m/s² · gaze lead: UNMEASURED
+Rendered yaw maxima: 0.00°/frame · 0.0°/s · n=93 · limits 15° / 180°/s · PASS
+Auto/manual acceleration uses resolved capsule positions sampled after fixed Rapier steps and movement-source tags from the capsule controller; bounded auto-stop samples remain in the auto window. The current acceleration line remains render-sampled. Shoe-bottom positions come from visible rendered avatar geometry; stance is a gait-phase estimate, not Rapier foot contact. Stance speed uses intervals with both endpoints in stance. Capsule margin derives from centerline-to-edge samples at 0.05 m spacing; it is a collision-map estimate, not direct physical contact or a guarantee over unsampled positions. Values use the trailing 5-second window.
+
+
+AFTER ESC resolved tick 129 · idle · floor motion-lab-ground
+
+VIDEO C:\Users\HarmeetSingh\Desktop\Projects\blender-3D-demo\src\floor-plan-builder\components\dev\motion-lab\evidence\page@00a2ada242a14f1a88654d2313cc29ac.webm

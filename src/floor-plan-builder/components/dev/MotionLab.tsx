@@ -1,5 +1,7 @@
+import { FloorSurface } from '../FloorCanvas.tsx';
 import { Canvas } from '@react-three/fiber';
-import { Html, Line } from '@react-three/drei';
+import { Line } from '@react-three/drei';
+import { RouteLabel } from '../../wayfinding/rendering/Beacon.tsx';
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { ProceduralObject } from '../ProceduralObject.tsx';
 import type { PlanDocument } from '../../model/types.ts';
@@ -12,7 +14,7 @@ import { usePlaybackStore } from '../../wayfinding/store/playback-store.ts';
 import type { RouteRequest, RouteResult } from '../../wayfinding/model/route-schema.ts';
 import { MotionLabTelemetryPanel, MotionLabTelemetryProbe, MotionLabInputProbe, type MotionLabInputState, type MotionLabTelemetry, type RecordedInput } from './motion-lab/TelemetryProbe.tsx';
 import { runSharedRouteFuzzer, simulateSharedRoute, STANDARD_ROUTE_FIXTURES, type FixtureSummary } from './motion-lab/diagnostics.ts';
-import { createMotionLabDocument, createMotionLabZones, MOTION_LAB_CONNECTOR_STATUS, MOTION_LAB_FLOORS, MOTION_LAB_ROLE_AREAS, MOTION_LAB_STOPS, routeAllowsRestricted } from './motion-lab/world.ts';
+import { createMotionLabDocument, createMotionLabZones, MOTION_LAB_POLICY, MOTION_LAB_CONNECTOR_STATUS, MOTION_LAB_FLOORS, MOTION_LAB_ROLE_AREAS, MOTION_LAB_STOPS, routeAllowsRestricted } from './motion-lab/world.ts';
 import { SchemaWallGeometry } from './motion-lab/SchemaWallGeometry.tsx';
 import { ItemCoverage } from './motion-lab/ItemCoverage.tsx';
 
@@ -87,11 +89,7 @@ function AvatarWidthRuler({ floorId, floorY }: { floorId: string; floorY: number
       <Line points={[[-halfWidth, 0, 0], [halfWidth, 0, 0]]} color="#06b6d4" lineWidth={3} />
       <Line points={[[-halfWidth, 0, 0], [-halfWidth, 0.12, 0]]} color="#06b6d4" lineWidth={3} />
       <Line points={[[halfWidth, 0, 0], [halfWidth, 0.12, 0]]} color="#06b6d4" lineWidth={3} />
-      <Html position={[0, 0.2, 0]} center distanceFactor={8}>
-        <div className="whitespace-nowrap rounded bg-slate-950/90 px-2 py-1 font-mono text-xs font-semibold text-cyan-300">
-          {`${CHARACTER_CONFIG.widthM.toFixed(2)} m width`}
-        </div>
-      </Html>
+      <RouteLabel text={`${CHARACTER_CONFIG.widthM.toFixed(2)} m width`} at={[0, 0.2, 0]} color="#06b6d4" />
     </group>
   );
 }
@@ -134,10 +132,8 @@ function MotionLabStage({
     <>
       <ambientLight intensity={1.2} />
       <directionalLight position={[4, 9, 5]} intensity={1.8} castShadow />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, floor.source.heightOffset - 0.055, 0]} receiveShadow>
-        <planeGeometry args={[20, 12]} />
-        <meshStandardMaterial color="#e6e9ed" roughness={0.92} />
-      </mesh>
+      <FloorSurface floor={floor} document={document} texture={null} imageSize={null}
+        click={() => {}} move={() => {}} pointerDown={() => {}} />
       <gridHelper args={[20, 20, '#8793a0', '#c6ccd4']} position={[0, floor.source.heightOffset, 0]} />
       <group position={[0, floor.source.heightOffset, 0]}>
         {floor.objects.map((object) => (
@@ -161,7 +157,7 @@ function MotionLabStage({
         <cylinderGeometry args={[0.34, 0.34, 0.05, 24]} />
         <meshStandardMaterial color="#2f9e74" />
       </mesh>}
-      <WalkthroughLayer document={document} floorId={floorId} role={role} roleAreas={MOTION_LAB_ROLE_AREAS} onFloor={(id) => { onFloor(id); return true; }} />
+      <WalkthroughLayer document={document} floorId={floorId} role={role} roleAreas={MOTION_LAB_ROLE_AREAS} runtimePolicy={MOTION_LAB_POLICY} onFloor={(id) => { onFloor(id); return true; }} />
       <AvatarWidthRuler floorId={floorId} floorY={floor.source.heightOffset} />
       <MotionLabTelemetryProbe document={document} role={role} roleAreas={MOTION_LAB_ROLE_AREAS} frames={telemetry} onFrame={onFrame} />
       <MotionLabInputProbe captureMode={captureMode} heldInput={heldInput} tape={inputTape} replayEpoch={replayEpoch} onSampleCount={onInputCount} onReplayComplete={onReplayComplete} />
@@ -199,7 +195,7 @@ export default function MotionLab() {
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
 
-  useWayfindingRoute(document, 0, zones, setStatusMessage);
+  useWayfindingRoute(document, 0, zones, setStatusMessage, role, MOTION_LAB_POLICY);
   const routeStatus = useWayfindingStore((state) => state.status);
   const routeFailure = useWayfindingStore((state) => state.outcome?.failure ?? state.failure);
   const routeOption = useWayfindingStore((state) => state.option);
@@ -269,6 +265,7 @@ export default function MotionLab() {
       accessibleOnly: routeOption === 'accessible',
       allowRestricted: routeAllowsRestricted(role),
     } satisfies RouteRequest);
+    wayfinding.fetchRoute();
     setStatusMessage(`Requesting ${routeOption} route · ${start.label} → ${dest.label}`);
   };
 
@@ -405,7 +402,8 @@ export default function MotionLab() {
             <button className="rounded-md bg-rose-700 px-3 py-2 text-sm" disabled={!playback} onClick={videoRecording ? stopVideoCapture : startVideoCapture}>{videoRecording ? 'Stop & save WebM' : 'Record screen'}</button>
           </div>
         </header>
-        <ItemCoverage document={document} role={role} />`r`n        <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <details><summary>D10 item coverage (source inventory)</summary><ItemCoverage document={document} role={role} /></details>
+        <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="relative h-[min(70vh,720px)] min-h-[420px] overflow-hidden rounded-xl border border-slate-700 bg-slate-100">
             <Canvas shadows camera={{ position: [0, 10, 15], fov: 52 }}>
               <MotionLabStage document={document} floorId={selectedFloorId} role={role} activeRoute={activeRoute} destination={destination} destinationFloorId={destinationStop.floorId} telemetry={telemetry} onFrame={onTelemetry} captureMode={captureMode} heldInput={heldInput} inputTape={inputTape} replayEpoch={replayEpoch} onInputCount={onInputCount} onReplayComplete={onReplayComplete} onFloor={onFloor} />
@@ -433,8 +431,8 @@ export default function MotionLab() {
               <label className="block text-xs text-slate-400">To<select disabled={!!playback} className="mt-1 w-full rounded bg-slate-800 px-2 py-2 text-sm text-white" value={toStop} onChange={(event) => setToStop(event.target.value)}>{MOTION_LAB_STOPS.map((stop) => <option key={stop.id} value={stop.id}>{stop.label}</option>)}</select></label>
               <div className="flex gap-2"><button disabled={!!playback} className="flex-1 rounded bg-slate-700 px-2 py-2 text-sm disabled:opacity-50" aria-pressed={routeOption === 'shortest'} onClick={() => setRouteOption('shortest')}>Shortest</button><button disabled={!!playback} className="flex-1 rounded bg-slate-700 px-2 py-2 text-sm disabled:opacity-50" aria-pressed={routeOption === 'accessible'} onClick={() => setRouteOption('accessible')}>Accessible</button></div>
               <button disabled={!!playback} className="w-full rounded bg-indigo-600 px-3 py-2 text-sm font-medium disabled:opacity-50" onClick={requestRoute}>Find route</button>
-              <div role="status" aria-live="polite" className="rounded bg-slate-800 p-2 text-xs text-slate-200">{playback && playbackContext.current ? `${playback.route.lengthM.toFixed(1)} m · pinned playback · ${playback.route.segments.length} route legs` : routeStatus === 'routing' ? 'Routing…' : routeFailure ?? (!liveReplayContext && activeRoute ? 'A prior route result is visible but does not match the current ready request; start and record are disabled.' : activeRoute ? `${activeRoute.lengthM.toFixed(1)} m · ~${Math.round(activeRoute.secondsEta)} s · ${activeRoute.segments.length} route legs` : 'Choose A and B, then find a route')}</div>
-              <p className="text-xs text-slate-400">{playback && playbackContext.current ? 'Playback provenance: request/result matched when the pinned walk started' : `Current request/result: ${liveReplayContext ? 'matched and ready' : 'unmatched / unavailable'}`} · {playbackContext.current?.routeRequest.start.floorId ?? startStop.floorId} → {playbackContext.current?.routeRequest.dest.floorId ?? destinationStop.floorId} · route option {playbackContext.current?.routeOption ?? routeOption} · role {playbackContext.current?.role ?? role}.</p>
+              <div role="status" aria-live="polite" className="rounded bg-slate-800 p-2 text-xs text-slate-200">{playback?.kind === 'route' && playback.route && playbackContext.current ? `${playback.route.lengthM.toFixed(1)} m · pinned playback · ${playback.route.segments.length} route legs` : playback?.kind === 'free' ? 'Free-walk playback · no route is pinned' : routeStatus === 'routing' ? 'Routing…' : routeFailure ?? (!liveReplayContext && activeRoute ? 'A prior route result is visible but does not match the current ready request; start and record are disabled.' : activeRoute ? `${activeRoute.lengthM.toFixed(1)} m · ~${Math.round(activeRoute.secondsEta)} s · ${activeRoute.segments.length} route legs` : 'Choose A and B, then find a route')}</div>
+              <p className="text-xs text-slate-400">{playback?.kind === 'route' && playback.route && playbackContext.current ? 'Playback provenance: request/result matched when the pinned walk started' : playback?.kind === 'free' ? 'Free-walk playback has no route provenance' : `Current request/result: ${liveReplayContext ? 'matched and ready' : 'unmatched / unavailable'}`} · {playbackContext.current?.routeRequest.start.floorId ?? startStop.floorId} → {playbackContext.current?.routeRequest.dest.floorId ?? destinationStop.floorId} · route option {playbackContext.current?.routeOption ?? routeOption} · role {playbackContext.current?.role ?? role}.</p>
               {activeRoute?.warnings.map((warning) => <p key={warning} className="text-xs text-amber-200">{warning}</p>)}
               <div className="flex flex-wrap gap-2">
                 <button className="rounded bg-emerald-800 px-2 py-2 text-xs disabled:opacity-50" disabled={!liveReplayContext || !!playback} onClick={startSharedAutoWalk}>Start shared auto-walk</button>
@@ -501,7 +499,7 @@ export default function MotionLab() {
               {fuzzerSummary && <p className="font-mono text-xs text-slate-300">seed {fuzzerSummary.seed} · {fuzzerSummary.count} cases · {fuzzerSummary.clear} clear / {fuzzerSummary.blocked} blocked · {fuzzerSummary.mismatches} expected-outcome mismatches. {fuzzerSummary.limitation}</p>}
             </section>
 
-            <p className="border-t border-slate-700 pt-3 text-xs leading-5 text-slate-500">The browser screen-capture prompt starts only after your click. It records the shared walker viewport and saves WebM locally. This synthetic demo has no authored connector records; production connector transitions, clearance and foot data are unavailable and remain unverified until real linked records are supplied.</p>
+            <p className="border-t border-slate-700 pt-3 text-xs leading-5 text-slate-500">The browser screen-capture prompt starts only after your click. It records the shared walker viewport and saves WebM locally. This dev-only schema fixture has linked procedural connector records; production connector transitions, clearance and foot data are unavailable and remain unverified until real linked records are supplied.</p>
             <div role="status" aria-live="polite" className="rounded bg-slate-800 p-3 text-sm text-emerald-200">{statusMessage}</div>
           </aside>
         </section>
@@ -509,4 +507,5 @@ export default function MotionLab() {
     </main>
   );
 }
+
 

@@ -8,6 +8,30 @@ function makeStore() {
 }
 
 describe('editor placement and document history', () => {
+  test('duplicate booth names and numbers are rejected without discarding the edit', () => {
+    const store = makeStore();
+    for (const [first, second] of [
+      [[1, 1], [4, 4]],
+      [[8, 8], [11, 11]],
+    ] as [[number, number], [number, number]][]) {
+      store.getState().setTool('rectangle');
+      store.getState().addPoint(first);
+      store.getState().addPoint(second);
+      expect(store.getState().apply()).toBe(true);
+    }
+    const [first, second] = store.getState().document.floors[0]!.objects;
+    store.getState().patchObject({ name: `  ${first!.name.toUpperCase()}  ` });
+    expect(store.getState().apply()).toBe(false);
+    expect(store.getState().message).toMatch(/Booth name already exists/);
+    expect(store.getState().pendingObject?.name.trim().toLowerCase()).toBe(first!.name.toLowerCase());
+    expect(store.getState().document.floors[0]!.objects[1]!.name).toBe(second!.name);
+    store.getState().patchObject({ name: second!.name, boothNumber: ` ${first!.boothNumber.toLowerCase()} ` });
+    expect(store.getState().apply()).toBe(false);
+    expect(store.getState().message).toMatch(/Booth number already exists/);
+    expect(store.getState().pendingObject?.boothNumber.trim().toLowerCase()).toBe(first!.boothNumber.toLowerCase());
+    store.getState().patchObject({ boothNumber: 'B999' });
+    expect(store.getState().apply()).toBe(true);
+  });
   test('legacy image offsets survive saving and undo without moving objects', () => {
     const store = makeStore();
     store.getState().beginPlacement('chair');

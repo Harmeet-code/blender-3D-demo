@@ -36,12 +36,16 @@
 33. need to have auto increamenting names for all inventory objwects as well even if they are duplicate DONE
 35. some of the booths required to be placed next to each other so preveting the user from place it there isnt the right behaviour DONE
 36. need to have stairs and escalators connected visually ie at a height distnace with stairs, escalator, lift connecting the 2 with animation. DONE
-37. i should get a slider for rotation instead of just number and need to remove rotation from the scene, will only be able to do from sidebar 
+55. clciking on another booth customise should update the sidebar with its information  DONE
+57. all overlay will be of deep black color DONE
+59. make it restore the model in localstorage  DONE
+60. drag and drop is not visible in the scene but does on other object. DONE
+39. should be able to zoom in and out while placing polygon booth, polygon booth have 2 separate behaviour one is above the vuew finder and one is in inventory DONE
+37. i should get a slider for rotation instead of just number and need to remove rotation from the scene, will only be able to do from sidebar DONE
+41. apply changes and save arent working in sync and need to have a single save button across all editors for booth/POI/walkbale zone and everything. only the button on top right written along with unsaved changes will the sole authorative button. DONE
+42. label on top of booth is quite small. it needs to get bigger and smaller in size as i zoom out and in DONE
 38. why do i get a red line while placing a polygone walkable zone 
-39. should be able to zoom in and out while placing polygon booth, polygon booth have 2 separate behaviour one is above the vuew finder and one is in inventory
 40. focus booth button doesnt work
-41. apply changes and save arent working in sync and need to have a single save button across all editors for booth/POI/walkbale zone and everything. only the button on top right written along with unsaved changes will the sole authorative button. 
-42. label on top of booth is quite small. it needs to get bigger and smaller in size as i zoom out and in 
 43. resizing men booth and other things doesnt persist the change nor does saving it works. plus the live overlay needs to be black so that it can contract with the background.
 44. selecting a object locks the rotation of the 3D  screen as well as zoom in out
 45. placing rectangle is not working alway, neither is double clicking, 
@@ -73,12 +77,8 @@ Keep the whole object inside the floor boundary
 52. left click mouse doesnt release the rectangle being drawn and how is it being defined where the booth will be drawn and when the overlay line becomes red as sometimes i have space but it doesnt allow me to do so 
 53. sometimes after drawing a booth save doesnt work neither can i draw new booths 
 54. undo should also inlcude placing points of a polygon
-55. clciking on another booth customise should update the sidebar with its information
 56. modify wentrance prperties and saving doesnt work 
-57. all overlay will be of deep black color 
 58. walk through needs a lot of improvemnts  
-59. make it restore the model in localstorage  DONE
-60. drag and drop is not visible in the scene but does on other object. 
 61. limit on a object's width and depth should be remove 
 ```
 

@@ -1,0 +1,66 @@
+{
+  "complete": false,
+  "implemented": [
+    "Rendered-parent planted-foot IK after physics rendering",
+    "Spawn-only capsule position and controller separation",
+    "Pre-step first displacement initialization",
+    "Conservative steering acceleration budget and collinear-corner skipping",
+    "Escape bounded braking",
+    "Target/action-bound confirmation and front focus hysteresis",
+    "Dwell opens details",
+    "Queue state integration and leave action",
+    "Elevator explicitly unavailable without physical geometry",
+    "Deferred DOM overlay disposal and mesh ruler label"
+  ],
+  "checks": {
+    "typecheck": {
+      "command": "npm run typecheck",
+      "exit": 0
+    },
+    "lint": {
+      "command": "npm run lint",
+      "exit": 1,
+      "warnings": 113,
+      "baselineWarnings": 119,
+      "error": "src/floor-plan-builder/model/store.ts:1496:13 eslint(no-console); protected preexisting file left untouched"
+    },
+    "build": {
+      "command": "npm run build",
+      "exit": 0,
+      "warning": "Chunks larger than 500 kB"
+    }
+  },
+  "capture": {
+    "file": "page@00a2ada242a14f1a88654d2313cc29ac.webm",
+    "method": "Headless Playwright video capture, no test suite",
+    "playback": {
+      "readyState": 4,
+      "width": 800,
+      "height": 532,
+      "currentTime": 0.561595,
+      "error": null
+    },
+    "metrics": "latest-capture.txt",
+    "startupAutoAccelerationMaxMps2": 1.845,
+    "stanceP99Mps": 0.0,
+    "stanceSamplesLastWindow": 80,
+    "autoAccelerationSamplesLastWindow": 300,
+    "escape": "idle tick 129",
+    "pageErrors": 0,
+    "limitations": [
+      "Phase-estimated stance, not measured physical foot contact",
+      "Straight visitor route only",
+      "Headless render pacing; render-derived acceleration still noisy",
+      "Not an independent verification"
+    ]
+  },
+  "remaining": [
+    "Bench sit/stand and kiosk selection state integration",
+    "Physical stairs/ramp/escalator/elevator traversal demonstration; current fixture has abstract portals only",
+    "49-ID and authored-instance dimension/collider/role coverage matrix; current UI exposes 47 catalog rows as UNKNOWN",
+    "Fresh staff/visitor/fallback permission and metadata verification",
+    "Corner, manual, rate-change, braking acceleration and complete ten-shot acceptance",
+    "Independent final verification forbidden by no-subagents constraint"
+  ],
+  "preservation": "No tests authored or run; no dependencies or backend edits; no protected files edited, staged or committed; no commits created."
+}

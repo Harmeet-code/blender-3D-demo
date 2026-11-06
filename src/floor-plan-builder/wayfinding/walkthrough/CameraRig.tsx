@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Matrix4, PerspectiveCamera, Quaternion, Vector3, type OrthographicCamera } from 'three';
+import { Matrix4, PerspectiveCamera, Quaternion, Vector3, type OrthographicCamera, type Group } from 'three';
 import { gsap } from 'gsap';
 import type { OrbitControls } from 'three-stdlib';
 import type { PlanDocument } from '../../model/types.ts';
@@ -17,16 +17,28 @@ import {
   type ViewportCameraSnapshot,
 } from '../../model/camera-snapshots.ts';
 
+const CHASE_CAMERA_YAW_OFFSETS = [
+  0,
+  Math.PI / 3,
+  -Math.PI / 3,
+  (Math.PI * 2) / 3,
+  (-Math.PI * 2) / 3,
+  Math.PI,
+] as const;
+const MIN_CHASE_BOOM_M = 0.75;
+
 export function CameraRig({
   runtime,
   document,
   floorId,
   originY,
+  avatarRoot,
 }: {
   runtime: Follower;
   document: PlanDocument;
   floorId: string;
   originY: number;
+  avatarRoot: RefObject<Group | null>;
 }) {
   const get = useThree((state) => state.get),
     set = useThree((state) => state.set),
@@ -59,6 +71,7 @@ export function CameraRig({
       [],
     );
   const previous = useRef(mode),
+    snapToView = useRef(true),
     projectedFov = useRef(Number.NaN),
     look = useMemo(() => new Vector3(), []),
     desired = useMemo(() => new Vector3(), []),
@@ -67,9 +80,13 @@ export function CameraRig({
     matrix = useMemo(() => new Matrix4(), []);
   const focus: Vec3 = useMemo(() => [0, 0, 0], []),
     candidate: Vec3 = useMemo(() => [0, 0, 0], []),
-    safe: Vec3 = useMemo(() => [0, 0, 0], []);
+    safe: Vec3 = useMemo(() => [0, 0, 0], []),
+    alternateCandidate: Vec3 = useMemo(() => [0, 0, 0], []),
+    alternateSafe: Vec3 = useMemo(() => [0, 0, 0], []);
   const samplePoint = useMemo<[number, number]>(() => [0, 0], []);
   const free = useMemo(() => ({ yaw: 0, pitch: 0, orbitYaw: 0, orbitPitch: 0 }), []);
+  const renderedPosition = useMemo(() => new Vector3(), []);
+  const renderFeet = useMemo<Vec3>(() => [0, 0, 0], []);
   const lastOrigin = useRef(originY);
   const obstacles = useMemo(() => cameraObstacles(document, floorId), [document, floorId]);
   useLayoutEffect(() => {
@@ -186,8 +203,14 @@ export function CameraRig({
     source.position.copy(owned.position);
     source.quaternion.copy(owned.quaternion);
     source.fov = owned.fov;
-    transition.t = 0;
+    const snap = mode !== 'overview';
+    transition.t = snap ? 1 : 0;
+    snapToView.current = snap;
     previous.current = mode;
+    if (snap) {
+      invalidate();
+      return;
+    }
     const tween = gsap.to(transition, {
       t: 1,
       duration: motion.reduced || comfort ? 0.2 : 0.8,
@@ -272,9 +295,21 @@ export function CameraRig({
     if (mode === 'overview' && transition.t >= 1) {
       return;
     }
-    const { position } = runtime,
+    // Follow the same interpolated pose the user sees, not the latest fixed tick.
+    const [runtimeX, runtimeY, runtimeZ] = runtime.position;
+    renderFeet[0] = runtimeX;
+    renderFeet[1] = runtimeY;
+    renderFeet[2] = runtimeZ;
+    if (avatarRoot.current) {
+      avatarRoot.current.getWorldPosition(renderedPosition);
+      renderFeet[0] = renderedPosition.x;
+      renderFeet[1] = renderedPosition.y - originY;
+      renderFeet[2] = renderedPosition.z;
+    }
+    const position = renderFeet,
       first = mode === 'first',
       quiet = comfort || motion.reduced;
+    let selectedChaseBoomSq = 0;
     const inElevator = runtime.path.legs[runtime.leg]?.kind === 'elevator';
     const ahead = runtime.look;
     const bob =
@@ -295,18 +330,20 @@ export function CameraRig({
       const scale = inElevator ? Math.min(1, 0.65 / Math.hypot(chaseOffset[0], chaseOffset[2])) : 1;
       const localX = chaseOffset[0] * scale;
       const localZ = chaseOffset[2] * scale;
-      candidate[0] =
-        position[0] + (first ? 0 : Math.cos(cameraYaw) * localX - Math.sin(cameraYaw) * localZ);
-      candidate[1] =
+      const candidateY =
         position[1] +
         originY +
         (first
           ? CHARACTER_CONFIG.eyeHeightM + bob + free.pitch * 1.7
           : chaseOffset[1] + free.orbitPitch * 1.7);
+      candidate[0] =
+        position[0] + (first ? 0 : Math.cos(cameraYaw) * localX - Math.sin(cameraYaw) * localZ);
+      candidate[1] = candidateY;
       candidate[2] =
         position[2] + (first ? 0 : -Math.sin(cameraYaw) * localX - Math.cos(cameraYaw) * localZ);
       const base =
         document.floors.find((floor) => floor.source.id === floorId)?.source.heightOffset ?? 0;
+      const activePortalId = runtime.path.legs[runtime.leg]?.connector?.portalId;
       safeCamera(
         focus,
         candidate,
@@ -314,8 +351,55 @@ export function CameraRig({
         base + originY,
         safe,
         samplePoint,
-        runtime.path.legs[runtime.leg]?.connector?.portalId,
+        activePortalId,
       );
+      if (!first) {
+        const fullBoomSq =
+          (candidate[0] - focus[0]) ** 2 +
+          (candidate[1] - focus[1]) ** 2 +
+          (candidate[2] - focus[2]) ** 2;
+        let bestBoomSq =
+          (safe[0] - focus[0]) ** 2 +
+          (safe[1] - focus[1]) ** 2 +
+          (safe[2] - focus[2]) ** 2;
+        // A blocked rear boom otherwise collapses to the focus point inside the avatar.
+        // Search around the capsule and retain the first equally clear rear-biased view.
+        if (bestBoomSq < fullBoomSq * 0.98) {
+          for (let index = 1; index < CHASE_CAMERA_YAW_OFFSETS.length; index++) {
+            const offset = CHASE_CAMERA_YAW_OFFSETS[index]!;
+            const offsetCos = Math.cos(offset);
+            const offsetSin = Math.sin(offset);
+            const alternateX = localX * offsetCos - localZ * offsetSin;
+            const alternateZ = localX * offsetSin + localZ * offsetCos;
+            alternateCandidate[0] =
+              position[0] + Math.cos(cameraYaw) * alternateX - Math.sin(cameraYaw) * alternateZ;
+            alternateCandidate[1] = candidateY;
+            alternateCandidate[2] =
+              position[2] - Math.sin(cameraYaw) * alternateX - Math.cos(cameraYaw) * alternateZ;
+            safeCamera(
+              focus,
+              alternateCandidate,
+              obstacles,
+              base + originY,
+              alternateSafe,
+              samplePoint,
+              activePortalId,
+            );
+            const [alternateSafeX, alternateSafeY, alternateSafeZ] = alternateSafe;
+            const alternateBoomSq =
+              (alternateSafeX - focus[0]) ** 2 +
+              (alternateSafeY - focus[1]) ** 2 +
+              (alternateSafeZ - focus[2]) ** 2;
+            if (alternateBoomSq > bestBoomSq + 1e-6) {
+              bestBoomSq = alternateBoomSq;
+              safe[0] = alternateSafeX;
+              safe[1] = alternateSafeY;
+              safe[2] = alternateSafeZ;
+            }
+          }
+        }
+        selectedChaseBoomSq = bestBoomSq;
+      }
       desired.set(...safe);
       if (first) {
         const yaw = cameraYaw;
@@ -332,7 +416,7 @@ export function CameraRig({
       } else {
         look.set(
           position[0] - Math.sin(cameraYaw) * 0.8,
-          position[1] + originY + (inElevator ? 1 : -0.4),
+          position[1] + originY + (inElevator ? 1 : 1.2),
           position[2] - Math.cos(cameraYaw) * 0.8,
         );
       }
@@ -351,11 +435,13 @@ export function CameraRig({
         owned.quaternion.rotateTowards(target, maxAngle);
       }
     };
-    if (transition.t < 1) {
+    if (snapToView.current) {
+      owned.position.copy(desired);
+      owned.quaternion.copy(q);
+      owned.fov = fov;
+      snapToView.current = false;
+    } else if (transition.t < 1) {
       owned.position.lerpVectors(source.position, desired, transition.t);
-      if (mode !== 'overview') {
-        owned.position.y += Math.sin(Math.PI * transition.t) * 2.5;
-      }
       transitionedQ.copy(source.quaternion).slerp(q, transition.t);
       rotateToward(transitionedQ);
       owned.fov = source.fov + (fov - source.fov) * transition.t;
@@ -381,6 +467,20 @@ export function CameraRig({
         runtime.path.legs[runtime.leg]?.connector?.portalId,
       );
       owned.position.set(...safe);
+      if (!first && selectedChaseBoomSq > 1e-6) {
+        const currentBoomSq =
+          (owned.position.x - focus[0]) ** 2 +
+          (owned.position.y - focus[1]) ** 2 +
+          (owned.position.z - focus[2]) ** 2;
+        const minimumBoomSq = Math.min(
+          MIN_CHASE_BOOM_M ** 2,
+          selectedChaseBoomSq * 0.5,
+        );
+        if (currentBoomSq < minimumBoomSq) {
+          owned.position.copy(desired);
+          owned.quaternion.copy(q);
+        }
+      }
     }
     if (projectedFov.current !== owned.fov) {
       owned.updateProjectionMatrix();

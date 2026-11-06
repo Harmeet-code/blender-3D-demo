@@ -253,7 +253,8 @@ export function TentObject({
   );
 
   const sign = useTentSign(object.company, object.boothNumber);
-  const roofOpacity = ghost ? 0.45 : topDown ? 0.15 : 0.65;
+  // Only authoring cutaways and placement ghosts should make canvas see-through.
+  const roofOpacity = ghost ? 0.45 : topDown ? 0.15 : 1;
   const canvasColor = color.startsWith('#') ? color : materials.roofCanvas.color;
 
   const wallHeight = sidewall === 'open' ? 0 : sidewall === 'half' ? 1.1 : eaves;
@@ -346,14 +347,11 @@ export function TentObject({
         </mesh>
       )}
       <mesh geometry={roof} castShadow receiveShadow userData={{ routeOccluder: true }}>
-        <meshPhysicalMaterial
+        <meshStandardMaterial
           color={canvasColor}
           roughness={materials.roofCanvas.roughness}
           metalness={0}
-          transmission={ghost ? 0 : 0.35}
-          thickness={0.01}
-          ior={1.49}
-          transparent
+          transparent={roofOpacity < 1}
           opacity={roofOpacity}
           depthWrite={!topDown && !ghost}
           side={DoubleSide}

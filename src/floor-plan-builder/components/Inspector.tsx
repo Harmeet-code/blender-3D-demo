@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from 'zustand';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { zoneNavigationWarnings } from '../wayfinding/model/zone-schema.ts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -255,7 +257,6 @@ function ObjectFields({
       patchZone: value.patchZone,
       focus: value.focus,
       toggleLock: value.toggleLock,
-      linkConnector: value.linkConnector,
       unlinkConnector: value.unlinkConnector,
       setFloor: value.setFloor,
       setTool: value.setTool,
@@ -271,7 +272,21 @@ function ObjectFields({
   const commitPendingObject = () => {
     const latest = store.getState();
     if (latest.pendingObject || latest.pendingObjects?.length) {
-      latest.apply();
+      if (!latest.apply()) {
+        const message = store.getState().message;
+        if (/^Booth (name|number) already exists\b/.test(message)) {
+          toast.error(message, { id: 'duplicate-booth-identity' });
+        }
+      }
+    }
+  };
+  const linkConnector = (
+    floorId: string,
+    position?: [number, number],
+    targetObjectId?: string,
+  ) => {
+    if (!store.getState().linkConnector(floorId, position, targetObjectId)) {
+      toast.error(store.getState().message || 'The connectors could not be linked.');
     }
   };
   const validation = objectSchema.safeParse(object);
@@ -454,7 +469,7 @@ function ObjectFields({
             ))}
           </div>
         )}
-        {!object.circulationDesign && !isConnector(object.recipe) && (
+        {!isBooth(object) && !object.circulationDesign && !isConnector(object.recipe) && (
           <details className="fp-settings-group">
             <summary>Advanced scale</summary>
             <div className="fp-three">
@@ -1494,14 +1509,27 @@ function ObjectFields({
                     ),
                 )
                 .map((floor) => (
-                  <Button
-                    key={floor.source.id}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => state.linkConnector(floor.source.id, landing)}
-                  >
-                    Connect to {floor.source.name}
-                  </Button>
+                  <div className="fp-form" key={floor.source.id}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => linkConnector(floor.source.id, landing)}
+                    >
+                      Create paired connector on {floor.source.name}
+                    </Button>
+                    {floor.objects
+                      .filter((item) => item.recipe === object.recipe && !item.portalId && !item.locked)
+                      .map((item) => (
+                        <Button
+                          key={item.id}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => linkConnector(floor.source.id, undefined, item.id)}
+                        >
+                          Pair with {item.name} · {floor.source.name}
+                        </Button>
+                      ))}
+                  </div>
                 ))}
               {object.portalId &&
                 state.document.floors
@@ -1543,16 +1571,6 @@ function ObjectFields({
             </>
           )}
         </details>
-        {isBooth(object) && (
-          <details className="fp-settings-group">
-            <summary>Advanced geometry</summary>
-            <Vertices
-              key={`${object.id}:vertices`}
-              value={object.polygon}
-              onChange={(polygon) => patch({ polygon })}
-            />
-          </details>
-        )}
       </fieldset>
     </div>
   );
@@ -1921,6 +1939,9 @@ export function Inspector({
     floor.objects.find((item) => selection?.kind === 'object' && item.id === selection.id);
   const zone =
     state.pendingZone ??
+    state.pendingZones?.find(
+      (item) => selection?.kind === 'zone' && item.id === selection.id,
+    ) ??
     floor.zones.find((item) => selection?.kind === 'zone' && item.id === selection.id);
   if (object) {
     return (
@@ -1935,6 +1956,10 @@ export function Inspector({
     );
   }
   if (zone) {
+    const navigationWarnings =
+      zone.type === 'walkable' && polygonSchema.safeParse(zone.polygon).success
+        ? zoneNavigationWarnings(zone.polygon)
+        : [];
     return (
       <div className="fp-form">
         <Button
@@ -1950,6 +1975,16 @@ export function Inspector({
           <p className="fp-muted">Locked zones stay out of marquee selection and bulk edits.</p>
         )}
         <fieldset disabled={zone.locked === true} className="contents" aria-label="Zone properties">
+          {navigationWarnings.length > 0 && (
+            <Alert>
+              <AlertTitle>Navigation warning</AlertTitle>
+              <AlertDescription>
+                {navigationWarnings.join(' ')} The zone can be saved. If no traversable region
+                remains after obstacle clearance, routing will be unavailable; widen or extend the
+                zone.
+              </AlertDescription>
+            </Alert>
+          )}
           <Field label="Zone name">
             <Input
               aria-label="Zone name"
@@ -1971,15 +2006,6 @@ export function Inspector({
               <option value="display">Display</option>
             </select>
           </Field>
-          <details className="fp-settings-group">
-            <summary>Advanced geometry</summary>
-            <Vertices
-              key={zone.id}
-              value={zone.polygon}
-              label="Zone vertices (world meters)"
-              onChange={(polygon) => state.patchZone({ polygon })}
-            />
-          </details>
           <div className="fp-row">
             <Button variant="outline" onClick={() => state.setTool('move')}>
               Move zone

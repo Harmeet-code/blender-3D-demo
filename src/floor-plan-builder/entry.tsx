@@ -1,6 +1,20 @@
 import { lazy, Suspense, useLayoutEffect } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { BuilderRouterProvider } from './shell/router.tsx';
+import type { PreviewRolePolicyInput } from './wayfinding/walkthrough/permissions/route-navigation-policy.ts';
+
+// Owner explicitly confirmed this venue has no staff-only zones or doors.
+// This is a complete local preview assertion, not authenticated staff authorization.
+// Revise this assertion if the venue's access restrictions change.
+const floorPlanStudioPolicy: PreviewRolePolicyInput = {
+  status: 'resolved',
+  source: 'venue-owner-confirmation:floor-plan-studio:no-staff-only-zones-or-doors',
+  revision: 'owner-confirmation-2026-11-03-v1',
+  buildingId: 'floor-plan-studio',
+  complete: true,
+  staffOnlyZoneIds: [],
+  staffOnlyDoorObjectIds: [],
+};
 
 const StudioPage = lazy(() => import('./components/StudioPage.tsx'));
 const BoothPreview = import.meta.env.DEV
@@ -39,6 +53,7 @@ const DiningPreview = import.meta.env.DEV
 const MotionLab = import.meta.env.DEV
   ? lazy(() => import('./components/dev/MotionLab.tsx'))
   : null;
+const DevVenuePreview = import.meta.env.DEV ? lazy(() => import('./components/dev/DevVenuePreview.tsx')) : null;
 export function FloorPlanEntry() {
   useLayoutEffect(() => {
     const root = document.documentElement,
@@ -60,7 +75,7 @@ export function FloorPlanEntry() {
             </p>
           }
         >
-          {MotionLab && new URLSearchParams(location.search).has('motionLab') ? (
+          {DevVenuePreview && location.pathname.endsWith('/preview') && new URLSearchParams(location.search).has('devFixture') ? <DevVenuePreview /> : MotionLab && new URLSearchParams(location.search).has('motionLab') ? (
             <MotionLab />
           ) : ParkingLotPreview && new URLSearchParams(location.search).has('parkingPreview') ? (
             <ParkingLotPreview />
@@ -86,7 +101,13 @@ export function FloorPlanEntry() {
           ) : BoothPreview && new URLSearchParams(location.search).has('boothPreview') ? (
             <BoothPreview />
           ) : (
-            <StudioPage />
+            <StudioPage
+              runtimePolicy={
+                new URLSearchParams(location.search).get('eventId')?.trim() === 'floor-plan-studio'
+                  ? floorPlanStudioPolicy
+                  : undefined
+              }
+            />
           )}
         </Suspense>
       </TooltipProvider>

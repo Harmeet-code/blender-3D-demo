@@ -41,10 +41,7 @@ export interface ValidatedRoute {
   points: Vec3[];
   lengths: number[];
   length: number;
-  /** Null when the caller did not provide real obstacle-clearance measurements. */
-  comfortClearanceP90M: number | null;
-  comfortTargetMet: boolean | null;
-  comfortDisposition: 'met' | 'offset-improved' | 'no-safe-offset-found' | 'no-improving-offset-found' | 'unavailable';
+
 }
 
 export interface CornerSmoothingOptions {
@@ -54,8 +51,6 @@ export interface CornerSmoothingOptions {
   capsuleRadiusM?: number;
   /** Extra corner radius margin over the capsule radius. */
   cornerMarginM?: number;
-  /** Optional real center-to-obstacle clearance sample, in meters. */
-  measureClearanceM?: (point: Vec3) => number | null;
   /** Number of straight capsule-swept segments used to approximate each curve. */
   curveSegments?: number;
   /** Must approve the entire swept capsule between each pair of points. */
@@ -132,105 +127,15 @@ function buildValidatedRoute(points: readonly Vec3[], options: CornerSmoothingOp
     const a = out[i - 1]!, b = out[i]!;
     lengths.push(lengths[i - 1]! + Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]));
   }
-  let comfortClearanceP90M: number | null = null;
-  let comfortTargetMet: boolean | null = null;
-  if (options.measureClearanceM) {
-    const samples: number[] = [];
-    const sampleCount = Math.max(1, Math.ceil(lengths.at(-1)! / 0.1));
-    const clearanceSamples = Array.from({ length: sampleCount + 1 }, (_, sampleIndex): Vec3 => {
-      const distance = lengths.at(-1)! * sampleIndex / sampleCount;
-      let segment = 1;
-      while (segment < lengths.length - 1 && lengths[segment]! < distance) {segment++;}
-      const from = out[segment - 1]!, to = out[segment]!;
-      const span = lengths[segment]! - lengths[segment - 1]!;
-      const t = span > 0 ? (distance - lengths[segment - 1]!) / span : 0;
-      return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t, from[2] + (to[2] - from[2]) * t];
-    });
-    for (const point of clearanceSamples) {
-      let measured: number | null = null;
-      try { measured = options.measureClearanceM(point); } catch { measured = null; }
-      if (measured !== null && Number.isFinite(measured) && measured >= 0) {samples.push(measured);}
-    }
-    if (samples.length === clearanceSamples.length) {
-      samples.sort((left, right) => left - right);
-      comfortClearanceP90M = samples[Math.ceil(samples.length * 0.9) - 1] ?? null;
-      comfortTargetMet = comfortClearanceP90M !== null && comfortClearanceP90M >= 0.5;
-    }
-  }
-  return { points: out, lengths, length: lengths.at(-1)!, comfortClearanceP90M, comfortTargetMet,
-    comfortDisposition: comfortTargetMet ? 'met' : 'unavailable' };
+  return { points: out, lengths, length: lengths.at(-1)! };
 }
 
-const COMFORT_TARGET_M = 0.5;
-const COMFORT_COMPARISON_EPSILON_M = 1e-4;
-
-function offsetRoute(points: readonly Vec3[], offsetM: number): Vec3[] {
-  const dense: Vec3[] = [];
-  const distances: number[] = [];
-  let routeDistance = 0;
-  for (let i = 1; i < points.length; i++) {
-    const from = points[i - 1]!, to = points[i]!;
-    const length = Math.hypot(to[0] - from[0], to[1] - from[1], to[2] - from[2]);
-    const subdivisions = Math.max(1, Math.ceil(length / 0.25));
-    for (let step = 0; step <= subdivisions; step++) {
-      if (dense.length && step === 0) {continue;}
-      const t = step / subdivisions;
-      dense.push([from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t, from[2] + (to[2] - from[2]) * t]);
-      distances.push(routeDistance + length * t);
-    }
-    routeDistance += length;
-  }
-  const total = routeDistance;
-  return dense.map((point, i) => {
-    if (i === 0 || i === dense.length - 1 || offsetM === 0) {return point;}
-    const previous = dense[i - 1]!, next = dense[i + 1]!;
-    const dx = next[0] - previous[0], dz = next[2] - previous[2];
-    const tangentLength = Math.hypot(dx, dz);
-    if (tangentLength <= COMFORT_COMPARISON_EPSILON_M) {return point;}
-    const envelope = Math.min(1, distances[i]! / 0.5, (total - distances[i]!) / 0.5);
-    const offset = offsetM * Math.max(0, envelope);
-    return [point[0] - (dz / tangentLength) * offset, point[1], point[2] + (dx / tangentLength) * offset] as Vec3;
-  });
-}
-
-/**
- * Prefer the highest measured centerline clearance among bounded lateral offsets, but
- * only after every offset and rounded chord passes the caller's swept-capsule validator.
- * Endpoints remain fixed. A failed finite search is not proof that no wider route exists.
- */
 export function smoothRouteCorners(points: readonly Vec3[], options: CornerSmoothingOptions): ValidatedRoute | null {
-  const base = buildValidatedRoute(points, options);
-  if (!base || base.comfortClearanceP90M === null || !options.measureClearanceM) {
-    return base ? { ...base, comfortDisposition: 'unavailable' } : null;
-  }
-  if (base.comfortClearanceP90M >= COMFORT_TARGET_M - COMFORT_COMPARISON_EPSILON_M) {
-    return { ...base, comfortTargetMet: true, comfortDisposition: 'met' };
-  }
-  let best = base;
-  let safeOffsetFound = false;
-  for (let step = 1; step <= 10; step++) {
-    const offsetM = step * 0.05;
-    for (const sign of [-1, 1]) {
-      const candidate = buildValidatedRoute(offsetRoute(points, offsetM * sign), options);
-      if (!candidate || candidate.comfortClearanceP90M === null) {continue;}
-      safeOffsetFound = true;
-      if (best.comfortClearanceP90M !== null &&
-        candidate.comfortClearanceP90M > best.comfortClearanceP90M + COMFORT_COMPARISON_EPSILON_M) {
-        best = candidate;
-      }
-    }
-  }
-  if (best.comfortClearanceP90M !== null && best.comfortClearanceP90M >= COMFORT_TARGET_M - COMFORT_COMPARISON_EPSILON_M) {
-    return { ...best, comfortTargetMet: true, comfortDisposition: 'met' };
-  }
-  if (best !== base) {
-    return { ...best, comfortTargetMet: false, comfortDisposition: 'offset-improved' };
-  }
-  return { ...base, comfortTargetMet: false,
-    comfortDisposition: safeOffsetFound ? 'no-improving-offset-found' : 'no-safe-offset-found' };
+  return buildValidatedRoute(points, options);
 }
 
-const MAX_ACCELERATION_MPS2 = CHARACTER_CONFIG.maxAutoAccelerationMps2;
+// Reserve 10% for discrete chord curvature and float32 physics resolution.
+const MAX_ACCELERATION_MPS2 = CHARACTER_CONFIG.maxAutoAccelerationMps2 * 0.9;
 const MAX_TURN_RATE_RAD_S = CHARACTER_CONFIG.maxYawRateDegPerSec * Math.PI / 180;
 const GAZE_LEAD_SECONDS = CHARACTER_CONFIG.gazeLeadSeconds;
 const EPSILON = 1e-6;
@@ -250,6 +155,7 @@ function nextCorner(leg: MotionLeg, distanceM: number) {
       (before[1] - prior[1]) * (after[1] - before[1]) +
       (before[2] - prior[2]) * (after[2] - before[2])) / (inLength * outLength);
     const turnRadians = Math.acos(Math.max(-1, Math.min(1, dot)));
+    if (turnRadians <= EPSILON) {continue;}
     const radiusM = turnRadians > EPSILON
       ? (inLength + outLength) / (4 * Math.sin(turnRadians / 2))
       : Number.POSITIVE_INFINITY;

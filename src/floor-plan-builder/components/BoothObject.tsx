@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import type { BufferGeometry, Mesh } from 'three';
 import {
@@ -8,6 +8,7 @@ import {
   CylinderGeometry,
   Float32BufferAttribute,
   NoColorSpace,
+  PlaneGeometry,
   RepeatWrapping,
   Shape,
   SRGBColorSpace,
@@ -28,7 +29,8 @@ import {
   type BoothEdge,
   type BoothPoint,
 } from '../model/booth.ts';
-import type { PlanObject } from '../model/types.ts';
+import { isBooth, type PlanObject } from '../model/types.ts';
+import { WalkModeContext } from '../wayfinding/walkthrough/motion-context.tsx';
 
 type Batch =
   | 'carpet'
@@ -58,9 +60,14 @@ function polygonSolid(points: BoothPoint[], height: number, y: number) {
   geometry.translate(0, y, 0);
   return geometry;
 }
-function useSignTexture(company: string, number: string) {
+const WALK_LABEL_HEIGHT = 0.34;
+const WALK_LABEL_MAX_WIDTH = 2.72;
+function useSignTexture(name: string, number: string, enabled: boolean) {
   const texture = useMemo(() => {
-    const companyName = company.trim(),
+    if (!enabled) {
+      return null;
+    }
+    const companyName = name.trim(),
       boothNumber = number.trim();
     if (!companyName && !boothNumber) {
       return null;
@@ -99,9 +106,30 @@ function useSignTexture(company: string, number: string) {
     value.colorSpace = SRGBColorSpace;
     value.anisotropy = 4;
     return value;
-  }, [company, number]);
+  }, [enabled, name, number]);
   useEffect(() => () => texture?.dispose(), [texture]);
   return texture;
+}
+function buildWalkLabelGeometry(object: PlanObject) {
+  const labelY = Math.min(
+    1.7,
+    Math.max(
+      WALK_LABEL_HEIGHT / 2 + 0.12,
+      object.dimensions[1] - WALK_LABEL_HEIGHT / 2 - 0.12,
+    ),
+  );
+  const planes = boothEdges(object).map((edge) => {
+    const width = Math.min(WALK_LABEL_MAX_WIDTH, Math.max(0.1, edge.length - 0.16));
+    const [x, z] = edgePoint(edge, edge.length / 2, -0.008);
+    const geometry = new PlaneGeometry(width, WALK_LABEL_HEIGHT);
+    geometry.rotateY(Math.atan2(-edge.inward[0], -edge.inward[1]));
+    geometry.translate(x, labelY, z);
+    return geometry;
+  });
+  const geometry = mergeGeometries(planes, false);
+  planes.forEach((plane) => plane.dispose());
+  geometry?.computeBoundingSphere();
+  return geometry;
 }
 function useCarpetBump() {
   const texture = useMemo(() => {
@@ -138,6 +166,7 @@ function buildBooth(
   gate: PlanObject['gate'],
   floorColor: string,
   colorOverride: boolean,
+  matchWallToFloor: boolean,
 ) {
   const object = { polygon, dimensions, boothDesign: designOptions, gate };
   const [, h] = dimensions;
@@ -146,6 +175,7 @@ function buildBooth(
   const parts = new Map<Batch, BufferGeometry[]>();
   const surface = (id: string, fallback: string) =>
     colorOverride && !id.startsWith('header') ? floorColor : (design.surfaceColors[id] ?? fallback);
+  const resolvedFloorColor = surface('floor', floorColor);
   const add = (
     batch: Batch,
     geometry: BufferGeometry,
@@ -205,10 +235,11 @@ function buildBooth(
       -Math.atan2(edge.tangent[1], edge.tangent[0]),
     );
   };
-  add('carpet', polygonSolid(object.polygon, 0.05, 0), surface('floor', floorColor));
+  add('carpet', polygonSolid(object.polygon, 0.05, 0), resolvedFloorColor);
   for (const edge of edges) {
-    const innerColor = surface(`wall-${edge.index}-inner`, design.primaryColor);
-    const outerColor = surface(`wall-${edge.index}-outer`, design.primaryColor);
+    const inheritedWallColor = matchWallToFloor ? resolvedFloorColor : design.primaryColor;
+    const innerColor = surface(`wall-${edge.index}-inner`, inheritedWallColor);
+    const outerColor = surface(`wall-${edge.index}-outer`, inheritedWallColor);
     const aluminum = surface(`plinth-${edge.index}`, '#C0C4C8');
     for (const [from, to] of wallRuns(edge)) {
       if (to - from < 1e-5) {
@@ -444,6 +475,7 @@ export function BoothObject({
   colorOverride?: boolean;
   ghost?: boolean;
 }) {
+  const booth = isBooth(object);
   const batches = useMemo(
     () =>
       buildBooth(
@@ -453,6 +485,7 @@ export function BoothObject({
         object.gate,
         color,
         colorOverride,
+        booth,
       ),
     [
       object.polygon,
@@ -462,12 +495,27 @@ export function BoothObject({
       color,
       ghost,
       colorOverride,
+      booth,
     ],
   );
   useEffect(() => () => batches.forEach(({ geometry }) => geometry.dispose()), [batches]);
-  const text = useSignTexture(object.company, object.boothNumber),
+  const walkMode = useContext(WalkModeContext);
+  const labelName = (object.company || object.name).trim();
+  const boothNumber = object.boothNumber.trim();
+  const labelsEnabled = booth && walkMode && !ghost && !!(labelName || boothNumber);
+  const text = useSignTexture(labelName, boothNumber, labelsEnabled),
     bump = useCarpetBump();
-  const edges = boothEdges(object);
+  const labelGeometry = useMemo(
+    () => (labelsEnabled ? buildWalkLabelGeometry(object) : null),
+    [
+      labelsEnabled,
+      object.polygon,
+      object.dimensions,
+      object.boothDesign,
+      object.gate,
+    ],
+  );
+  useEffect(() => () => labelGeometry?.dispose(), [labelGeometry]);
   return (
     <group name="ModularBooth">
       {batches.map(({ kind, geometry }) => (
@@ -494,25 +542,11 @@ export function BoothObject({
           />
         </mesh>
       ))}
-      {!ghost &&
-        text &&
-        edges
-          .filter((edge) => edge.mode !== 'wall' && edge.opening > 1.5)
-          .map((edge) => {
-            const p = edgePoint(edge, edge.length / 2, -0.001);
-            const orientation = Math.atan2(-edge.inward[0], -edge.inward[1]);
-            return (
-              <mesh
-                key={edge.index}
-                name={`FasciaSign-${edge.index}`}
-                position={[p[0], object.dimensions[1] - 0.175, p[1]]}
-                rotation={[0, orientation, 0]}
-              >
-                <planeGeometry args={[Math.max(0.1, edge.opening - 0.12), 0.29]} />
-                <meshBasicMaterial map={text} toneMapped={false} />
-              </mesh>
-            );
-          })}
+      {text && labelGeometry && (
+        <mesh name="WalkBoothLabels" geometry={labelGeometry}>
+          <meshBasicMaterial map={text} toneMapped={false} depthTest depthWrite />
+        </mesh>
+      )}
       {boothDesign(object).storage && <Closet object={object} ghost={ghost} />}
     </group>
   );

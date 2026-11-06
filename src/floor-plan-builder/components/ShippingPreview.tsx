@@ -77,9 +77,10 @@ function DockMarkers({ object }: { object: PlanObject }) {
 export default function ShippingPreview() {
   const [variant, setVariant] = useState<ShippingVariant>('dock-bay');
   const [top, setTop] = useState(false);
-  const [object, setObject] = useState<PlanObject>(
-    () => applyShippingVariant(createObject('shipping', [0, 0]), 'dock-bay') as PlanObject,
-  );
+  const [object, setObject] = useState<PlanObject>(() => {
+    const base = createObject('shipping', [0, 0]);
+    return { ...base, ...applyShippingVariant(base, 'dock-bay') };
+  });
   const setMode = (next: ShippingVariant) => {
     setVariant(next);
     setObject((current) => ({ ...current, ...applyShippingVariant(current, next) }));

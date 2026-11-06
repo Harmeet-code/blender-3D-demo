@@ -73,14 +73,12 @@ function RibbonMesh({
   entry,
   flow,
   progress: walked,
-  topDown,
   onRetired,
   progressSource,
 }: {
   entry: Entry;
   flow: boolean;
   progress: number;
-  topDown: boolean;
   onRetired: (id: string) => void;
   progressSource?: { progress: number } | null;
 }) {
@@ -121,6 +119,8 @@ function RibbonMesh({
           uPerspective: { value: 1 },
         },
         transparent: true,
+        // The ground ribbon must respect the avatar and scene depth in every camera mode.
+        depthTest: true,
         depthWrite: false,
         polygonOffset: true,
         polygonOffsetFactor: -2,
@@ -183,7 +183,6 @@ function RibbonMesh({
     u.uViewportHeight!.value = size.height;
     u.uPerspective!.value = camera.type === 'PerspectiveCamera' ? 1 : 0;
     (u.uColor!.value as Color).set(path.color ?? '#1688EB');
-    material.depthTest = !topDown && !path.faint;
     if (motion.animate && !retiring) {
       invalidate();
     }
@@ -208,7 +207,6 @@ export function RouteRibbon({
   paths,
   flow = true,
   progress = 0,
-  topDown = false,
   progressSource,
 }: {
   paths: RibbonPath[];
@@ -243,7 +241,6 @@ export function RouteRibbon({
           entry={entry}
           flow={flow}
           progress={progress}
-          topDown={topDown}
           onRetired={onRetired}
           progressSource={progressSource}
         />

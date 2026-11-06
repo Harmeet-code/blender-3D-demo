@@ -1,0 +1,1316 @@
+[
+    {
+        "direction":  "up",
+        "routeComplete":  true,
+        "pageErrors":  [
+
+                       ],
+        "blockers":  0,
+        "sampleCount":  1889,
+        "rejected":  0,
+        "connectorStart":  {
+                               "grounded":  true,
+                               "collisionCount":  0,
+                               "wallTimeMs":  17047.89999999851,
+                               "accelerationMps2":  48.00094993684532,
+                               "emergencyStop":  false,
+                               "feetPosition":  [
+                                                    -5.014575004577637,
+                                                    0.009998595714568959,
+                                                    2.243234872817993
+                                                ],
+                               "displacement":  [
+                                                    0.012095928192138672,
+                                                    -0.0001099705696105957,
+                                                    0.005609035491943359
+                                                ],
+                               "physicsTimeSeconds":  10.066667191684246,
+                               "physicsDeltaSeconds":  0.01666666753590107,
+                               "accepted":  true,
+                               "movementSource":  "connector",
+                               "commandedSpeedMps":  0.8,
+                               "playbackRate":  1
+                           },
+        "connectorEnd":  {
+                             "grounded":  true,
+                             "collisionCount":  0,
+                             "wallTimeMs":  27356.699999999255,
+                             "accelerationMps2":  75.3722983347865,
+                             "emergencyStop":  false,
+                             "feetPosition":  [
+                                                  -4.999981880187988,
+                                                  3.010000085830688,
+                                                  2.250001907348633
+                                              ],
+                             "displacement":  [
+                                                  0,
+                                                  -0.009999990463256836,
+                                                  0.0015985965728759766
+                                              ],
+                             "physicsTimeSeconds":  19.566667687147856,
+                             "physicsDeltaSeconds":  0.01666666753590107,
+                             "accepted":  true,
+                             "movementSource":  "connector",
+                             "commandedSpeedMps":  0,
+                             "playbackRate":  1
+                         },
+        "sillSamples":  [
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  18935.5,
+                                "accelerationMps2":  44.17404667707779,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.032270646095275746,
+                                                     1.4902713298797607
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.012270569801330566,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  11.933333955705166,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.407485344808381,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  18935.599999997765,
+                                "accelerationMps2":  2.483081558621356,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.04385147094726549,
+                                                     1.4702783823013306
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.011580824851989746,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  11.950000623241067,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.3862873150702502,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  18935.800000000745,
+                                "accelerationMps2":  6.755089055215947,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.053555881977081166,
+                                                     1.4502854347229004
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.009704411029815674,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  11.966667290776968,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.3334197239629515,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  18935.89999999851,
+                                "accelerationMps2":  6.080459914159466,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.061571276187896595,
+                                                     1.4302924871444702
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.00801539421081543,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  11.983333958312869,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.292387103316613,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  18936,
+                                "accelerationMps2":  5.5897230039825745,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.0680339694023131,
+                                                     1.41029953956604
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.006462693214416504,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  12.00000062584877,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2606886965766668,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  18936.099999997765,
+                                "accelerationMps2":  5.232023647067449,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.07304332256317125,
+                                                     1.3903065919876099
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.005009353160858154,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  12.016667293384671,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.23665426515851,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  18936.300000000745,
+                                "accelerationMps2":  4.975604491990324,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.07667056322097765,
+                                                     1.3703136444091797
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.0036272406578063965,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  12.033333960920572,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2191560140186246,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  18936.5,
+                                "accelerationMps2":  4.800295329063115,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.07896438837051378,
+                                                     1.3503206968307495
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.002293825149536133,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  12.050000628456473,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.207442849558758,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  19111.39999999851,
+                                "accelerationMps2":  4.693865286453695,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.07995436191558825,
+                                                     1.3303277492523193
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.0009899735450744629,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  12.066667295992374,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2010432543648506,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  19111.699999999255,
+                                "accelerationMps2":  3.3991094858383084,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.08000013828277575,
+                                                     1.3103348016738892
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.0000457763671875,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  12.083333963528275,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995767041489716,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  19111.699999999255,
+                                "accelerationMps2":  0.16479490468555147,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.08000013828277575,
+                                                     1.290341854095459
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  12.100000631064177,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995735607575617,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  19111.89999999851,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.08000013828277575,
+                                                     1.2703489065170288
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  12.116667298600078,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995735607575484,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  19112,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     0.08000013828277575,
+                                                     1.2503559589385986
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  12.133333966135979,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.199573560757535,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26510.599999997765,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.080000019073486,
+                                                     1.2687504291534424
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.733334310352802,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.199573560757615,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26511.099999997765,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.080000019073486,
+                                                     1.2887433767318726
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.750000977888703,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.199573560757535,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26511.300000000745,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.080000019073486,
+                                                     1.3087363243103027
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.766667645424604,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.199573560757575,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26511.39999999851,
+                                "accelerationMps2":  36.075492910616745,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.069979047775268,
+                                                     1.328729271888733
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.010020971298217773,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.783334312960505,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.199574315048495,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26696.300000000745,
+                                "accelerationMps2":  68.87912031778909,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.079091167449951,
+                                                     1.348722219467163
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.009112119674682617,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.800000980496407,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.3182886869018562,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26696.800000000745,
+                                "accelerationMps2":  76.17386977051046,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.067043876647949,
+                                                     1.3687151670455933
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.012047290802001953,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.816667648032308,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2067403329159319,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26697,
+                                "accelerationMps2":  66.19262004869651,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.0733834266662594,
+                                                     1.3887081146240234
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.006339550018310547,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.83333431556821,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2584349708032352,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26697.199999999255,
+                                "accelerationMps2":  76.08288925021532,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.05858883857727,
+                                                     1.4087010622024536
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.014794588088989258,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.85000098310411,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2350268094389616,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26697.39999999851,
+                                "accelerationMps2":  66.05786588184426,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.0621436595916744,
+                                                     1.4286940097808838
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.003554821014404297,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.86666765064001,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.218387402471504,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26697.699999999255,
+                                "accelerationMps2":  77.06994206473816,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.044290161132812,
+                                                     1.448686957359314
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.017853498458862305,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.883334318175912,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2895357852852336,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26697.89999999851,
+                                "accelerationMps2":  65.7248428452922,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.044693565368652,
+                                                     1.4686799049377441
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.00040340423583984375,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.900000985711813,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1998177017219884,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  26698.099999997765,
+                                "accelerationMps2":  78.56854572922238,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.999981880187988,
+                                                     3.023272371292114,
+                                                     1.4886728525161743
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.021421194076538086,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  18.916667653247714,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.3815457213210967,
+                                "playbackRate":  1
+                            }
+                        ],
+        "final":  {
+                      "grounded":  true,
+                      "collisionCount":  0,
+                      "wallTimeMs":  39950.89999999851,
+                      "accelerationMps2":  0,
+                      "emergencyStop":  false,
+                      "feetPosition":  [
+                                           -8.006997108459473,
+                                           3.0101157188415524,
+                                           -0.0331612154841423
+                                       ],
+                      "displacement":  [
+                                           0,
+                                           0,
+                                           0
+                                       ],
+                      "physicsTimeSeconds":  31.48333497531712,
+                      "physicsDeltaSeconds":  0.01666666753590107,
+                      "accepted":  true,
+                      "movementSource":  "idle",
+                      "commandedSpeedMps":  null,
+                      "playbackRate":  null
+                  },
+        "video":  "C:\\Users\\HarmeetSingh\\Desktop\\Projects\\blender-3D-demo\\src\\floor-plan-builder\\components\\dev\\motion-lab\\evidence\\boarding-envelope\\page@0197df0c122fd308922d507a50d51908.webm"
+    },
+    {
+        "direction":  "down",
+        "routeComplete":  true,
+        "pageErrors":  [
+
+                       ],
+        "blockers":  0,
+        "sampleCount":  2096,
+        "rejected":  0,
+        "connectorStart":  {
+                               "grounded":  true,
+                               "collisionCount":  0,
+                               "wallTimeMs":  16991.199999999255,
+                               "accelerationMps2":  47.99964233020903,
+                               "emergencyStop":  false,
+                               "feetPosition":  [
+                                                    -5.014288425445557,
+                                                    3.010000085830688,
+                                                    2.243236541748047
+                                                ],
+                               "displacement":  [
+                                                    0.012053489685058594,
+                                                    0,
+                                                    0.005699872970581055
+                                                ],
+                               "physicsTimeSeconds":  10.066667191684246,
+                               "physicsDeltaSeconds":  0.01666666753590107,
+                               "accepted":  true,
+                               "movementSource":  "connector",
+                               "commandedSpeedMps":  0.8,
+                               "playbackRate":  1
+                           },
+        "connectorEnd":  {
+                             "grounded":  true,
+                             "collisionCount":  1,
+                             "wallTimeMs":  28980.199999999255,
+                             "accelerationMps2":  75.37445816523882,
+                             "emergencyStop":  false,
+                             "feetPosition":  [
+                                                  -4.9999823570251465,
+                                                  0.010000026226043568,
+                                                  2.2500011920928955
+                                              ],
+                             "displacement":  [
+                                                  -9.5367431640625E-07,
+                                                  -0.00999993085861206,
+                                                  0.0015978813171386719
+                                              ],
+                             "physicsTimeSeconds":  21.616667794063687,
+                             "physicsDeltaSeconds":  0.01666666753590107,
+                             "accepted":  true,
+                             "movementSource":  "connector",
+                             "commandedSpeedMps":  0,
+                             "playbackRate":  1
+                         },
+        "sillSamples":  [
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21277.79999999702,
+                                "accelerationMps2":  44.17447583047541,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.032270765304565,
+                                                     1.4902710914611816
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.012270689010620117,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  13.983334062620997,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.4074878813176905,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21278.39999999851,
+                                "accelerationMps2":  2.4839398654165934,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.0438514709472653,
+                                                     1.4702781438827515
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.011580705642700195,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.000000730156898,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.3862869244963814,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21278.599999997765,
+                                "accelerationMps2":  6.754874478517138,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.053555822372436,
+                                                     1.4502851963043213
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.009704351425170898,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.0166673976928,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.3334194273757856,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21278.699999999255,
+                                "accelerationMps2":  6.080245337460656,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.0615712165832516,
+                                                     1.4302922487258911
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.00801539421081543,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.0333340652287,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.292386868964954,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21278.89999999851,
+                                "accelerationMps2":  5.590152157380193,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.0680337905883786,
+                                                     1.410299301147461
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.006462574005126953,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.050000732764602,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2606885146209712,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21279,
+                                "accelerationMps2":  5.231379916971021,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.0730432033538815,
+                                                     1.3903063535690308
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.00500941276550293,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.066667400300503,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2366541317451567,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21279.199999999255,
+                                "accelerationMps2":  4.975604491990324,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.0766705036163327,
+                                                     1.3703134059906006
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.003627300262451172,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.083334067836404,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2191559177355957,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21280.599999997765,
+                                "accelerationMps2":  4.800509905761924,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.078964328765869,
+                                                     1.3503204584121704
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.002293825149536133,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.100000735372305,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.207442792460804,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21280.79999999702,
+                                "accelerationMps2":  4.6940798631525045,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.0799542427062985,
+                                                     1.3303275108337402
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.0009899139404296875,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.116667402908206,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2010432298153215,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21280.89999999851,
+                                "accelerationMps2":  3.398894909139499,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.080000019073486,
+                                                     1.31033456325531
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.0000457763671875,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.133334070444107,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995767038451868,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21281.099999997765,
+                                "accelerationMps2":  0.16479490468555147,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.080000019073486,
+                                                     1.2903416156768799
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.150000737980008,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.199573560757535,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21281.39999999851,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.080000019073486,
+                                                     1.2703486680984497
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.16666740551591,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995735607575218,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  21281.5,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     3.080000019073486,
+                                                     1.2503557205200195
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     -0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  14.18333407305181,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995735607575617,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28153.599999997765,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.0800000190734862,
+                                                     1.2687504291534424
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.783334417268634,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995735607575484,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28155.29999999702,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.0800000190734862,
+                                                     1.2887433767318726
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.800001084804535,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995735607575884,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28353.599999997765,
+                                "accelerationMps2":  0,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.0800000190734862,
+                                                     1.3087363243103027
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.816667752340436,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995735607573752,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28353.79999999702,
+                                "accelerationMps2":  35.63110456738266,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.07010248899459826,
+                                                     1.328729271888733
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.00989753007888794,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.833334419876337,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1995743151522316,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28353.89999999851,
+                                "accelerationMps2":  67.99012905462212,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.07909110784530626,
+                                                     1.348722219467163
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.008988618850708008,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.850001087412238,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.315233502586268,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28354,
+                                "accelerationMps2":  76.23716989665921,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.06690273284912096,
+                                                     1.3687151670455933
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.012188374996185303,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.86666775494814,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2067403911147505,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28354.099999997765,
+                                "accelerationMps2":  67.20821156416099,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.07338330745697008,
+                                                     1.3887081146240234
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.006480574607849121,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.88333442248404,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2610190659056895,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28354.199999999255,
+                                "accelerationMps2":  76.40904583240547,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.058639144897460804,
+                                                     1.4087010622024536
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.014744162559509277,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.90000109001994,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2350269427460545,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28354.39999999851,
+                                "accelerationMps2":  65.6943729540613,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.06214342117309557,
+                                                     1.4286940097808838
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.0035042762756347656,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.916667757555842,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.21786093150193,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28354.5,
+                                "accelerationMps2":  77.0090022822763,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.044256305694579945,
+                                                     1.448686957359314
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.017887115478515625,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.933334425091743,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.2895360115594516,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28354.599999997765,
+                                "accelerationMps2":  65.9668853615491,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.04469332695007311,
+                                                     1.4686799049377441
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     0.00043702125549316406,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.950001092627645,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.1998600952061493,
+                                "playbackRate":  1
+                            },
+                            {
+                                "grounded":  true,
+                                "collisionCount":  0,
+                                "wallTimeMs":  28354.79999999702,
+                                "accelerationMps2":  78.69643344171273,
+                                "emergencyStop":  false,
+                                "feetPosition":  [
+                                                     -4.99998140335083,
+                                                     0.02327022552490221,
+                                                     1.4886728525161743
+                                                 ],
+                                "displacement":  [
+                                                     0,
+                                                     -0.0214231014251709,
+                                                     0.019992947578430176
+                                                 ],
+                                "physicsTimeSeconds":  20.966667760163546,
+                                "physicsDeltaSeconds":  0.01666666753590107,
+                                "accepted":  true,
+                                "movementSource":  "connector",
+                                "commandedSpeedMps":  1.381546096746449,
+                                "playbackRate":  1
+                            }
+                        ],
+        "final":  {
+                      "grounded":  true,
+                      "collisionCount":  0,
+                      "wallTimeMs":  42851.599999997765,
+                      "accelerationMps2":  0,
+                      "emergencyStop":  false,
+                      "feetPosition":  [
+                                           -8.007100105285645,
+                                           0.010617232322692738,
+                                           -0.032584838569164276
+                                       ],
+                      "displacement":  [
+                                           0,
+                                           0,
+                                           0
+                                       ],
+                      "physicsTimeSeconds":  34.93333515524864,
+                      "physicsDeltaSeconds":  0.01666666753590107,
+                      "accepted":  true,
+                      "movementSource":  "idle",
+                      "commandedSpeedMps":  null,
+                      "playbackRate":  null
+                  },
+        "video":  "C:\\Users\\HarmeetSingh\\Desktop\\Projects\\blender-3D-demo\\src\\floor-plan-builder\\components\\dev\\motion-lab\\evidence\\boarding-envelope\\page@f02f6337a1fe4ccb3011d5c19f451253.webm"
+    }
+]

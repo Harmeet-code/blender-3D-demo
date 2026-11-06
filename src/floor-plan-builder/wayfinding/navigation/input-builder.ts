@@ -1,7 +1,6 @@
 import { ShapeUtils, Vector2 } from 'three';
 import { pointInPolygon, polygonBounds } from '@/utils/geometry/polygon.ts';
 import { objectObstaclePolygons, objectPoints } from '../../model/geometry.ts';
-import { washRackApproachLocal, washRackWalkableLocal } from '../../model/wash-rack-spatial.ts';
 import { parkingLayout } from '../../model/parking-lot.ts';
 import { diningLayout } from '../../model/dining.ts';
 import { showOfficeSpatialLayout } from '../../model/show-office.ts';
@@ -187,7 +186,7 @@ function parkingVehiclePolygon(
 
 export function buildFloorNavInput(
   floorId: string,
-  boundary: Point2[],
+  _boundary: Point2[],
   zones: WalkableZone[],
   objects: PlanObject[],
   diagnostics = true,
@@ -201,30 +200,20 @@ export function buildFloorNavInput(
   const relevant = zones
     .filter((zone) => zone.floorId === floorId)
     .sort((a, b) => ZONE_PRIORITY[a.type] - ZONE_PRIORITY[b.type]);
-  if (!relevant.length) {
-    surfaces.push(boundary);
-  }
   for (const zone of relevant) {
     const outer = zone.polygon as Point2[];
     // Restricted overlays can affect filtering but must never create walkable ground.
     if (zone.type !== 'restricted') {
       surfaces.push(outer);
     }
-    for (const hole of zone.holes) {
-      obstacles.push(hole as Point2[]);
+    if (zone.type !== 'restricted') {
+      for (const hole of zone.holes) {
+        obstacles.push(hole as Point2[]);
+      }
     }
     const { area, flags } = ZONE_AREA[zone.type];
     for (const triangle of triangulate(outer, zone.holes as Point2[][])) {
       areas.push({ polygon: triangle, area, flags });
-    }
-  }
-  if (relevant.some((zone) => zone.type !== 'restricted')) {
-    for (const object of objects) {
-      if (object.recipe !== 'wash-rack' || !object.washRackVariant || !object.collidable) {
-        continue;
-      }
-      surfaces.push(objectPoints(object, washRackWalkableLocal(object)));
-      surfaces.push(objectPoints(object, washRackApproachLocal(object)));
     }
   }
   for (const object of objects) {
@@ -232,7 +221,6 @@ export function buildFloorNavInput(
       const layout = showOfficeSpatialLayout(object);
       const localize = (polygon: Point2[]) => polygon.map(([x, z]) => [x, z - object.dimensions[2] / 2] as Point2);
       // Cabin ramp and landing are real placement/navigation blockers beyond the shell.
-      obstacles.push(objectPoints(object, localize(layout.footprints.shell)));
       obstacles.push(objectPoints(object, localize(layout.footprints.shell)));
       if (relevant.length) {
         const permitted = relevant.filter((zone) => zone.type !== 'restricted');

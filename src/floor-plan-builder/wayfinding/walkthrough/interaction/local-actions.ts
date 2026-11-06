@@ -9,6 +9,7 @@ export interface LocalActionState {
   kiosk: KioskState;
   selection?: string;
   destination?: string;
+  rideOffer?: { destinationId: string; status: 'local-offer' };
 }
 export interface LocalActionOptions {
   role: Role;
@@ -51,7 +52,7 @@ export class WalkLocalActions {
     const options = destination ? this.options.destinations : this.options.items;
     if (!options?.[target.id]?.some((item) => item.id === id)) { return; }
     const state = this.state(target.id);
-    if (destination) { state.destination = id; }
+    if (destination) { state.destination = id; state.rideOffer = undefined; }
     else {
       const next = selectKioskItem(state.kiosk, id);
       if (!next.accepted) { return; }
@@ -65,7 +66,7 @@ export class WalkLocalActions {
     if ((capability === 'sit-local' || capability === 'stand-local') && !this.options.applyBenchStance) { return 'Seating unavailable: physical stance and clearance controller is not integrated.'; }
     if (capability === 'order-local-kiosk' && state.kiosk.status !== 'selection-pending') { return 'Browse and select an available item first.'; }
     if (capability === 'browse-local-kiosk' && !this.options.items?.[target.id]?.length) { return 'Kiosk menu is unavailable.'; }
-    if (capability === 'call-elevator') { return 'Elevator ride unavailable: validated shaft, cabin, slab apertures and door collision integration is missing.'; }
+    if (capability === 'call-elevator' && !this.options.destinations?.[target.id]?.some((item) => item.id === state.destination)) { return 'Choose an explicitly supplied destination before requesting a local ride offer. Physical travel is unavailable here.'; }
     return null;
   }
   handlers(): WalkUseHandlerPolicy[] {
@@ -74,6 +75,7 @@ export class WalkLocalActions {
       if (reason) { throw new Error(reason); }
       const state = this.state(target.id);
       switch (capability) {
+        case 'call-elevator': state.rideOffer = { destinationId: state.destination!, status: 'local-offer' }; break;
         case 'sit-local':
           if (state.bench.status !== 'seated') {
             if (!this.options.applyBenchStance?.(target, 'seated')) { throw new Error('Seat transition rejected by physical clearance controller.'); }

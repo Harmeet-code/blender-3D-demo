@@ -1,32 +1,34 @@
+import { smoothRouteCorners } from '../walkthrough/steering/route-steering.ts';
 import {
   pointInPolygon,
   polygonBounds,
-  polygonEdges,
-  segmentDistance,
 } from '@/utils/geometry/polygon.ts';
 import { bakeBooth, boothEdges, boothWorldPoints } from '../../model/booth.ts';
 import { objectPoints } from '../../model/geometry.ts';
-import { isBooth, type PlanDocument, type PlanObject } from '../../model/types.ts';
+import { isBooth, isConnector, type PlanDocument, type PlanObject } from '../../model/types.ts';
 import { exitSinkLocal } from '../../model/exit.ts';
 import { kioskQueueEntryLocal } from '../../model/kiosk.ts';
 import { washroomLandingLocal } from '../../model/washroom.ts';
 import { infoCustomerNode } from '../../model/information.ts';
 import { firstAidEntryLocal } from '../../model/firstaid.ts';
 import { waterApproachNode } from '../../model/water.ts';
-import { washRackApproachLocal, washRackWalkableLocal } from '../../model/wash-rack-spatial.ts';
+import { washRackApproachLocal } from '../../model/wash-rack-spatial.ts';
 import { shippingSpatialLayout, shippingWorldPoint } from '../../model/shipping-spatial.ts';
 import { parkingAnchorPoint } from '../../model/parking-navigation.ts';
 import { diningAnchorPoint } from '../../model/dining-navigation.ts';
 import { circulationEntry } from '../../model/circulation.ts';
 import { type StudioNavigator, type PlanRoute } from '../../model/directions.ts';
 import { CHARACTER_CONFIG } from '../walkthrough/character-config.ts';
-import { buildFloorNavInput, ZONE_AREA } from './input-builder.ts';
+import { validateCapsuleSweep, validateCapsuleEndpoint } from '../walkthrough/collision/capsule-clearance.ts';
+import { ZONE_AREA } from './input-builder.ts';
 import type { WalkableZone } from '../model/zone-schema.ts';
 import type { Role } from '../walkthrough/contracts.ts';
+import type { ConnectorRecord } from '../walkthrough/connectors/connector-runtime.ts';
 import {
   createRoleNavigationZones,
   EMPTY_ROUTE_NAVIGATION_POLICY,
   roleMayUseRestrictedZones,
+  routeNavigationPolicyKey,
   type RouteNavigationPolicySource,
 } from '../walkthrough/permissions/route-navigation-policy.ts';
 import {
@@ -34,10 +36,26 @@ import {
   routeResultSchema,
   type RouteRequest,
   type RouteResult,
+  type RouteSegment,
 } from '../model/route-schema.ts';
 import { measuredSegments, segmentInstructions } from '../model/route-segments.ts';
+import {
+  connectorRecordSupportsNavigation,
+  connectorTraversalPoints,
+  createPlanningNavigationContext,
+  NAV_AGENT_DIAMETER_M,
+  NAV_AGENT_RADIUS_M,
+  NAV_PLANNING_RADIUS_M,
+  type PlanningNavigationContext,
+} from './planning-context.ts';
+
+export { NAV_AGENT_RADIUS_M } from './planning-context.ts';
 
 export type Point2 = [number, number];
+
+const ITEM_ACCESS_OFFSET_M = NAV_AGENT_RADIUS_M + 0.15;
+const NAVIGATION_PROFILE = { ...CHARACTER_CONFIG, radiusM: NAV_AGENT_RADIUS_M };
+const ROUTE_CURVE_SEGMENTS = 8;
 
 export interface ResolvedEndpoint {
   floorId: string;
@@ -50,78 +68,38 @@ export interface ResolvedEndpoint {
 const authoredWalkableZones = (zones: WalkableZone[], floorId: string) =>
   zones.filter((zone) => zone.floorId === floorId && zone.type !== 'restricted');
 
-/** Returns only the exterior edges of a union, removing shared seams between walkable zones. */
-function walkableUnionBoundary(polygons: Point2[][]): Array<[Point2, Point2]> {
-  const edges = polygons.flatMap((polygon) => polygonEdges(polygon));
-  const insideUnion = (point: Point2) => polygons.some((polygon) => pointInPolygon(point, polygon));
-  const boundary: Array<[Point2, Point2]> = [];
-  for (const [a, b] of edges) {
-    const dx = b[0] - a[0],
-      dz = b[1] - a[1],
-      lengthSquared = dx * dx + dz * dz;
-    if (lengthSquared < 1e-12) {
-      continue;
-    }
-    const cuts = [0, 1];
-    for (const [c, d] of edges) {
-      const sx = d[0] - c[0],
-        sz = d[1] - c[1],
-        qx = c[0] - a[0],
-        qz = c[1] - a[1],
-        denominator = dx * sz - dz * sx;
-      if (Math.abs(denominator) > 1e-10) {
-        const t = (qx * sz - qz * sx) / denominator,
-          u = (qx * dz - qz * dx) / denominator;
-        if (t > 1e-9 && t < 1 - 1e-9 && u >= -1e-9 && u <= 1 + 1e-9) {
-          cuts.push(t);
-        }
-      } else if (Math.abs(qx * dz - qz * dx) < 1e-9) {
-        for (const point of [c, d]) {
-          const t = ((point[0] - a[0]) * dx + (point[1] - a[1]) * dz) / lengthSquared;
-          if (t > 1e-9 && t < 1 - 1e-9) {
-            cuts.push(t);
-          }
-        }
-      }
-    }
-    cuts.sort((left, right) => left - right);
-    for (let index = 1; index < cuts.length; index++) {
-      const from = cuts[index - 1]!,
-        to = cuts[index]!;
-      if (to - from < 1e-9) {
-        continue;
-      }
-      const start: Point2 = [a[0] + dx * from, a[1] + dz * from],
-        end: Point2 = [a[0] + dx * to, a[1] + dz * to],
-        middle: Point2 = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2],
-        normal: Point2 = [
-          (-dz / Math.sqrt(lengthSquared)) * 1e-5,
-          (dx / Math.sqrt(lengthSquared)) * 1e-5,
-        ];
-      const leftInside = insideUnion([middle[0] + normal[0], middle[1] + normal[1]]),
-        rightInside = insideUnion([middle[0] - normal[0], middle[1] - normal[1]]);
-      if (leftInside !== rightInside) {
-        boundary.push([start, end]);
-      }
-    }
-  }
-  return boundary;
+const CLOSED_BOOTH_WARNING = 'This booth has no open edge. The route stops outside its wall.';
+const BLOCKED_BOOTH_ENTRANCE_WARNING =
+  'The booth entrance is blocked. The route stops at a clear exterior side instead.';
+
+function appendWarnings(message: string, warnings: readonly (string | undefined)[]): string {
+  return [...new Set(warnings.filter((warning): warning is string => !!warning))].reduce(
+    (result, warning) => (result.includes(warning) ? result : `${result} ${warning}`),
+    message,
+  );
 }
 
-function distanceToSegments(point: Point2, edges: Array<[Point2, Point2]>) {
-  let distance = Infinity;
-  for (const [a, b] of edges) {
-    distance = Math.min(distance, segmentDistance(point, a, b));
+function endpointWarning(document: PlanDocument, endpoint: RouteRequest['start']): string | undefined {
+  if (endpoint.kind !== 'item') {
+    return undefined;
   }
-  return distance;
+  const object = document.floors
+    .find((floor) => floor.source.id === endpoint.floorId)
+    ?.objects.find((item) => item.id === endpoint.itemId);
+  return object && isBooth(object) && boothEdges(bakeBooth(object)).every((edge) => edge.mode === 'wall')
+    ? CLOSED_BOOTH_WARNING
+    : undefined;
 }
 
 export function invalidConnectorLandings(
   document: PlanDocument,
   zones: WalkableZone[],
   allowRestricted = false,
+  role: Role = 'visitor',
+  planningContext?: PlanningNavigationContext,
 ): string[] {
-  return document.baseline.portals
+  const planning = planningContext ?? createPlanningNavigationContext(document, zones, role);
+  return planning.portals
     .filter((portal) => (portal.entries?.length ?? 0) >= 2)
     .filter((portal) =>
       portal.entries!.some((entry) => {
@@ -131,6 +109,8 @@ export function invalidConnectorLandings(
           zones,
           undefined,
           allowRestricted,
+          role,
+          planning,
         );
         return 'error' in landing || landing.snapped;
       }),
@@ -138,133 +118,333 @@ export function invalidConnectorLandings(
     .map((portal) => portal.id);
 }
 
-/** Item access point in world coordinates — never the item centre. */
-export function itemAccessPoint(object: PlanObject, from?: Point2): Point2 {
+function boothEdgeAccessPoints(
+  object: PlanObject,
+  edges: ReturnType<typeof boothEdges>,
+  from: Point2 | undefined,
+  useFullEdge: boolean,
+): Point2[] {
+  const candidates = edges.flatMap((edge) => {
+    const span = useFullEdge ? edge.length : Math.min(edge.length, edge.opening);
+    const halfSpan = Math.max(0, span / 2 - ITEM_ACCESS_OFFSET_M);
+    const offsets = halfSpan > 0.1 ? [0, -halfSpan * 0.8, halfSpan * 0.8] : [0];
+    return boothWorldPoints(object, offsets.map((offset): Point2 => [
+      (edge.a[0] + edge.b[0]) / 2 + edge.tangent[0] * offset - edge.inward[0] * ITEM_ACCESS_OFFSET_M,
+      (edge.a[1] + edge.b[1]) / 2 + edge.tangent[1] * offset - edge.inward[1] * ITEM_ACCESS_OFFSET_M,
+    ]));
+  });
+  if (from) {
+    candidates.sort(
+      (a, b) =>
+        Math.hypot(a[0] - from[0], a[1] - from[1]) -
+        Math.hypot(b[0] - from[0], b[1] - from[1]),
+    );
+  }
+  return candidates;
+}
+
+function overlapWidth(a: readonly Point2[], b: readonly Point2[]): number {
+  const points: Point2[] = [
+    ...a.filter((point) => pointInPolygon(point, b)).map((point) => [...point] as Point2),
+    ...b.filter((point) => pointInPolygon(point, a)).map((point) => [...point] as Point2),
+  ];
+  for (let ai = 0; ai < a.length; ai++) {
+    const a0 = a[ai]!, a1 = a[(ai + 1) % a.length]!;
+    for (let bi = 0; bi < b.length; bi++) {
+      const b0 = b[bi]!, b1 = b[(bi + 1) % b.length]!;
+      const arx = a1[0] - a0[0], arz = a1[1] - a0[1];
+      const brx = b1[0] - b0[0], brz = b1[1] - b0[1];
+      const denominator = arx * brz - arz * brx;
+      if (Math.abs(denominator) <= 1e-9) {continue;}
+      const dx = b0[0] - a0[0], dz = b0[1] - a0[1];
+      const at = (dx * brz - dz * brx) / denominator;
+      const bt = (dx * arz - dz * arx) / denominator;
+      if (at >= -1e-9 && at <= 1 + 1e-9 && bt >= -1e-9 && bt <= 1 + 1e-9) {
+        points.push([a0[0] + arx * at, a0[1] + arz * at]);
+      }
+    }
+  }
+  const unique = points
+    .sort((left, right) => left[0] - right[0] || left[1] - right[1])
+    .filter((point, index, sorted) =>
+      !index || Math.hypot(point[0] - sorted[index - 1]![0], point[1] - sorted[index - 1]![1]) > 1e-7,
+    );
+  if (unique.length < 3) {return 0;}
+  const cross = (origin: Point2, left: Point2, right: Point2) =>
+    (left[0] - origin[0]) * (right[1] - origin[1]) -
+    (left[1] - origin[1]) * (right[0] - origin[0]);
+  const half = (input: Point2[]) => {
+    const result: Point2[] = [];
+    for (const point of input) {
+      while (result.length >= 2 && cross(result.at(-2)!, result.at(-1)!, point) <= 1e-9) {
+        result.pop();
+      }
+      result.push(point);
+    }
+    return result;
+  };
+  const hull = half(unique).slice(0, -1).concat(half([...unique].reverse()).slice(0, -1));
+  let width = Infinity;
+  for (let index = 0; index < hull.length; index++) {
+    const from = hull[index]!, to = hull[(index + 1) % hull.length]!;
+    const dx = to[0] - from[0], dz = to[1] - from[1], length = Math.hypot(dx, dz);
+    if (length <= 1e-9) {continue;}
+    const nx = -dz / length, nz = dx / length;
+    const projections = hull.map((point) => point[0] * nx + point[1] * nz);
+    width = Math.min(width, Math.max(...projections) - Math.min(...projections));
+  }
+  return Number.isFinite(width) ? width : 0;
+}
+
+function walkableConnectionFailure(
+  zones: WalkableZone[],
+  start: ResolvedEndpoint,
+  dest: ResolvedEndpoint,
+  allowRestricted: boolean,
+): string | undefined {
+  if (start.floorId !== dest.floorId) {return undefined;}
+  const floorZones = zones.filter(
+    (zone) =>
+      zone.floorId === start.floorId &&
+      (allowRestricted || zone.type !== 'restricted'),
+  );
+  const startZones = floorZones
+    .map((zone, index) => pointInPolygon(start.point, zone.polygon) ? index : -1)
+    .filter((index) => index >= 0);
+  const destinationZones = new Set(
+    floorZones
+      .map((zone, index) => pointInPolygon(dest.point, zone.polygon) ? index : -1)
+      .filter((index) => index >= 0),
+  );
+  if (!startZones.length || !destinationZones.size) {return undefined;}
+  const widths = floorZones.map(() => floorZones.map(() => 0));
+  for (let left = 0; left < floorZones.length; left++) {
+    for (let right = left + 1; right < floorZones.length; right++) {
+      widths[left]![right] = widths[right]![left] = overlapWidth(
+        floorZones[left]!.polygon,
+        floorZones[right]!.polygon,
+      );
+    }
+  }
+  const capacity = floorZones.map(() => -Infinity);
+  const parent = floorZones.map(() => -1);
+  const visited = new Set<number>();
+  for (const index of startZones) {capacity[index] = Infinity;}
+  for (let count = 0; count < floorZones.length; count++) {
+    let current = -1;
+    for (let index = 0; index < floorZones.length; index++) {
+      if (!visited.has(index) && (current < 0 || capacity[index]! > capacity[current]!)) {
+        current = index;
+      }
+    }
+    if (current < 0 || capacity[current] === -Infinity) {break;}
+    visited.add(current);
+    for (let next = 0; next < floorZones.length; next++) {
+      if (widths[current]![next]! <= 0) {continue;}
+      const candidate = Math.min(capacity[current]!, widths[current]![next]!);
+      if (candidate > capacity[next]!) {
+        capacity[next] = candidate;
+        parent[next] = current;
+      }
+    }
+  }
+  const target = [...destinationZones].sort((left, right) => capacity[right]! - capacity[left]!)[0]!;
+  if (capacity[target] === -Infinity) {
+    return 'The start and destination are in disconnected authored walkable-zone groups. Extend a walkable zone so the groups overlap.';
+  }
+  if (capacity[target]! >= NAV_AGENT_DIAMETER_M) {return undefined;}
+  let current = target;
+  let narrowest: { left: number; right: number; width: number } | undefined;
+  while ((parent[current] ?? -1) >= 0) {
+    const previous = parent[current]!;
+    const width = widths[previous]![current]!;
+    if (!narrowest || width < narrowest.width) {
+      narrowest = { left: previous, right: current, width };
+    }
+    current = previous;
+  }
+  if (!narrowest) {return undefined;}
+  const left = floorZones[narrowest.left]!, right = floorZones[narrowest.right]!;
+  const label = (zone: WalkableZone) => `"${zone.name}" (${zone.id})`;
+  return `The walkable overlap between ${label(left)} and ${label(right)} is only about ${narrowest.width.toFixed(2)} m wide. The route capsule needs at least ${NAV_AGENT_DIAMETER_M.toFixed(2)} m; extend either zone so their overlap is at least ${(NAV_PLANNING_RADIUS_M * 2).toFixed(2)} m for reliable routing.`;
+}
+
+/** Semantic item access candidates in world coordinates, never the item centre. */
+function itemAccessPoints(object: PlanObject, from?: Point2): Point2[] {
   const local = (point: Point2): Point2 => objectPoints(object, [point])[0]!;
   if (isBooth(object)) {
     const baked = bakeBooth(object);
     const edges = boothEdges(baked).filter((edge) => edge.mode !== 'wall');
-    const candidates = (edges.length ? edges : boothEdges(baked)).map(
-      (edge) =>
-        boothWorldPoints(baked, [
-          [
-            (edge.a[0] + edge.b[0]) / 2 - edge.inward[0] * 0.55,
-            (edge.a[1] + edge.b[1]) / 2 - edge.inward[1] * 0.55,
-          ],
-        ])[0]!,
-    );
-    if (from) {
-      candidates.sort(
-        (a, b) =>
-          Math.hypot(a[0] - from[0], a[1] - from[1]) - Math.hypot(b[0] - from[0], b[1] - from[1]),
-      );
-    }
-    return candidates[0]!;
+    // A clear part of an opening may remain reachable when its midpoint is
+    // blocked or outside the authored aisle. Stay inside the real opening,
+    // with capsule clearance from its jambs, instead of snapping to any zone.
+    return boothEdgeAccessPoints(baked, edges.length ? edges : boothEdges(baked), from, false);
   }
   switch (object.recipe) {
     case 'exit':
-      return local(exitSinkLocal());
+      return [local(exitSinkLocal())];
     case 'food-kiosk':
-      return local(kioskQueueEntryLocal(object));
+      return [local(kioskQueueEntryLocal(object))];
     case 'washroom-men':
     case 'washroom-women':
-      return local(washroomLandingLocal(object));
+      return [local(washroomLandingLocal(object))];
     case 'information':
-      return local(infoCustomerNode(object));
+      return [local(infoCustomerNode(object))];
     case 'first-aid':
-      return local(firstAidEntryLocal(object));
+      return [local(firstAidEntryLocal(object))];
     case 'water':
-      return local(waterApproachNode());
+      return [local(waterApproachNode())];
     case 'wash-rack': {
       const bounds = polygonBounds(washRackApproachLocal(object));
-      return local([(bounds.minX + bounds.maxX) / 2, (bounds.minZ + bounds.maxZ) / 2]);
+      return [local([(bounds.minX + bounds.maxX) / 2, (bounds.minZ + bounds.maxZ) / 2])];
     }
     case 'shipping':
       // Route on the supported ground XZ plane to the stair foot; the deck is elevated.
-      return shippingWorldPoint(object, shippingSpatialLayout(object).pedestrianApproachAnchor);
+      return [shippingWorldPoint(object, shippingSpatialLayout(object).pedestrianApproachAnchor)];
     case 'parking-lot':
-      return parkingAnchorPoint(object, 'pedestrian-exit') ?? local([0, 0]);
+      return [parkingAnchorPoint(object, 'pedestrian-exit') ?? local([0, 0])];
     case 'dining':
-      return (
+      return [
         diningAnchorPoint(object, object.diningHost ? 'host' : 'seat', undefined, from) ??
-        local([0, 0])
-      );
+          local([0, 0])
+      ];
     case 'entrance':
-      return local([0, object.dimensions[2] / 2 + 0.55]);
+      return [local([0, object.dimensions[2] / 2 + ITEM_ACCESS_OFFSET_M])];
     default: {
       if (object.circulationDesign) {
-        return circulationEntry(object);
+        return [circulationEntry(object)];
       }
-      return local([0, Math.max(...object.polygon.map(([, z]) => z)) + 0.55]);
+      return [local([0, Math.max(...object.polygon.map(([, z]) => z)) + ITEM_ACCESS_OFFSET_M])];
     }
   }
 }
 
-function nearestFreedom(
-  floors: PlanDocument['floors'],
-  floorId: string,
-  point: Point2,
+/** Backwards-compatible singular accessor; route planning evaluates every booth candidate. */
+export function itemAccessPoint(object: PlanObject, from?: Point2): Point2 {
+  return itemAccessPoints(object, from)[0]!;
+}
+
+function resolveEndpointCandidates(
+  document: PlanDocument,
+  endpoint: RouteRequest['start'],
   zones: WalkableZone[],
-  allowRestricted: boolean,
-): Point2 | null {
-  const floor = floors.find((item) => item.source.id === floorId);
+  from?: Point2,
+  role: Role = 'visitor',
+  planningContext?: PlanningNavigationContext,
+): { candidates: ResolvedEndpoint[] } | { error: string } {
+  const floor = document.floors.find((item) => item.source.id === endpoint.floorId);
   if (!floor) {
-    return null;
+    return { error: 'Unknown floor.' };
   }
-  const input = buildFloorNavInput(
-    floorId,
-    floor.boundary as Point2[],
-    zones,
-    floor.objects,
-    false,
-  );
-  input.obstacles.push(
-    ...floor.zones.filter((zone) => zone.type === 'blocked').map((zone) => zone.polygon),
-    ...(!allowRestricted
-      ? zones
-          .filter((zone) => zone.floorId === floorId && zone.type === 'restricted')
-          .map((zone) => zone.polygon)
-      : []),
-  );
-  const walkableBoundary = walkableUnionBoundary(input.surfaces);
-  const clearanceOf = (candidate: Point2): number => {
-    let clearance = Infinity;
-    for (const polygon of input.obstacles) {
-      for (const [a, b] of polygonEdges(polygon)) {
-        clearance = Math.min(clearance, segmentDistance(candidate, a, b));
-      }
+  let points: Point2[];
+  let endpointObject: PlanObject | undefined;
+  let label: string;
+  let warning: string | undefined;
+  let accessDescription = 'access point';
+  if (endpoint.kind === 'item') {
+    const object = floor.objects.find((item) => item.id === endpoint.itemId);
+    if (!object) {
+      return { error: 'Item no longer exists.' };
     }
-    return clearance;
-  };
-  let best: Point2 | null = null;
-  let nearest = Infinity;
-  for (let ring = 1; ring <= 16; ring++) {
-    for (let step = 0; step < ring * 8; step++) {
-      const angle = (step / (ring * 8)) * Math.PI * 2;
-      const candidate: Point2 = [
-        point[0] + Math.cos(angle) * ring * 0.25,
-        point[1] + Math.sin(angle) * ring * 0.25,
-      ];
-      const distance = ring * 0.25;
-      if (distance >= nearest) {
+    endpointObject = object;
+    points = itemAccessPoints(object, from);
+    label = object.name;
+    if (isBooth(object) && boothEdges(bakeBooth(object)).every((edge) => edge.mode === 'wall')) {
+      warning = CLOSED_BOOTH_WARNING;
+      accessDescription = 'outside-wall access point';
+    } else if (isBooth(object)) {
+      accessDescription = 'open-side access point';
+    }
+  } else {
+    const point = [...(endpoint.point ?? [0, 0])] as Point2;
+    points = [point];
+    label = `Point (${point[0].toFixed(1)}, ${point[1].toFixed(1)})`;
+  }
+  const walkable = authoredWalkableZones(zones, floor.source.id);
+  if (!walkable.length) {
+    return {
+      error: appendWarnings('Draw a walkable zone on this floor before planning a route.', [warning]),
+    };
+  }
+  const planning = planningContext ?? createPlanningNavigationContext(document, zones, role);
+  const input = planning.floorInputs.get(floor.source.id);
+  const collisionMap = planning.collisionMaps.get(floor.source.id);
+  if (!input || !collisionMap) {
+    return { error: appendWarnings('Route clearance geometry is unavailable for this floor.', [warning]) };
+  }
+  let insideAuthoredRegion = false;
+  let clearanceReason: string | undefined;
+  const candidates: ResolvedEndpoint[] = [];
+  const evaluate = (candidatePoints: Point2[], candidateWarning: string | undefined, snapped: boolean) => {
+    for (const point of candidatePoints) {
+      const insideWalkable = input.surfaces.some((surface) => pointInPolygon(point, surface));
+      if (!insideWalkable) {
         continue;
       }
-      const walkable = input.surfaces.length
-        ? input.surfaces.some((surface) => pointInPolygon(candidate, surface)) &&
-          distanceToSegments(candidate, walkableBoundary) >= 0.45
-        : true;
-      const blocked = input.obstacles.some((polygon) => pointInPolygon(candidate, polygon));
-      // The worker sweeps a 0.4 m avatar; snapped points need that clearance.
-      if (walkable && !blocked && clearanceOf(candidate) >= 0.45) {
-        best = candidate;
-        nearest = distance;
+      insideAuthoredRegion = true;
+      const physicalEndpoint = validateCapsuleEndpoint(
+        collisionMap,
+        role,
+        [point[0], floor.source.heightOffset, point[1]],
+        NAVIGATION_PROFILE,
+      );
+      if (physicalEndpoint.clear) {
+        candidates.push({
+          floorId: floor.source.id,
+          point,
+          snapped,
+          label,
+          warning: candidateWarning,
+        });
+        continue;
+      }
+      const blockerId = physicalEndpoint.blockerId;
+      const blockerObject = blockerId
+        ? floor.objects.find((object) => object.id === blockerId.replace(/:\d+$/, ''))
+        : undefined;
+      const reason = blockerObject && blockerId
+        ? `Capsule sweep intersects ${blockerObject.name} (${blockerId}).`
+        : physicalEndpoint.reason ?? 'insufficient-capsule-clearance';
+      clearanceReason ??= reason;
+    }
+  };
+  evaluate(points, warning, false);
+  if (
+    candidates.length === 0 &&
+    endpointObject &&
+    isBooth(endpointObject) &&
+    boothEdges(bakeBooth(endpointObject)).some((edge) => edge.mode !== 'wall')
+  ) {
+    const baked = bakeBooth(endpointObject);
+    const fallbackWarning = appendWarnings(BLOCKED_BOOTH_ENTRANCE_WARNING, [warning]);
+    for (const edge of boothEdges(baked).filter((candidate) => candidate.mode === 'wall')) {
+      for (const point of boothEdgeAccessPoints(baked, [edge], from, true)) {
+        const acceptedBefore = candidates.length;
+        evaluate([point], fallbackWarning, true);
+        if (candidates.length > acceptedBefore) {
+          break;
+        }
       }
     }
-    if (best) {
-      return best;
-    }
   }
-  return best;
+  if (candidates.length) {
+    return { candidates };
+  }
+  if (!insideAuthoredRegion) {
+    return endpoint.kind === 'item'
+      ? { error: appendWarnings(`Extend a walkable zone to include ${label}'s exact ${accessDescription}.`, [warning]) }
+      : { error: appendWarnings(`${label} is outside the authored walkable region. Extend a walkable zone to include this exact point.`, [warning]) };
+  }
+  const clearanceGuidance = clearanceReason
+    ? ` ${clearanceReason} Clear the approach or extend the walkable zone around it.`
+    : ' Choose a clear, supported location or extend the supporting zone.';
+  return endpoint.kind === 'item'
+    ? {
+        error: appendWarnings(`${label}'s exact ${accessDescription} does not have ${NAV_AGENT_RADIUS_M.toFixed(1)} m route clearance.${clearanceGuidance}`, [warning]),
+      }
+    : {
+        error: appendWarnings(`${label} does not have ${NAV_AGENT_RADIUS_M.toFixed(1)} m route clearance.${clearanceGuidance}`, [warning]),
+      };
 }
 
 export function resolveEndpoint(
@@ -274,87 +454,11 @@ export function resolveEndpoint(
   from?: Point2,
   _allowRestricted = false,
   role: Role = 'visitor',
+  planningContext?: PlanningNavigationContext,
 ): ResolvedEndpoint | { error: string } {
-  const canUseRestricted = roleMayUseRestrictedZones(role);
-  const floor = document.floors.find((item) => item.source.id === endpoint.floorId);
-  if (!floor) {
-    return { error: 'Unknown floor.' };
-  }
-  const walkable = authoredWalkableZones(zones, floor.source.id);
-  if (!walkable.length) {
-    return { error: 'Draw a walkable zone on this floor before planning a route.' };
-  }
-  const inGeneratedWashRackWalkable = (candidate: Point2) =>
-    floor.objects.some(
-      (object) =>
-        object.recipe === 'wash-rack' &&
-        object.washRackVariant &&
-        object.collidable &&
-        [washRackWalkableLocal(object), washRackApproachLocal(object)].some((polygon) =>
-          pointInPolygon(candidate, objectPoints(object, polygon)),
-        ),
-    );
-  let point: Point2;
-  let label: string;
-  let warning: string | undefined;
-  if (endpoint.kind === 'item') {
-    const object = floor.objects.find((item) => item.id === endpoint.itemId);
-    if (!object) {
-      return { error: 'Item no longer exists.' };
-    }
-    point = itemAccessPoint(object, from);
-    label = object.name;
-    if (isBooth(object) && boothEdges(bakeBooth(object)).every((edge) => edge.mode === 'wall')) {
-      warning = 'This booth has no open edge. The route stops outside its wall.';
-    }
-  } else {
-    point = [...(endpoint.point ?? [0, 0])];
-    label = `Point (${point[0].toFixed(1)}, ${point[1].toFixed(1)})`;
-  }
-  if (
-    !walkable.some((zone) => pointInPolygon(point, zone.polygon as Point2[])) &&
-    !inGeneratedWashRackWalkable(point)
-  ) {
-    return { error: `${label} is outside a walkable zone.` };
-  }
-  const input = buildFloorNavInput(
-    floor.source.id,
-    floor.boundary as Point2[],
-    zones,
-    floor.objects,
-    false,
-  );
-  input.obstacles.push(
-    ...floor.zones.filter((zone) => zone.type === 'blocked').map((zone) => zone.polygon),
-    ...(!canUseRestricted
-      ? zones
-          .filter((zone) => zone.floorId === floor.source.id && zone.type === 'restricted')
-          .map((zone) => zone.polygon)
-      : []),
-  );
-  const insideWalkable =
-    !input.surfaces.length || input.surfaces.some((surface) => pointInPolygon(point, surface));
-  const insideObstacle = input.obstacles.some((polygon) => pointInPolygon(point, polygon));
-  let clearance = Infinity;
-  for (const polygon of input.obstacles) {
-    for (const [a, b] of polygonEdges(polygon)) {
-      clearance = Math.min(clearance, segmentDistance(point, a, b));
-    }
-  }
-  const inset = input.surfaces.length
-    ? distanceToSegments(point, walkableUnionBoundary(input.surfaces))
-    : Infinity;
-  if (insideWalkable && !insideObstacle && clearance >= 0.45 && inset >= 0.45) {
-    return { floorId: floor.source.id, point, snapped: false, label, warning };
-  }
-  if (endpoint.kind === 'point') {
-    return { error: `${label} does not have enough clearance for a route.` };
-  }
-  const fallback = nearestFreedom(document.floors, floor.source.id, point, zones, canUseRestricted);
-  if (!fallback) {
-    return { error: 'No walkable point on this floor.' };
-  }
-  return { floorId: floor.source.id, point: fallback, snapped: true, label, warning };
+  const planning = planningContext ?? createPlanningNavigationContext(document, zones, role);
+  const resolved = resolveEndpointCandidates(document, endpoint, zones, from, role, planning);
+  return 'error' in resolved ? resolved : resolved.candidates[0]!;
 }
 
 const WALK_M_S = 1.2;
@@ -425,12 +529,178 @@ export function describeRoute(
   return { instructions, lengthM, secondsEta: lengthM / WALK_M_S };
 }
 
+// Planner-owned metadata survives schema parsing by being pinned at playback begin.
+const routeDestinations = new WeakMap<RouteResult, RouteRequest['dest']>();
+export function destinationForRoute(route: RouteResult): RouteRequest['dest'] | undefined {
+  const destination = routeDestinations.get(route);
+  return destination ? structuredClone(destination) : undefined;
+}
+
 export interface RouteOutcome {
   request: RouteRequest;
   options: { shortest?: RouteResult; accessible?: RouteResult };
   failure?: string;
   failures?: Partial<Record<'shortest' | 'accessible', string>>;
   buildMs?: number;
+}
+
+interface CachedRoutePlanning {
+  roleNavigation: ReturnType<typeof createRoleNavigationZones>;
+  contexts: Partial<Record<'shortest' | 'accessible', PlanningNavigationContext>>;
+}
+
+const routePlanningCache = new WeakMap<
+  PlanDocument,
+  WeakMap<WalkableZone[], Map<string, CachedRoutePlanning>>
+>();
+
+function getCachedRoutePlanning(
+  document: PlanDocument,
+  zones: WalkableZone[],
+  role: Role,
+  rolePolicy: RouteNavigationPolicySource,
+): CachedRoutePlanning {
+  let byZones = routePlanningCache.get(document);
+  if (!byZones) {
+    byZones = new WeakMap();
+    routePlanningCache.set(document, byZones);
+  }
+  let byRole = byZones.get(zones);
+  if (!byRole) {
+    byRole = new Map();
+    byZones.set(zones, byRole);
+  }
+  const key = `${role}:${routeNavigationPolicyKey(rolePolicy)}`;
+  let cached = byRole.get(key);
+  if (!cached) {
+    cached = {
+      roleNavigation: createRoleNavigationZones(document, zones, role, rolePolicy),
+      contexts: {},
+    };
+    byRole.set(key, cached);
+  }
+  return cached;
+}
+
+const connectorPointDistance = (
+  point: readonly [number, number, number],
+  other: readonly [number, number, number],
+) => Math.hypot(point[0] - other[0], point[1] - other[1], point[2] - other[2]);
+
+function connectorPathLength(points: readonly (readonly [number, number, number])[]): number {
+  return points.reduce(
+    (sum, point, index) =>
+      sum + (index ? connectorPointDistance(points[index - 1]!, point) : 0),
+    0,
+  );
+}
+
+function connectorSeconds(record: ConnectorRecord, lengthM: number): number {
+  if (record.kind === 'elevator') {
+    return record.transferSeconds!;
+  }
+  const fallback = record.kind === 'stairs' ? 0.6 : record.kind === 'ramp' ? 0.8 : 0.5;
+  return lengthM / (record.speedMps ?? fallback) + (record.transferSeconds ?? 0);
+}
+
+function bindPhysicalConnectors(
+  segments: RouteSegment[],
+  document: PlanDocument,
+  planning: PlanningNavigationContext,
+  role: Role,
+  accessibleOnly: boolean,
+): { segments?: RouteSegment[]; failure?: string } {
+  const result: RouteSegment[] = [];
+  for (const segment of segments) {
+    if (!segment.toFloorId) {
+      result.push(segment);
+      continue;
+    }
+    const toFloorId = segment.toFloorId;
+    const fromPoint = segment.points[0];
+    const toPoint = segment.points.at(-1);
+    if (!fromPoint || !toPoint) {
+      return { failure: 'The selected connector has no authored transition endpoints.' };
+    }
+    const candidates = planning.eligibleConnectorRecords
+      .filter((record) =>
+        connectorRecordSupportsNavigation(
+          record,
+          role,
+          accessibleOnly,
+          segment.floorId,
+          toFloorId,
+        ),
+      )
+      .flatMap((record) => {
+        const portal = planning.portals.find((item) => item.id === record.portalId);
+        const fromEntry = portal?.entries?.find((entry) => entry.floorId === segment.floorId);
+        const toEntry = portal?.entries?.find((entry) => entry.floorId === toFloorId);
+        const fromStop = record.stops.find((stop) => stop.floorId === segment.floorId);
+        const toStop = record.stops.find((stop) => stop.floorId === toFloorId);
+        const points = connectorTraversalPoints(record, segment.floorId, toFloorId);
+        const sourceObject = document.floors
+          .find((floor) => floor.source.id === segment.floorId)
+          ?.objects.find(
+            (object) => object.portalId === record.portalId && isConnector(object.recipe),
+          );
+        if (!fromEntry || !toEntry || !fromStop || !toStop || !points || !sourceObject) {
+          return [];
+        }
+        const fromEntryError = Math.hypot(
+          fromEntry.position[0] - fromPoint[0],
+          fromEntry.position[1] - fromPoint[2],
+        );
+        const toEntryError = Math.hypot(
+          toEntry.position[0] - toPoint[0],
+          toEntry.position[1] - toPoint[2],
+        );
+        const fromStopError = connectorPointDistance(fromStop.entry, fromPoint);
+        const toStopError = connectorPointDistance(toStop.entry, toPoint);
+        return Math.max(fromEntryError, toEntryError, fromStopError, toStopError) <= 0.75
+          ? [{
+              record,
+              points,
+              sourceObjectId: sourceObject.id,
+              score: fromEntryError + toEntryError + fromStopError + toStopError,
+            }]
+          : [];
+      })
+      .sort((left, right) => left.score - right.score);
+    const portalIds = new Set(candidates.map(({ record }) => record.portalId));
+    if (!candidates.length || portalIds.size !== 1) {
+      return {
+        failure: candidates.length
+          ? 'The selected portal is ambiguous between physical connector records.'
+          : `No enabled ${accessibleOnly ? 'step-free ' : ''}physical connector with 0.8 m clear width binds ${segment.floorId} to ${toFloorId}.`,
+      };
+    }
+    const binding = candidates[0]!;
+    const lengthM = connectorPathLength(binding.points);
+    result.push({
+      ...segment,
+      kind: binding.record.kind,
+      // compilePath resolves this ID on the transition's source floor, then binds
+      // both ascent and descent to the portal's authored lower flight.
+      connectorId: binding.sourceObjectId,
+      points: binding.points.map((point): [number, number, number] => [...point]),
+      lengthM,
+      seconds: connectorSeconds(binding.record, lengthM),
+    });
+  }
+  return { segments: result };
+}
+
+function portalsWithoutPhysicalConnector(
+  planning: PlanningNavigationContext,
+): string[] {
+  const eligible = new Set(planning.eligibleConnectorRecords.map((record) => record.portalId));
+  return planning.portals
+    .filter((portal) => {
+      const floors = new Set((portal.entries ?? []).map((entry) => entry.floorId));
+      return floors.size >= 2 && !eligible.has(portal.id);
+    })
+    .map((portal) => portal.id);
 }
 
 export async function planWayfindingRoute(
@@ -441,21 +711,28 @@ export async function planWayfindingRoute(
   signal: AbortSignal,
   role: Role = 'visitor',
   rolePolicy: RouteNavigationPolicySource = EMPTY_ROUTE_NAVIGATION_POLICY,
+  recoveryPass = 0,
 ): Promise<RouteOutcome> {
   const valid = routeRequestSchema.safeParse(request);
   if (!valid.success) {
     return { request, options: {}, failure: 'Invalid route endpoints.' };
   }
+  const requestWarnings = [
+    endpointWarning(document, request.start),
+    endpointWarning(document, request.dest),
+  ];
   if (signal.aborted) {
     throw new DOMException('Route cancelled', 'AbortError');
   }
-  const roleNavigation = createRoleNavigationZones(document, zones, role, rolePolicy);
+  const cachedPlanning = getCachedRoutePlanning(document, zones, role, rolePolicy);
+  const roleNavigation = cachedPlanning.roleNavigation;
   if (roleNavigation.error) {
-    return { request, options: {}, failure: roleNavigation.error };
+    return { request, options: {}, failure: appendWarnings(roleNavigation.error, requestWarnings) };
   }
   const navigationDocument = roleNavigation.document;
   const navigationZones = roleNavigation.zones;
   const canUseRestricted = roleMayUseRestrictedZones(role);
+  const requestedOption = request.accessibleOnly ? 'accessible' : 'shortest';
   const missingZoneFloor = [request.start.floorId, request.dest.floorId].find(
     (floorId) => !authoredWalkableZones(navigationZones, floorId).length,
   );
@@ -463,35 +740,74 @@ export async function planWayfindingRoute(
     return {
       request,
       options: {},
-      failure: `Draw a walkable zone on ${navigationDocument.floors.find((floor) => floor.source.id === missingZoneFloor)?.source.name ?? 'each route floor'} before testing routes.`,
+      failure: appendWarnings(
+        `Draw a walkable zone on ${navigationDocument.floors.find((floor) => floor.source.id === missingZoneFloor)?.source.name ?? 'each route floor'} before testing routes.`,
+        requestWarnings,
+      ),
     };
   }
-  const start = resolveEndpoint(
+  const planning = cachedPlanning.contexts[requestedOption] ??= createPlanningNavigationContext(
+    navigationDocument,
+    navigationZones,
+    role,
+    requestedOption === 'accessible',
+  );
+  const starts = resolveEndpointCandidates(
     navigationDocument,
     request.start,
     navigationZones,
     undefined,
-    canUseRestricted,
     role,
+    planning,
   );
-  const dest = resolveEndpoint(
-    navigationDocument,
-    request.dest,
-    navigationZones,
-    'point' in start ? start.point : undefined,
-    canUseRestricted,
-    role,
+  if ('error' in starts) {
+    return {
+      request,
+      options: {},
+      failure: appendWarnings(`Start: ${starts.error}`, requestWarnings),
+    };
+  }
+  const endpointPairs: Array<{ start: ResolvedEndpoint; dest: ResolvedEndpoint }> = [];
+  let destinationError: string | undefined;
+  const pairKeys = new Set<string>();
+  for (const start of starts.candidates) {
+    const destinations = resolveEndpointCandidates(
+      navigationDocument,
+      request.dest,
+      navigationZones,
+      start.point,
+      role,
+      planning,
+    );
+    if ('error' in destinations) {
+      destinationError ??= destinations.error;
+      continue;
+    }
+    for (const dest of destinations.candidates) {
+      const key = JSON.stringify([start.floorId, start.point, dest.floorId, dest.point]);
+      if (!pairKeys.has(key)) {
+        pairKeys.add(key);
+        endpointPairs.push({ start, dest });
+      }
+    }
+  }
+  if (!endpointPairs.length) {
+    return {
+      request,
+      options: {},
+      failure: appendWarnings(
+        `Destination: ${destinationError ?? 'No exact access point is available.'}`,
+        requestWarnings,
+      ),
+    };
+  }
+  const alreadyThere = endpointPairs.find(
+    ({ start, dest }) =>
+      start.floorId === dest.floorId &&
+      Math.hypot(start.point[0] - dest.point[0], start.point[1] - dest.point[1]) < 1e-4,
   );
-  if ('error' in start) {
-    return { request, options: {}, failure: `Start: ${start.error}` };
-  }
-  if ('error' in dest) {
-    return { request, options: {}, failure: `Destination: ${dest.error}` };
-  }
-  if (
-    start.floorId === dest.floorId &&
-    Math.hypot(start.point[0] - dest.point[0], start.point[1] - dest.point[1]) < 1e-4
-  ) {
+  if (alreadyThere) {
+    const { start, dest } = alreadyThere;
     const y =
       navigationDocument.floors.find((floor) => floor.source.id === start.floorId)?.source.heightOffset ?? 0;
     const result: RouteResult = {
@@ -514,69 +830,45 @@ export async function planWayfindingRoute(
       lengthM: 0,
       secondsEta: 0,
       instructions: ['You are already here.'],
-      option: 'shortest',
+      option: requestedOption,
       snapped: { start: start.snapped, dest: dest.snapped },
-      warnings:
-        request.allowRestricted && role !== 'staff'
+      warnings: [
+        start.warning,
+        dest.warning,
+        ...(request.allowRestricted && role !== 'staff'
           ? ['Restricted-zone access was ignored for the visitor role.']
-          : [],
+          : []),
+      ].filter((warning): warning is string => !!warning),
     };
-    return {
-      request,
-      options: { shortest: result, accessible: { ...result, option: 'accessible' } },
-    };
+    routeDestinations.set(result, structuredClone(request.dest));
+    const options: RouteOutcome['options'] = {};
+    options[requestedOption] = result;
+    return { request, options };
   }
+  const rejected = new Map<string, { floorId: string; polygon: Point2[] }>();
+  const invalidLandings = invalidConnectorLandings(
+    navigationDocument,
+    navigationZones,
+    canUseRestricted,
+    role,
+    planning,
+  );
+  const disabledPortals = new Set([
+    ...invalidLandings,
+    ...portalsWithoutPhysicalConnector(planning),
+  ]);
+  const queryFilter = {
+    includeFlags: 0xffff,
+    excludeFlags: canUseRestricted ? 0 : ZONE_AREA.restricted.flags,
+    areaCosts: [[ZONE_AREA['queue-area'].area, 3]] as (readonly [number, number])[],
+    agentRadiusM: NAV_PLANNING_RADIUS_M,
+  };
   const runOption = async (
     option: 'shortest' | 'accessible',
+    start: ResolvedEndpoint,
+    dest: ResolvedEndpoint,
   ): Promise<{ result?: RouteResult; failure?: string; buildMs?: number }> => {
     const accessible = option === 'accessible';
-    const invalidLandings = invalidConnectorLandings(
-      navigationDocument,
-      navigationZones,
-      canUseRestricted,
-    );
-    const disabledPortals = accessible
-      ? navigationDocument.floors
-          .flatMap((floor) => floor.objects)
-          .filter((object) => object.recipe === 'stairs' || object.recipe === 'escalator')
-          .map((object) => object.portalId)
-          .filter((id): id is string => !!id)
-      : [...invalidLandings];
-    if (accessible) {
-      disabledPortals.push(...invalidLandings);
-    }
-    if (disabledPortals) {
-      const ramps = new Set(
-        navigationDocument.floors
-          .flatMap((floor) => floor.objects)
-          .filter((object) => object.recipe === 'ramp')
-          .map((object) => object.portalId),
-      );
-      disabledPortals.push(
-        ...navigationDocument.baseline.portals
-          .filter((portal) => portal.type !== 'elevator' && !ramps.has(portal.id))
-          .map((portal) => portal.id),
-      );
-    }
-    const navAreas: Record<string, { polygon: Point2[]; area: number; flags: number }[]> = {};
-    for (const floor of navigationDocument.floors) {
-      const input = buildFloorNavInput(
-        floor.source.id,
-        floor.boundary as Point2[],
-        navigationZones,
-        floor.objects,
-        false,
-      );
-      if (input.areas.length) {
-        navAreas[floor.source.id] = input.areas;
-      }
-    }
-    const queryFilter = {
-      includeFlags: 0xffff,
-      excludeFlags: canUseRestricted ? 0 : ZONE_AREA.restricted.flags,
-      areaCosts: [[ZONE_AREA['queue-area'].area, 3]] as (readonly [number, number])[],
-      agentRadiusM: CHARACTER_CONFIG.radiusM,
-    };
     let route: PlanRoute;
     try {
       route = await navigator.plan(
@@ -585,23 +877,25 @@ export async function planWayfindingRoute(
         { floorId: dest.floorId, point: dest.point },
         signal,
         {
-          walkableZones: navigationZones
-            .filter((zone) => zone.type !== 'restricted')
-            .map((zone) => ({
-              id: zone.id,
-              floorId: zone.floorId,
-              polygon: zone.polygon as Point2[],
-              holes: zone.holes as Point2[][],
-            })),
-          navAreas: Object.keys(navAreas).length ? navAreas : undefined,
           queryFilter,
-          disabledPortals,
+          disabledPortals: [...disabledPortals],
 
           straight: true,
+          role,
+          planningContext: planning,
         },
       );
     } catch (error) {
-      return { failure: explainFailure(String(error), accessible) };
+      const message = String(error);
+      const connectionFailure = /No walkable Recast route/i.test(message)
+        ? walkableConnectionFailure(navigationZones, start, dest, canUseRestricted)
+        : undefined;
+      return {
+        failure: appendWarnings(
+          connectionFailure ?? explainFailure(message, accessible),
+          [start.warning, dest.warning],
+        ),
+      };
     }
     const firstWalk = route.segments.find((segment) => segment.floorId === start.floorId);
     const lastWalk = [...route.segments]
@@ -619,16 +913,117 @@ export async function planWayfindingRoute(
         lastWalk.points.at(-1)![1] - dest.point[1],
       ) > 0.55
     ) {
-      return { failure: 'A route endpoint does not have enough walkable clearance.' };
+      return {
+        failure: appendWarnings('A route endpoint does not have enough walkable clearance.', [
+          start.warning,
+          dest.warning,
+        ]),
+      };
     }
     const floorY = (floorId: string) =>
       navigationDocument.floors.find((floor) => floor.source.id === floorId)?.source.heightOffset ?? 0;
-    const segments = measuredSegments(
+    let segments = measuredSegments(
       route,
       navigationDocument,
       [start.point[0], floorY(start.floorId), start.point[1]],
       [dest.point[0], floorY(dest.floorId), dest.point[1]],
     );
+    // Validate the actual polyline selected by measuredSegments (which prefers
+    // worker straight output), on every floor, before exposing a Start option.
+    let preparationFailure: string | undefined;
+    let clearanceFailure: {
+      floorId: string;
+      from: [number, number, number];
+      to: [number, number, number];
+      reason?: string;
+      blockerId?: string;
+    } | undefined;
+    const prepare = (candidate: typeof segments): typeof segments | null => {
+      const bound = bindPhysicalConnectors(
+        candidate,
+        navigationDocument,
+        planning,
+        role,
+        accessible,
+      );
+      if (!bound.segments) {
+        preparationFailure ??= bound.failure;
+        return null;
+      }
+      const prepared: typeof segments = [];
+      for (const segment of bound.segments) {
+        if (segment.kind !== 'walk') {prepared.push(segment); continue;}
+        if (segment.toFloorId) {return null;}
+        const map = planning.collisionMaps.get(segment.floorId);
+        if (!map) {return null;}
+        const rounded = smoothRouteCorners(segment.points, {
+          capsuleRadiusM: NAV_AGENT_RADIUS_M, curveSegments: ROUTE_CURVE_SEGMENTS,
+          validateSegment: (a, b) => {
+            const result = validateCapsuleSweep(map, role, a, b, NAVIGATION_PROFILE);
+            if (!result.clear) {
+              clearanceFailure ??= {
+                floorId: segment.floorId,
+                from: [...a],
+                to: [...b],
+                reason: result.reason,
+                blockerId: result.blockerId,
+              };
+            }
+            if (!result.clear && result.blockerId) {
+              const obstacle = [...map.obstacles, ...map.blockedAreas].find((item) => item.id === result.blockerId);
+              if (obstacle) {
+                // Conservative box avoids repeating a failing grazing corridor.
+                // Recast applies the explicit navigation radius around this barrier.
+                const xs = obstacle.polygon.map(([x]) => x), zs = obstacle.polygon.map(([, z]) => z);
+                const margin = 0.1 * (recoveryPass + 1);
+                const x0 = Math.min(...xs) - margin, x1 = Math.max(...xs) + margin;
+                const z0 = Math.min(...zs) - margin, z1 = Math.max(...zs) + margin;
+                rejected.set(`${segment.floorId}:${obstacle.id}`, { floorId: segment.floorId,
+                  polygon: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]] });
+              }
+            }
+            return result.clear;
+          },
+        });
+        if (!rounded) {return null;}
+        prepared.push({ ...segment, points: rounded.points, lengthM: rounded.length, seconds: rounded.length / WALK_M_S });
+      }
+      return prepared;
+    };
+    // A worker's straight representation is optional. Recover once using its
+    // original corridor polyline; never accept a chord simply to shorten a route.
+    const prepared = prepare(segments) ?? prepare(measuredSegments(
+      { ...route, straight: undefined }, navigationDocument,
+      [start.point[0], floorY(start.floorId), start.point[1]],
+      [dest.point[0], floorY(dest.floorId), dest.point[1]],
+    ));
+    if (!prepared) {
+      const clearanceMessage = (() => {
+        if (!clearanceFailure) {
+          return undefined;
+        }
+        const floor = navigationDocument.floors.find(
+          (candidate) => candidate.source.id === clearanceFailure!.floorId,
+        );
+        const objectId = clearanceFailure.blockerId?.replace(/:\d+$/, '');
+        const blocker = floor?.objects.find((object) => object.id === objectId);
+        const blockerLabel = blocker
+          ? `${blocker.name} (${clearanceFailure.blockerId})`
+          : clearanceFailure.blockerId ?? clearanceFailure.reason ?? 'unknown geometry';
+        const point = (value: [number, number, number]) =>
+          `(${value[0].toFixed(2)}, ${value[2].toFixed(2)})`;
+        return `The worker corridor violates exact ${NAV_AGENT_RADIUS_M.toFixed(1)} m clearance near ${blockerLabel} on ${floor?.source.name ?? clearanceFailure.floorId}, between ${point(clearanceFailure.from)} and ${point(clearanceFailure.to)}. Widen that aisle or move the blocking object.`;
+      })();
+      return {
+        failure: appendWarnings(
+          preparationFailure ??
+            clearanceMessage ??
+            'No clear walking route is available. Move the start or destination into a wider aisle, or open a blocked passage and plan again.',
+          [start.warning, dest.warning],
+        ),
+      };
+    }
+    segments = prepared;
     const waypoints = segments.flatMap((segment) => segment.points);
     const described = {
       lengthM: segments.reduce((sum, segment) => sum + segment.lengthM, 0),
@@ -652,42 +1047,80 @@ export async function planWayfindingRoute(
       ].filter((warning): warning is string => !!warning),
     });
     if (!parsed.success) {
-      return { failure: 'Route result failed validation.' };
+      return {
+        failure: appendWarnings('Route result failed validation.', [start.warning, dest.warning]),
+      };
     }
+    routeDestinations.set(parsed.data, structuredClone(request.dest));
     return { result: parsed.data, buildMs: route.buildMs };
   };
-  const shortest = await runOption('shortest');
+  const runBestOption = async (option: 'shortest' | 'accessible') => {
+    let best: { result?: RouteResult; failure?: string; buildMs?: number } | undefined;
+    let failure: string | undefined;
+    const rankedPairs = endpointPairs.map((pair) => ({
+      ...pair,
+      // Every physical route is at least its horizontal straight-line distance.
+      lowerBound: Math.hypot(pair.start.point[0] - pair.dest.point[0], pair.start.point[1] - pair.dest.point[1]),
+    })).sort((a, b) => a.lowerBound - b.lowerBound);
+    for (const pair of rankedPairs) {
+      if (signal.aborted) {
+        throw new DOMException('Route cancelled', 'AbortError');
+      }
+      if (best?.result && pair.lowerBound >= best.result.lengthM) {
+        break;
+      }
+      const candidate = await runOption(option, pair.start, pair.dest);
+      if (candidate.result && (!best?.result || candidate.result.lengthM < best.result.lengthM)) {
+        best = candidate;
+      }
+      failure ??= candidate.failure;
+    }
+    return best ?? { failure: failure ?? 'No reachable authored access point was found.' };
+  };
+  const selected = await runBestOption(requestedOption);
   if (signal.aborted) {
     throw new DOMException('Route cancelled', 'AbortError');
   }
-  const accessible = await runOption('accessible');
-  const options: { shortest?: RouteResult; accessible?: RouteResult } = {};
-  if (shortest.result) {
-    options.shortest = shortest.result;
-  }
-  if (accessible.result) {
-    options.accessible = accessible.result;
-  }
-  if (!options.shortest && !options.accessible) {
-    return {
-      request,
-      options,
-      failure: accessible.failure ?? shortest.failure ?? 'No route found.',
-    };
+  const options: RouteOutcome['options'] = {};
+  if (selected.result) {
+    options[requestedOption] = selected.result;
+  } else {
+    const newRejections = [...rejected.entries()].filter(
+      ([id]) => !document.floors.some((floor) =>
+        floor.zones.some((zone) => zone.id.startsWith('route-recovery:') && zone.id.endsWith(`:${id}`)),
+      ),
+    );
+    if (recoveryPass < 2 && newRejections.length && !signal.aborted) {
+      const retryDocument = { ...document, floors: document.floors.map((floor) => ({ ...floor,
+        zones: [...floor.zones, ...newRejections.filter(([, value]) => value.floorId === floor.source.id)
+          .map(([id, value]) => ({ id: `route-recovery:${recoveryPass}:${id}`, label: 'Blocked passage',
+            type: 'blocked' as const, polygon: value.polygon }))],
+      })) };
+      return planWayfindingRoute(
+        navigator,
+        retryDocument,
+        zones,
+        request,
+        signal,
+        role,
+        rolePolicy,
+        recoveryPass + 1,
+      );
+    }
+    return { request, options, failure: selected.failure ?? 'No route found.' };
   }
   return {
     request,
     options,
-    failures: {
-      ...(shortest.failure ? { shortest: shortest.failure } : {}),
-      ...(accessible.failure ? { accessible: accessible.failure } : {}),
-    },
-    buildMs: shortest.buildMs ?? accessible.buildMs,
+    buildMs: selected.buildMs,
   };
 }
 
 function explainFailure(message: string, accessible: boolean): string {
   const clean = message.replace(/^Error:\s*/, '');
+  if (/collision|geometry|footprint|vertical extent|unrepresentable|malformed/i.test(clean)) {
+    return clean;
+  }
   if (/clearance|valid/i.test(clean)) {
     return `${clean} Try a point with more clearance.`;
   }

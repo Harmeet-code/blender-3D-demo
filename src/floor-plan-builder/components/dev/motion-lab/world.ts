@@ -1,4 +1,6 @@
-import { decodeLayout } from '../../../model/adapter.ts';
+import { createObject } from '../../../model/inventory.ts';
+import { fitCirculation } from '../../../model/circulation.ts';
+import { decodeLayout, encodeLayout } from '../../../model/adapter.ts';
 import type { PlanDocument } from '../../../model/types.ts';
 import { buildingLayoutSchema } from '../../../../features/building/model/building-schema.ts';
 import type { RoleAreaPolicy } from '../../../wayfinding/walkthrough/collision/capsule-clearance.ts';
@@ -79,10 +81,10 @@ export const MOTION_LAB_LAYOUT = buildingLayoutSchema.parse({
 
 export const MOTION_LAB_FLOORS = MOTION_LAB_LAYOUT.floors.map(({ id, name }) => ({ id, label: name }));
 export const MOTION_LAB_CONNECTOR_STATUS = [
-  { kind: 'stairs', status: 'portal schema present; physical trajectory and landing collider absent' },
-  { kind: 'escalator', status: 'portal schema present; physical trajectory and landing collider absent' },
-  { kind: 'elevator', status: 'portal schema present; shaft, cabin, doors, and passenger trajectory absent' },
-  { kind: 'ramp', status: 'unsupported: BuildingLayout Portal.type has no ramp value' },
+  { kind: 'stairs', status: 'linked procedural recipe; runtime acceptance pending' },
+  { kind: 'escalator', status: 'linked procedural recipe; runtime acceptance pending' },
+  { kind: 'elevator', status: 'linked procedural cabin/shaft/doors; runtime acceptance pending' },
+  { kind: 'ramp', status: 'procedural ramp uses the supported stairs portal encoding; runtime acceptance pending' },
 ] as const;
 
 export const MOTION_LAB_ROLE_AREAS: RoleAreaPolicy[] = [
@@ -97,7 +99,44 @@ export const MOTION_LAB_STOPS: MotionLabStop[] = MOTION_LAB_FLOORS.flatMap((floo
 ]);
 
 export function createMotionLabDocument(): PlanDocument {
-  return decodeLayout(MOTION_LAB_LAYOUT);
+  const document = decodeLayout(MOTION_LAB_LAYOUT);
+  // Round-trip the supported procedural asset encoding through BuildingLayout v2.
+  // No venue/API writes: this document exists only in the development Lab.
+  const kinds = ['stairs', 'ramp', 'elevator', 'escalator'] as const;
+  const requested = new URLSearchParams(location.search).get('connector');
+  const selected = kinds.filter((kind) => !requested || requested === kind);
+  document.baseline.portals = [];
+  for (const floor of document.floors) {
+    floor.boundary = [[-35, -40], [35, -40], [35, 40], [-35, 40]];
+    floor.objects = floor.objects.filter((object) => !object.portalId);
+    floor.source.heightOffset = floor === document.floors[0] ? 0 : 3;
+    floor.zones = [{ id: `${floor.source.id}-hall`, label: 'Fixture walkable hall', type: 'walkable', polygon: [[-34, -39], [34, -39], [34, 39], [-34, 39]] }];
+  }
+  selected.forEach((kind, index) => {
+    const x = requested ? -5 : -24 + index * 16;
+    // Keep both portal approaches clear of the original booth/partition exhibit.
+    // The upper stair entry at z=-4.49 previously touched a booth footprint.
+    const lower = fitCirculation({ ...createObject(kind, [x, 15]),
+      id: `lab-${kind}-lower`, portalId: `fixture-${kind}`,
+      dimensions: kind === 'elevator' ? [3, 3, 3] : [2, 3, 8],
+      steps: 20,
+      ...(kind === 'elevator' ? { polygon: [[-1.5, -1.5], [1.5, -1.5], [1.5, 1.5], [-1.5, 1.5]] as [number, number][] } : {}),
+    });
+    document.floors[0]!.objects.push(lower);
+    document.floors[1]!.objects.push({ ...structuredClone(lower), id: `lab-${kind}-upper`,
+      circulationDesign: { ...lower.circulationDesign!, role: 'upper' } });
+    if (kind === 'escalator') {
+      // A running belt has one authored direction. Supply a separate DOWN bank
+      // for return journeys rather than routing passengers against the UP belt.
+      const down = { ...structuredClone(lower), id: 'lab-escalator-down-lower',
+        portalId: 'fixture-escalator-down', position: [x + (requested ? 6 : -6), 15] as [number, number],
+        circulationDesign: { ...lower.circulationDesign!, direction: 'DOWN' as const } };
+      document.floors[0]!.objects.push(down);
+      document.floors[1]!.objects.push({ ...structuredClone(down), id: 'lab-escalator-down-upper',
+        circulationDesign: { ...down.circulationDesign, role: 'upper' } });
+    }
+  });
+  return decodeLayout(encodeLayout(document));
 }
 
 export function createMotionLabZones(document: PlanDocument): WalkableZone[] {
@@ -114,3 +153,5 @@ export function createMotionLabZones(document: PlanDocument): WalkableZone[] {
 export function routeAllowsRestricted(role: Role) {
   return role === 'staff';
 }
+
+export const MOTION_LAB_POLICY = { status: 'resolved' as const, staffOnlyZoneIds: [], staffOnlyDoorObjectIds: [] };

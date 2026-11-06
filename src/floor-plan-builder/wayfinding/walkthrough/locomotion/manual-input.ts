@@ -26,11 +26,12 @@ export function useManualInput(
   movementEnabled: boolean,
   onToggleView: () => void,
   onStop: () => void,
+  onMovementIntent: () => void,
 ) {
   const input = useRef<ManualInputState>(emptyInput());
   const invalidate = useThree((state) => state.invalidate);
-  const callbacks = useRef({ onToggleView, onStop });
-  callbacks.current = { onToggleView, onStop };
+  const callbacks = useRef({ onToggleView, onStop, onMovementIntent });
+  callbacks.current = { onToggleView, onStop, onMovementIntent };
 
   useEffect(() => {
     const keys = new Set<string>();
@@ -58,8 +59,12 @@ export function useManualInput(
         callbacks.current.onToggleView();
         return;
       }
+      const directionKey = /^(KeyW|KeyA|KeyS|KeyD|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)$/.test(event.code);
+      if (directionKey && !event.repeat) {
+        callbacks.current.onMovementIntent();
+      }
       if (!movementEnabled) {return;}
-      if (/^(KeyW|KeyA|KeyS|KeyD|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|ShiftLeft|ShiftRight)$/.test(event.code)) {
+      if (directionKey || /^(ShiftLeft|ShiftRight)$/.test(event.code)) {
         keys.add(event.code);
         updateKeys();
         event.preventDefault();

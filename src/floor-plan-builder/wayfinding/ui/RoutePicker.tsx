@@ -333,12 +333,19 @@ export function RoutePicker({
           <FieldLabel htmlFor="route-restricted">Allow restricted zones</FieldLabel>
         </Field>
       </FieldGroup>
+      <Button
+        size="sm"
+        disabled={!request || status === 'routing'}
+        onClick={() => useWayfindingStore.getState().fetchRoute()}
+      >
+        Fetch route
+      </Button>
       <p className="fp-muted" aria-live="polite">
         {status === 'routing'
           ? 'Updating routes…'
           : !request
             ? 'The floor spawn is used until you choose a start.'
-            : 'Click a floor point or search an inventory location.'}
+            : 'Choose endpoints, then fetch the route.'}
       </p>
     </div>
   );

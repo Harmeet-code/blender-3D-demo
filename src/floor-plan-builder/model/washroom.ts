@@ -6,9 +6,7 @@ import type { PlanObject } from './types.ts';
  * Visual / collision / navigation stay separate outputs (spec contract §8).
  *
  * Schema decisions (documented):
- * - Gender accent: men → wayfinding cyan `#06B6D4`; women/unisex → warm
- *   amber `#F59E0B` (spec lists `#F59E0B` or `#D946EF`; amber chosen for
- *   contrast against the dark top-down outline and palette consistency).
+ * - Gender accent: men → blue `#2563EB`; women/unisex → orange `#F97316`.
  * - Navigation treats the block as a SOLID obstacle footprint (spec §8:
  *   interior is non-routable). The open-maze slot exists in the visual
  *   doorway only; no walkable portal is emitted into the navmesh.
@@ -17,7 +15,7 @@ import type { PlanObject } from './types.ts';
  */
 
 export function washroomAccent(object: Pick<PlanObject, 'gender'>): string {
-  return object.gender === 'men' ? '#06B6D4' : '#F59E0B';
+  return object.gender === 'men' ? '#2563EB' : '#F97316';
 }
 
 export function washroomOpeningOf(object: Pick<PlanObject, 'washroomOpening'>): number {

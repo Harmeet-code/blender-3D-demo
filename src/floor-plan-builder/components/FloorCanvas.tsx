@@ -1,3 +1,11 @@
+import type { LocalActionOptions } from '../wayfinding/walkthrough/interaction/local-actions.ts';
+import { EMPTY_ROUTE_NAVIGATION_POLICY, type RouteNavigationPolicySource } from '../wayfinding/walkthrough/permissions/route-navigation-policy.ts';
+import { authoredConnectorLegs, connectorRecordForLeg } from '../wayfinding/walkthrough/connectors/connector-runtime.ts';
+import { buildFloorSupportPolicy } from '../wayfinding/walkthrough/collision/capsule-clearance.ts';
+import {
+  buildWalkableRegionMesh,
+  floorWalkableAreas,
+} from '../wayfinding/walkthrough/collision/walkable-region.ts';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useShallow } from 'zustand/react/shallow';
@@ -6,11 +14,11 @@ import { Html, Line, OrbitControls, Environment, Lightformer } from '@react-thre
 import { ErrorBoundary } from 'react-error-boundary';
 import {
   DoubleSide,
-  Path,
+  BufferAttribute,
+  BufferGeometry,
   Plane,
   Raycaster,
   Shape,
-  ShapeGeometry,
   Vector2,
   Vector3,
   PerspectiveCamera,
@@ -58,6 +66,7 @@ import {
   objectSchema,
   polygonSchema,
   type PlanFloor,
+  type PlanDocument,
   type PlanObject,
 } from '../model/types.ts';
 import { formatPrice, heatColor, statusColors, type StudioView } from '../model/view.ts';
@@ -70,6 +79,8 @@ import {
 } from '../model/camera-snapshots.ts';
 import { ProceduralObject } from './ProceduralObject.tsx';
 import { washRackRowConnections, type WashRackRowConnections } from '../model/wash-rack-spatial.ts';
+import type { WashRackVariant } from '../model/wash-rack.ts';
+import type { ShowOfficeVariant } from '../model/show-office.ts';
 import { RouteVisuals } from '../wayfinding/rendering/RouteVisuals.tsx';
 import { GameScene } from '../wayfinding/game/GameScene.tsx';
 import type { Role } from '../wayfinding/walkthrough/contracts.ts';
@@ -80,7 +91,7 @@ import { usePlaybackStore } from '../wayfinding/store/playback-store.ts';
 import { toast } from 'sonner';
 import { WalkthroughLayer } from '../wayfinding/walkthrough/WalkthroughLayer.tsx';
 import { PlaybackMotionProvider } from '../wayfinding/walkthrough/motion-context.tsx';
-import { BoothScreenLabelLayer } from './BoothScreenLabel.tsx';
+import { ManeuverOverlay } from '../wayfinding/walkthrough/ui/ManeuverOverlay.tsx';
 import { frameCameraToBounds } from '../model/camera-framing.ts';
 import {
   POLYGON_CLOSE_RADIUS_PX,
@@ -284,6 +295,7 @@ interface CameraClipBounds {
   minZ: number;
   maxZ: number;
 }
+const ROUTE_FRAME_PADDING = 0.75;
 function updateCameraClipPlanes(camera: Camera, bounds: CameraClipBounds) {
   if (!(camera instanceof PerspectiveCamera)) {
     return;
@@ -318,6 +330,8 @@ function CameraBridge({
   element,
   floor,
   view,
+  frameRoute,
+  routeFramePoints,
   frozen = false,
   viewport = 'builder',
   snapshotFloorId,
@@ -330,6 +344,8 @@ function CameraBridge({
   element: React.RefObject<HTMLDivElement | null>;
   floor: PlanFloor;
   view: StudioView;
+  frameRoute: boolean;
+  routeFramePoints: readonly [number, number, number][];
   frozen?: boolean;
   viewport?: CameraViewport;
   snapshotFloorId?: string;
@@ -350,10 +366,64 @@ function CameraBridge({
     cameraRevision: number;
   } | null>(null);
   const storageFloorId = snapshotFloorId ?? floor.source.id;
-  const bounds = useMemo(() => polygonBounds(floor.boundary), [floor.boundary]),
-    cx = (bounds.minX + bounds.maxX) / 2,
-    cz = (bounds.minZ + bounds.maxZ) / 2;
+  const bounds = useMemo(
+    () => polygonBounds(floorWalkableAreas(floor).flatMap((area) => area.polygon)),
+    [floor],
+  );
   const height = useMemo(() => Math.max(0, ...floor.objects.map(visualHeight)), [floor.objects]);
+  const routeFrameRequested = frameRoute && view.camera === 'top';
+  const routeBounds = useMemo<CameraClipBounds | null>(() => {
+    if (!routeFrameRequested || routeFramePoints.length < 2) {
+      return null;
+    }
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity,
+      minZ = Infinity,
+      maxZ = -Infinity;
+    for (const [x, y, z] of routeFramePoints) {
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+    }
+    return {
+      minX: minX - ROUTE_FRAME_PADDING,
+      maxX: maxX + ROUTE_FRAME_PADDING,
+      minY: minY - 0.05,
+      maxY: maxY + 0.9,
+      minZ: minZ - ROUTE_FRAME_PADDING,
+      maxZ: maxZ + ROUTE_FRAME_PADDING,
+    };
+  }, [routeFramePoints, routeFrameRequested]);
+  const frameBounds = useMemo<CameraClipBounds>(
+    () =>
+      routeBounds ?? {
+        minX: bounds.minX,
+        maxX: bounds.maxX,
+        minY: floor.source.heightOffset,
+        maxY: floor.source.heightOffset + height,
+        minZ: bounds.minZ,
+        maxZ: bounds.maxZ,
+      },
+    [
+      bounds.maxX,
+      bounds.maxZ,
+      bounds.minX,
+      bounds.minZ,
+      floor.source.heightOffset,
+      height,
+      routeBounds,
+    ],
+  );
+  const cx = (frameBounds.minX + frameBounds.maxX) / 2,
+    cy = (frameBounds.minY + frameBounds.maxY) / 2,
+    cz = (frameBounds.minZ + frameBounds.maxZ) / 2,
+    routeViewportWidth = routeBounds ? size.width : null,
+    routeViewportHeight = routeBounds ? size.height : null;
   const clipBounds = useMemo<CameraClipBounds>(
     () => ({
       minX: bounds.minX,
@@ -386,7 +456,7 @@ function CameraBridge({
     const resetRequested = sameViewportFloor && previous.cameraRevision !== view.cameraRevision;
     const presetRequested = sameViewportFloor && previous.cameraMode !== view.camera;
     const saved =
-      !resetRequested && !presetRequested
+      !routeFrameRequested && !resetRequested && !presetRequested
         ? readViewportCameraSnapshot(viewport, storageFloorId)
         : null;
     if (saved && controls.current) {
@@ -400,7 +470,7 @@ function CameraBridge({
       invalidate();
       return;
     }
-    const target = new Vector3(cx, floor.source.heightOffset + height / 2, cz);
+    const target = new Vector3(cx, cy, cz);
     const direction = new Vector3(
       ...(view.camera === 'top' ? ([0, 1, 0.00001] as const) : ([0.15, 0.9, 0.55] as const)),
     ).normalize();
@@ -409,11 +479,20 @@ function CameraBridge({
     const vertical = Math.tan(
         ((camera instanceof PerspectiveCamera ? camera.getEffectiveFOV() : 45) * Math.PI) / 360,
       ),
-      horizontal = vertical * Math.max(0.01, size.width / Math.max(1, size.height));
+      horizontal =
+        vertical *
+        Math.max(
+          0.01,
+          routeViewportWidth === null || routeViewportHeight === null
+            ? camera instanceof PerspectiveCamera
+              ? camera.aspect
+              : 1
+            : routeViewportWidth / Math.max(1, routeViewportHeight),
+        );
     let distance = 0.1;
-    for (const x of [bounds.minX, bounds.maxX]) {
-      for (const y of [floor.source.heightOffset, floor.source.heightOffset + height]) {
-        for (const z of [bounds.minZ, bounds.maxZ]) {
+    for (const x of [frameBounds.minX, frameBounds.maxX]) {
+      for (const y of [frameBounds.minY, frameBounds.maxY]) {
+        for (const z of [frameBounds.minZ, frameBounds.maxZ]) {
           const point = new Vector3(x, y, z).sub(target);
           distance = Math.max(
             distance,
@@ -448,6 +527,7 @@ function CameraBridge({
     floor.source.id,
     storageFloorId,
     cx,
+    cy,
     cz,
     viewport,
     camera,
@@ -456,10 +536,16 @@ function CameraBridge({
     view.cameraRevision,
     frozen,
     clipBounds,
+    frameBounds,
+    routeBounds,
+    routeFrameRequested,
+    routeViewportWidth,
+    routeViewportHeight,
   ]);
   useEffect(() => {
     const orbit = controls.current;
-    if (!orbit) {
+    // Walkthrough owns its projection and camera for the entire session.
+    if (!orbit || frozen) {
       return;
     }
     const save = () => {
@@ -482,18 +568,18 @@ function CameraBridge({
       orbit.removeEventListener('end', end);
       onCameraGestureChange(false);
     };
-  }, [camera, clipBounds, onCameraGestureChange, storageFloorId, viewport]);
+  }, [camera, clipBounds, frozen, onCameraGestureChange, storageFloorId, viewport]);
   useEffect(() => {
     const orbit = controls.current;
     const object = focusId ? floor.objects.find((item) => item.id === focusId) : undefined;
-    if (!orbit || !object || !isBooth(object) || focusTick <= lastFocusTick.current) {
+    if (frozen || !orbit || !object || focusTick <= lastFocusTick.current) {
       return;
     }
     lastFocusTick.current = focusTick;
     if (focusAnimation.current !== null) {
       cancelAnimationFrame(focusAnimation.current);
     }
-    const focusBounds = polygonBounds(object.polygon);
+    const focusBounds = polygonBounds(objectPoints(object, object.polygon));
     const objectHeight = visualHeight(object);
     const frame = frameCameraToBounds(
       camera,
@@ -538,7 +624,7 @@ function CameraBridge({
       orbit.removeEventListener('start', stop);
       stop();
     };
-  }, [camera, floor.objects, floor.source.heightOffset, focusId, focusTick, invalidate]);
+  }, [camera, floor.objects, floor.source.heightOffset, focusId, focusTick, frozen, invalidate]);
   useEffect(() => {
     const raycaster = new Raycaster(),
       ndc = new Vector2(),
@@ -686,6 +772,8 @@ function StableFrame({ onStable, ready }: { onStable: () => void; ready: boolean
 }
 export function FloorSurface({
   floor,
+  document,
+  role = 'visitor',
   texture,
   imageSize,
   click,
@@ -693,121 +781,107 @@ export function FloorSurface({
   pointerDown,
 }: {
   floor: PlanFloor;
+  document?: PlanDocument;
+  role?: Role;
   texture: CanvasTexture | null;
   imageSize: [number, number] | null;
   click: (event: ThreeEvent<MouseEvent>) => void;
   move: (event: ThreeEvent<PointerEvent>) => void;
   pointerDown: (event: ThreeEvent<PointerEvent>) => void;
 }) {
-  const bounds = polygonBounds(floor.boundary);
   // Continue displaying offsets from drafts saved by earlier versions.
   const imageOffset = floor.source.authoring?.imageOffset;
-  const shape = useMemo(() => {
-    const value = new Shape();
-    floor.boundary.forEach(([x, z], i) => (i ? value.lineTo(x, -z) : value.moveTo(x, -z)));
-    value.closePath();
-    const area = (points: [number, number][]) =>
-      points.reduce((sum, [x, z], index) => {
-        const next = points[(index + 1) % points.length]!;
-        return sum + x * next[1] - next[0] * z;
-      }, 0);
-    const outerArea = area(floor.boundary);
-    for (const object of floor.objects) {
-      if (object.recipe !== 'wash-rack' || !object.washRackVariant) {
-        continue;
-      }
-      // Earcut is undefined for touching holes. Keep a 2 cm floor land under the
-      // 8 cm shared rail so side-by-side rack apertures remain disjoint and stable.
-      const rackBounds = polygonBounds(object.polygon),
-        centerX = (rackBounds.minX + rackBounds.maxX) / 2,
-        centerZ = (rackBounds.minZ + rackBounds.maxZ) / 2,
-        inset = 0.02,
-        localInsetX = inset / Math.max(0.1, Math.abs(object.scale[0])),
-        localInsetZ = inset / Math.max(0.1, Math.abs(object.scale[2])),
-        factorX = Math.max(
-          0.1,
-          (rackBounds.maxX - rackBounds.minX - 2 * localInsetX) /
-            (rackBounds.maxX - rackBounds.minX),
-        ),
-        factorZ = Math.max(
-          0.1,
-          (rackBounds.maxZ - rackBounds.minZ - 2 * localInsetZ) /
-            (rackBounds.maxZ - rackBounds.minZ),
-        ),
-        insetPolygon = object.polygon.map(
-          ([x, z]) =>
-            [centerX + (x - centerX) * factorX, centerZ + (z - centerZ) * factorZ] as [
-              number,
-              number,
-            ],
-        );
-      const world = objectPoints(object, insetPolygon);
-      const cutout = area(world) * outerArea > 0 ? [...world].reverse() : world;
-      const hole = new Path();
-      cutout.forEach(([x, z], index) => (index ? hole.lineTo(x, -z) : hole.moveTo(x, -z)));
-      hole.closePath();
-      value.holes.push(hole);
+  const support = useMemo(() => {
+    const records = document
+      ? authoredConnectorLegs(document).flatMap((leg) => {
+          const record = connectorRecordForLeg(leg, document);
+          return record ? [record] : [];
+        })
+      : [];
+    return buildFloorSupportPolicy(floor, document?.floors ?? [floor], records, role);
+  }, [floor, document, role]);
+  const supportAreas = support.walkableSurfaces;
+  const supportMesh = useMemo(
+    () => buildWalkableRegionMesh(support.supportRegion, -0.1, 0),
+    [support.supportRegion],
+  );
+  const supportGeometry = useMemo(() => {
+    if (!supportMesh) {
+      return null;
     }
-    return value;
-  }, [floor.boundary, floor.objects]);
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new BufferAttribute(supportMesh.vertices, 3));
+    geometry.setIndex(new BufferAttribute(supportMesh.indices, 1));
+    geometry.computeVertexNormals();
+    return geometry;
+  }, [supportMesh]);
+  useEffect(() => () => supportGeometry?.dispose(), [supportGeometry]);
+  const supportBounds = polygonBounds(supportAreas.length ? supportAreas.flat() : floor.boundary);
+  const pickingSize = Math.max(
+    1000,
+    Math.max(supportBounds.maxX - supportBounds.minX, supportBounds.maxZ - supportBounds.minZ) * 8,
+  );
   const imageFit = useMemo(
     () => (imageSize ? fitFloorImage(floor.boundary, imageSize) : null),
     [floor.boundary, imageSize],
   );
-  const imageGeometry = useMemo(() => {
-    if (!texture || !imageFit) {
+  const overlayGeometry = useMemo(() => {
+    if (!supportMesh || !imageFit) {
       return null;
     }
-    const geometry = new ShapeGeometry(shape);
-    const positions = geometry.getAttribute('position'),
-      uv = geometry.getAttribute('uv'),
-      left = imageFit.center[0] - imageFit.width / 2 + (imageOffset?.[0] ?? 0),
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new BufferAttribute(supportMesh.vertices, 3));
+    geometry.setIndex(new BufferAttribute(supportMesh.surfaceIndices, 1));
+    const positions = geometry.getAttribute('position');
+    const uv = new BufferAttribute(new Float32Array(positions.count * 2), 2);
+    const left = imageFit.center[0] - imageFit.width / 2 + (imageOffset?.[0] ?? 0),
       top = imageFit.center[1] + imageFit.depth / 2 + (imageOffset?.[1] ?? 0);
     for (let index = 0; index < positions.count; index++) {
       const x = positions.getX(index),
-        z = -positions.getY(index);
+        z = positions.getZ(index);
       uv.setXY(index, (x - left) / imageFit.width, (top - z) / imageFit.depth);
     }
     uv.needsUpdate = true;
+    geometry.setAttribute('uv', uv);
     return geometry;
-  }, [shape, texture, imageFit, imageOffset?.[0], imageOffset?.[1]]);
-  useEffect(() => () => imageGeometry?.dispose(), [imageGeometry]);
+  }, [supportMesh, imageFit, imageOffset?.[0], imageOffset?.[1]]);
+  useEffect(() => () => overlayGeometry?.dispose(), [overlayGeometry]);
   return (
     <group>
       <mesh
+        position={[
+          (supportBounds.minX + supportBounds.maxX) / 2,
+          -0.02,
+          (supportBounds.minZ + supportBounds.maxZ) / 2,
+        ]}
         rotation={[-Math.PI / 2, 0, 0]}
         onClick={click}
         onPointerDown={pointerDown}
         onPointerMove={move}
-        receiveShadow
       >
-        <shapeGeometry
-          args={[shape]}
-          onUpdate={(geometry) => {
-            const positions = geometry.getAttribute('position'),
-              uv = geometry.getAttribute('uv');
-            const size = floor.source.authoring?.imageSize ?? imageSize;
-            for (let i = 0; i < positions.count; i++) {
-              const world: [number, number] = [positions.getX(i), -positions.getY(i)];
-              const source = metresToSource(world, floor.source.coordinateSystem);
-              const u =
-                size && floor.source.coordinateSystem?.units === 'pixels'
-                  ? source[0] / size[0]
-                  : (world[0] - bounds.minX) / (bounds.maxX - bounds.minX);
-              const v =
-                size && floor.source.coordinateSystem?.units === 'pixels'
-                  ? source[1] / size[1]
-                  : (world[1] - bounds.minZ) / (bounds.maxZ - bounds.minZ);
-              uv.setXY(i, u, 1 - v);
-            }
-            uv.needsUpdate = true;
-          }}
+        <planeGeometry args={[pickingSize, pickingSize]} />
+        <meshBasicMaterial
+          colorWrite={false}
+          depthWrite={false}
+          opacity={0}
+          transparent
+          side={DoubleSide}
         />
-        <meshStandardMaterial color="#d7ddd7" roughness={0.94} side={DoubleSide} />
       </mesh>
-      {texture && imageFit && imageGeometry && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} raycast={() => {}}>
-          <primitive object={imageGeometry} attach="geometry" />
+      {supportGeometry && (
+        <mesh
+          onClick={click}
+          onPointerDown={pointerDown}
+          onPointerMove={move}
+          receiveShadow
+        >
+          <primitive object={supportGeometry} attach="geometry" />
+          <meshStandardMaterial color="#d7ddd7" roughness={0.94} side={DoubleSide} />
+        </mesh>
+      )}
+      {supportGeometry && texture && imageFit && overlayGeometry && (
+        <mesh position={[0, 0.001, 0]} raycast={() => {}}>
+          <primitive object={overlayGeometry} attach="geometry" />
           <meshBasicMaterial
             map={texture}
             toneMapped={false}
@@ -824,14 +898,13 @@ export function FloorSurface({
           />
         </mesh>
       )}
-      {texture && (
+      {supportGeometry && texture && overlayGeometry && (
         <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
           position={[0, 0.002, 0]}
           receiveShadow
           raycast={() => {}}
         >
-          <shapeGeometry args={[shape]} />
+          <primitive object={overlayGeometry} attach="geometry" />
           <shadowMaterial transparent opacity={0.25} depthWrite={false} side={DoubleSide} />
         </mesh>
       )}
@@ -864,13 +937,14 @@ function ZoneMesh({
       <mesh
         position={[0, 0.025, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={1}
         onClick={onClick}
         onPointerDown={onPointerDown}
       >
         <shapeGeometry args={[shape]} />
         <meshBasicMaterial
           color={color}
-          opacity={selected ? 0.35 : 0.18}
+          opacity={0.35}
           transparent
           depthWrite={false}
           side={DoubleSide}
@@ -883,8 +957,12 @@ function ZoneMesh({
 export function FloorCanvas({
   store,
   view,
+  frameRoute = false,
   role = 'visitor',
+  runtimePolicy = EMPTY_ROUTE_NAVIGATION_POLICY,
+  localActionInputs,
   onInteract,
+  onSelectWalkSpawn,
   onSelectionAnchor,
   onCustomizeObject,
   onSelectParkingBay,
@@ -896,8 +974,12 @@ export function FloorCanvas({
 }: {
   store: StudioStore;
   view: StudioView;
+  frameRoute?: boolean;
   role?: Role;
+  runtimePolicy?: RouteNavigationPolicySource;
+  localActionInputs?: Pick<LocalActionOptions, 'items' | 'destinations'>;
   onInteract: () => void;
+  onSelectWalkSpawn?: (point: [number, number]) => void;
   onSelectionAnchor?: (
     anchor: { x: number; y: number; width: number; height: number } | null,
   ) => void;
@@ -923,6 +1005,7 @@ export function FloorCanvas({
       focusTick: value.focusTick,
       tool: value.tool,
       recipe: value.recipe,
+      placementVariant: value.placementVariant,
       presetId: value.presetId,
       placementYaw: value.placementYaw,
       pointer: value.pointer,
@@ -935,16 +1018,20 @@ export function FloorCanvas({
       pendingRemoval: value.pendingRemoval,
     })),
   );
-  const floor = activeFloor(state),
-    image = useFloorImage(floor);
-  const boothLabels = useMemo(() => floor.objects.filter(isBooth), [floor.objects]);
+  const playback = usePlaybackStore((playbackState) => playbackState.session);
+  const playbackMode = usePlaybackStore((playbackState) => playbackState.mode);
+  const floor = activeFloor(state);
+  const supportDocument = playback?.document ?? state.document;
+  const supportFloor = supportDocument.floors.find((item) => item.source.id === floor.source.id);
+  const imageFloor = supportFloor ?? floor;
+  const image = useFloorImage(imageFloor);
   const floorImageReady =
     !image.url ||
-    image.url !== (floor.source.authoring?.originalImage ?? floor.source.image) ||
+    image.url !== (imageFloor.source.authoring?.originalImage ?? imageFloor.source.image) ||
     !!image.texture ||
     !!image.error;
   useEffect(() => {
-    const id = `floor-image-${floor.source.id}`;
+    const id = `floor-image-${imageFloor.source.id}`;
     if (image.error) {
       toast.warning(image.error, { id });
     } else {
@@ -953,26 +1040,26 @@ export function FloorCanvas({
     return () => {
       toast.dismiss(id);
     };
-  }, [floor.source.id, image.error]);
+  }, [imageFloor.source.id, image.error]);
   useEffect(() => {
     if (!state.selection) {
       onSelectionAnchor?.(null);
     }
   }, [state.selection?.id, state.selection?.kind, onSelectionAnchor]);
   const debug = studioDebugEnabled();
-  const imageUrl = floor.source.authoring?.originalImage ?? floor.source.image;
+  const imageUrl = imageFloor.source.authoring?.originalImage ?? imageFloor.source.image;
   useEffect(() => {
     if (!image.size || !imageUrl) {
       return;
     }
     const { size } = image;
     store.setState((current) => {
-      const known = current.imageSizes[floor.source.id];
+      const known = current.imageSizes[imageFloor.source.id];
       return known?.url === imageUrl && known.size[0] === size[0] && known.size[1] === size[1]
         ? current
-        : { imageSizes: { ...current.imageSizes, [floor.source.id]: { url: imageUrl, size } } };
+        : { imageSizes: { ...current.imageSizes, [imageFloor.source.id]: { url: imageUrl, size } } };
     });
-  }, [store, floor.source.id, imageUrl, image.size]);
+  }, [store, imageFloor.source.id, imageUrl, image.size]);
   const element = useRef<HTMLDivElement>(null),
     bridge = useRef<Bridge>({ camera: null, project: () => null, projectWorld: () => null });
   const drag = useRef<{
@@ -1138,10 +1225,24 @@ export function FloorCanvas({
     maxPrice = boothPrices.length ? Math.max(...boothPrices.map((price) => price || 1)) : 1;
   const definition = useMemo(
     () => ({
-      ...withPreset(createObject(state.recipe, [0, 0], floor.objects), state.presetId),
+      ...withPreset(
+        createObject(
+          state.recipe,
+          [0, 0],
+          floor.objects,
+          undefined,
+          state.recipe === 'wash-rack'
+            ? (state.placementVariant as WashRackVariant | undefined)
+            : undefined,
+          state.recipe === 'show-office'
+            ? (state.placementVariant as ShowOfficeVariant | undefined)
+            : undefined,
+        ),
+        state.presetId,
+      ),
       yawRadians: state.placementYaw,
     }),
-    [state.recipe, state.presetId, state.placementYaw, floor.objects],
+    [state.recipe, state.presetId, state.placementVariant, state.placementYaw, floor.objects],
   );
   const selectedObject = floor.objects.find(
     (object) => object.id === state.selection?.id && object.id !== state.pendingRemoval?.id,
@@ -1384,9 +1485,7 @@ export function FloorCanvas({
       ? zoneValidation.error.issues.map(
           (issue) => `Zone vertex ${issue.path.join('.')}: ${issue.message}`,
         )
-      : state.pendingZone && !insideBoundary(state.pendingZone.polygon, floor.boundary)
-        ? ['Keep the whole zone inside the floor boundary.']
-        : []),
+      : []),
   ];
   const invalidPolygon =
     state.pendingObject && !polygonSchema.safeParse(state.pendingObject.polygon).success
@@ -1395,9 +1494,20 @@ export function FloorCanvas({
         ? state.pendingZone.polygon.filter((point) => point.every(Number.isFinite))
         : [];
   const liveRoute = useWayfindingStore(selectActiveResult);
-  const playback = usePlaybackStore((playbackState) => playbackState.session);
-  const playbackMode = usePlaybackStore((playbackState) => playbackState.mode);
   const activeRoute = playback?.route ?? liveRoute;
+  useEffect(() => {
+    if (!activeRoute && !useWayfindingStore.getState().submittedRequest) {return;}
+    console.log('[route-debug] canvas route visibility', { camera: view.camera, topDown: view.camera === 'top', activeFloorId: floor.source.id, routeSource: playback?.route ? 'playback' : 'live', hasRoute: !!activeRoute, option: useWayfindingStore.getState().option, status: useWayfindingStore.getState().status, segmentCount: activeRoute?.segments.length ?? 0, activeFloorSegmentCount: activeRoute?.segments.filter((segment) => segment.floorId === floor.source.id).length ?? 0, activeFloorDrawableSegmentCount: activeRoute?.segments.filter((segment) => segment.floorId === floor.source.id && segment.points.length >= 2).length ?? 0 });
+  }, [activeRoute, floor.source.id, view.camera, playback?.route]);
+  const routeFramePoints = useMemo(
+    () =>
+      activeRoute?.segments.flatMap((segment) =>
+        segment.floorId === floor.source.id && !segment.toFloorId && segment.points.length >= 2
+          ? segment.points
+          : [],
+      ) ?? [],
+    [activeRoute, floor.source.id],
+  );
   const ghostIds = useMemo(() => {
     if (!activeRoute) {
       return new Set<string>();
@@ -1423,12 +1533,16 @@ export function FloorCanvas({
       return;
     }
     const current = store.getState(),
-      rawPoint: [number, number] = [event.point.x, event.point.z],
-      point =
-        alignPointer(rawPoint, event.clientX, event.clientY, event.nativeEvent.altKey) ?? rawPoint;
+      rawPoint: [number, number] = [event.point.x, event.point.z];
     if (!isPrimaryCanvasClick(event.nativeEvent.button, event.delta) || drag.current) {
       return;
     }
+    if (onSelectWalkSpawn) {
+      onSelectWalkSpawn(rawPoint);
+      return;
+    }
+    const point =
+      alignPointer(rawPoint, event.clientX, event.clientY, event.nativeEvent.altKey) ?? rawPoint;
     if (current.tool === 'route-start' || current.tool === 'route-dest') {
       const end = current.tool === 'route-start' ? 'start' : 'dest';
       const wayfinding = useWayfindingStore.getState();
@@ -1450,6 +1564,21 @@ export function FloorCanvas({
         current.tool,
       )
     ) {
+      if (current.tool === 'zone-polygon') {
+        const start = current.drawing[0];
+        const startScreen = start ? bridge.current.projectWorld(start) : null;
+        const parsed = polygonSchema.safeParse(current.drawing);
+        window.dispatchEvent(new CustomEvent('zone-drawing-click', { detail: {
+          vertexCount: current.drawing.length,
+          vertices: current.drawing,
+          click: [event.clientX, event.clientY],
+          startScreen,
+          distanceToStartPx: startScreen ? Math.hypot(event.clientX - startScreen[0], event.clientY - startScreen[1]) : null,
+          closeRadiusPx: POLYGON_CLOSE_RADIUS_PX,
+          polygonIssues: parsed.success ? [] : parsed.error.issues,
+          insideFloor: current.drawing.length >= 3 ? insideBoundary(current.drawing, floor.boundary) : null,
+        } }));
+      }
       if (
         ['polygon', 'zone-polygon'].includes(current.tool) &&
         current.drawing.length >= 3 &&
@@ -1490,6 +1619,7 @@ export function FloorCanvas({
   const beginMarquee = (event: ThreeEvent<PointerEvent>) => {
     const current = store.getState();
     if (
+      onSelectWalkSpawn ||
       current.tool !== 'select' ||
       view.camera !== 'top' ||
       event.button !== 0 ||
@@ -1523,7 +1653,7 @@ export function FloorCanvas({
   const polygonCanClose =
     state.drawing.length >= 3 &&
     polygonSchema.safeParse(state.drawing).success &&
-    insideBoundary(state.drawing, floor.boundary) &&
+    (state.tool === 'zone-polygon' || insideBoundary(state.drawing, floor.boundary)) &&
     (state.tool !== 'polygon' ||
       !placementError(
         objectFromDrawing(
@@ -1565,7 +1695,9 @@ export function FloorCanvas({
   const drawingValidation =
     drawingPolygon.length >= 3 ? polygonSchema.safeParse(drawingPolygon) : null;
   const drawingOutsideBoundary =
-    drawingPolygon.length >= 3 && !insideBoundary(drawingPolygon, floor.boundary);
+    drawingPolygon.length >= 3 &&
+    (state.tool === 'rectangle' || state.tool === 'polygon') &&
+    !insideBoundary(drawingPolygon, floor.boundary);
   const drawingPlacementError =
     drawingValidation?.success &&
     !drawingOutsideBoundary &&
@@ -1785,7 +1917,7 @@ export function FloorCanvas({
   const latestObjectEventDispatch: ObjectEventDispatch = {
     onPointerOver: (id, event) => {
       const object = floor.objects.find((item) => item.id === id);
-      if (state.tool !== 'select' || dragging || orbiting || !object || !isBooth(object)) {
+      if (onSelectWalkSpawn || state.tool !== 'select' || dragging || orbiting || !object || !isBooth(object)) {
         return;
       }
       event.stopPropagation();
@@ -1799,6 +1931,12 @@ export function FloorCanvas({
         return;
       }
       if (dragging || event.delta > 3) {
+        return;
+      }
+      if (onSelectWalkSpawn) {
+        if (isPrimaryCanvasClick(event.nativeEvent.button, event.delta)) {
+          onSelectWalkSpawn([event.point.x, event.point.z]);
+        }
         return;
       }
       if (state.tool === 'remove') {
@@ -1825,6 +1963,10 @@ export function FloorCanvas({
     onPointerDown: (id, event) => {
       const object = floor.objects.find((item) => item.id === id);
       if (!object || (playback && playbackMode !== 'overview')) {
+        return;
+      }
+      if (onSelectWalkSpawn) {
+        event.stopPropagation();
         return;
       }
       if (state.tool === 'select' && object.managed && event.button === 0) {
@@ -2108,6 +2250,7 @@ export function FloorCanvas({
     <div
       ref={element}
       className="fp-canvas"
+      style={onSelectWalkSpawn ? { cursor: 'crosshair' } : undefined}
       aria-label="Interactive floor plan"
       data-testid="floor-plan-viewport"
       onPointerDownCapture={() => {
@@ -2186,7 +2329,7 @@ export function FloorCanvas({
         >
           <Canvas
             shadows
-            frameloop="demand"
+            frameloop={playback ? "always" : "demand"}
             dpr={[1, 1.5]}
             camera={{ position: [20, 38, 38], fov: 45, near: 0.1, far: 5000 }}
             onCreated={({ gl }) => {
@@ -2249,6 +2392,8 @@ export function FloorCanvas({
               element={element}
               floor={floor}
               view={view}
+              frameRoute={frameRoute}
+              routeFramePoints={routeFramePoints}
               frozen={!!playback}
               viewport={view.preview ? 'preview' : 'builder'}
               snapshotFloorId={`${state.document.baseline.buildingId}:${floor.source.id}`}
@@ -2256,13 +2401,6 @@ export function FloorCanvas({
               focusTick={state.focusTick}
               interactionLocked={dragging}
               onCameraGestureChange={onCameraGestureChange}
-            />
-            <BoothScreenLabelLayer
-              booths={boothLabels}
-              heightOffset={floor.source.heightOffset}
-              container={element}
-              enabled={!playback}
-              selectedId={selectedObject && isBooth(selectedObject) ? selectedObject.id : null}
             />
             {/* The authored floor image is optional enhancement: a failed or slow image request
                 must not hold the canvas readiness gate forever when the fallback floor rendered. */}
@@ -2311,29 +2449,35 @@ export function FloorCanvas({
             <ControlsPolicy enabled={!playback || playbackMode === 'overview'} />
             <PlaybackMotionProvider>
               <group position={[0, floor.source.heightOffset, 0]}>
-                <FloorSurface
-                  key={`${floor.source.id}:${JSON.stringify(floor.source.coordinateSystem)}:${image.texture?.uuid ?? ''}`}
-                  floor={floor}
-                  texture={image.texture}
-                  imageSize={image.size}
-                  click={click}
-                  pointerDown={beginMarquee}
-                  move={(event) => {
-                    setHover(null);
-                    if (state.tool !== 'select' || debug) {
-                      store
-                        .getState()
-                        .setPointer(
-                          alignPointer(
-                            [event.point.x, event.point.z],
-                            event.clientX,
-                            event.clientY,
-                            event.nativeEvent.altKey,
-                          ),
-                        );
-                    }
-                  }}
-                />
+                {supportFloor && (
+                  <group position={[0, supportFloor.source.heightOffset - floor.source.heightOffset, 0]}>
+                    <FloorSurface
+                      key={`${supportFloor.source.id}:${JSON.stringify(supportFloor.source.coordinateSystem)}:${image.texture?.uuid ?? ''}`}
+                      floor={supportFloor}
+                      document={supportDocument}
+                      role={role}
+                      texture={image.texture}
+                      imageSize={image.size}
+                      click={click}
+                      pointerDown={beginMarquee}
+                      move={(event) => {
+                        setHover(null);
+                        if (state.tool !== 'select' || debug) {
+                          store
+                            .getState()
+                            .setPointer(
+                              alignPointer(
+                                [event.point.x, event.point.z],
+                                event.clientX,
+                                event.clientY,
+                                event.nativeEvent.altKey,
+                              ),
+                            );
+                        }
+                      }}
+                    />
+                  </group>
+                )}
                 {!image.texture && floor.boundary.length === 4 && (
                   <gridHelper
                     args={[
@@ -2377,12 +2521,19 @@ export function FloorCanvas({
                         (selection) => selection.kind === 'zone' && selection.id === zone.id,
                       )}
                       onPointerDown={(event) => {
-                        if (state.tool === 'select' || state.tool === 'remove') {
+                        if (onSelectWalkSpawn || state.tool === 'select' || state.tool === 'remove') {
                           event.stopPropagation();
                         }
                       }}
                       onClick={(event) => {
                         if (event.delta > 3) {
+                          return;
+                        }
+                        if (onSelectWalkSpawn) {
+                          event.stopPropagation();
+                          if (isPrimaryCanvasClick(event.nativeEvent.button, event.delta)) {
+                            onSelectWalkSpawn([event.point.x, event.point.z]);
+                          }
                           return;
                         }
                         if (state.tool === 'select' || state.tool === 'remove') {
@@ -2453,8 +2604,8 @@ export function FloorCanvas({
                                 : sampleSurfaceColor(displayed, floor, image.pixels)
                         }
                         selected={selectedObjectIds.has(object.id)}
-                        topDown={view.camera === 'top'}
-                        routeCutaway={ghostIds.has(object.id)}
+                        topDown={view.camera === 'top' && !(object.recipe === 'barn-tent' && playback && playbackMode !== 'overview')}
+                        routeCutaway={ghostIds.has(object.id) && !(object.recipe === 'barn-tent' && playback && playbackMode !== 'overview')}
                       />
                     );
                   })}
@@ -2780,7 +2931,7 @@ export function FloorCanvas({
                 {zoneGhost && (
                   <ZoneMesh
                     polygon={zoneGhost}
-                    color={insideBoundary(zoneGhost, floor.boundary) ? '#86c9ad' : '#d87572'}
+                    color={polygonSchema.safeParse(zoneGhost).success ? '#86c9ad' : '#d87572'}
                     selected
                   />
                 )}
@@ -2883,12 +3034,15 @@ export function FloorCanvas({
                 document={state.document}
                 floorId={floor.source.id}
                 role={role}
+                runtimePolicy={runtimePolicy}
+                localActionInputs={localActionInputs}
                 onFloor={(id) => store.getState().setFloor(id)}
               />
             </PlaybackMotionProvider>
           </Canvas>
         </ErrorBoundary>
       )}
+      {playback && <ManeuverOverlay document={state.document} />}
       {!playback && hovered && activeHover && (
         <ObjectHoverTooltip object={hovered} anchor={activeHover} />
       )}
